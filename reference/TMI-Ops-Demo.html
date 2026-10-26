@@ -1,0 +1,1852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TMI Ops</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --blue:#0179C2; --blue-strong:#015A92; --tint:rgba(1,121,194,.10); --tint2:rgba(1,121,194,.22);
+  --text:#1A1A1A; --muted:#5B6670; --paper:#F3F5F7; --surface:#FFFFFF; --soft:#EAEEF2; --line:#D6DCE2;
+  --yellow:#F2B705; --red:#C8372D; --red-tint:rgba(200,55,45,.10); --green:#2E7D4F; --stripe-dark:#1A1A1A;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --blue:#3AA2E4; --blue-strong:#8CCBF3; --tint:rgba(58,162,228,.14); --tint2:rgba(58,162,228,.30);
+    --text:#E7ECF0; --muted:#9AA7B2; --paper:#11161B; --surface:#192028; --soft:#212A33; --line:#2D3742;
+    --red:#E8695E; --red-tint:rgba(232,105,94,.14); --green:#5DBA86; --stripe-dark:#0B0F12;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --blue:#3AA2E4; --blue-strong:#8CCBF3; --tint:rgba(58,162,228,.14); --tint2:rgba(58,162,228,.30);
+  --text:#E7ECF0; --muted:#9AA7B2; --paper:#11161B; --surface:#192028; --soft:#212A33; --line:#2D3742;
+  --red:#E8695E; --red-tint:rgba(232,105,94,.14); --green:#5DBA86; --stripe-dark:#0B0F12;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--paper);color:var(--text);font-family:Calibri,Carlito,"Segoe UI",system-ui,-apple-system,Arial,sans-serif;font-size:15px;line-height:1.45;-webkit-text-size-adjust:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+button,input,select{font:inherit;color:inherit}
+.num{font-variant-numeric:tabular-nums}
+
+/* Top bar */
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:14px;padding:10px 18px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.mark{background:#0179C2;color:#fff;font-weight:700;font-size:17px;padding:4px 9px;letter-spacing:.06em}
+.brand b{font-size:18px}
+.brand small{color:var(--muted);font-size:13px;display:block;margin-top:-2px}
+.who{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
+.who select{background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:5px 8px;color:var(--text)}
+.bell{position:relative;background:none;border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer}
+.bell .ct{position:absolute;top:-7px;right:-7px;background:var(--red);color:#fff;border-radius:10px;font-size:11px;padding:0 6px;font-weight:700}
+.ghost{background:none;border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer;color:var(--muted)}
+nav.tabs{display:flex;gap:2px;padding:0 12px;overflow-x:auto;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:9px 12px;cursor:pointer;white-space:nowrap;color:var(--muted);font-weight:600}
+nav.tabs button[aria-current="page"]{color:var(--text);border-bottom-color:var(--blue)}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+main{max-width:1280px;margin:0 auto;padding:20px 18px 60px}
+h1{font-size:26px;line-height:1.15;margin:0 0 4px}
+h2{font-size:18px;margin:28px 0 10px}
+.lead{color:var(--muted);margin:0 0 18px;max-width:72ch}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:860px){.grid2{grid-template-columns:1fr}}
+
+/* Hazard stripe: the one loud element. Means "over capacity". */
+.hazard{background:repeating-linear-gradient(-45deg,var(--yellow) 0 7px,var(--stripe-dark) 7px 14px)}
+
+/* KPI strip */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.kpi{padding:14px 16px;border-left:1px solid var(--line);position:relative}
+.kpi:first-child{border-left:0}
+.kpi .v{font-size:28px;font-weight:700;line-height:1.1}
+.kpi .v small{font-size:16px;font-weight:400;color:var(--muted)}
+.kpi .l{color:var(--muted);font-size:13px}
+.kpi.warn .v{color:var(--red)}
+.kpi.warn::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:repeating-linear-gradient(-45deg,var(--yellow) 0 6px,var(--stripe-dark) 6px 12px)}
+@media (max-width:860px){.kpis{grid-template-columns:repeat(2,1fr)}.kpi{border-top:1px solid var(--line)}.kpi:nth-child(odd){border-left:0}}
+.chartbox{position:relative;height:260px}
+.chartbox.sm{height:150px}
+
+/* Lists */
+.att{list-style:none;margin:0;padding:0}
+.att li{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--line);align-items:baseline}
+.att li:first-child{border-top:0}
+.tag{font-size:12px;font-weight:700;padding:1px 7px;border-radius:4px;white-space:nowrap;background:var(--soft);color:var(--muted)}
+.tag.red{background:var(--red-tint);color:var(--red)}
+.tag.blue{background:var(--tint);color:var(--blue-strong)}
+.tag.yel{background:rgba(242,183,5,.2);color:#8a6700}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .tag.yel{color:#F2C94C}}
+:root[data-theme="dark"] .tag.yel{color:#F2C94C}
+a.jl,button.jl{color:var(--blue-strong);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+
+/* Tables */
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;width:100%}
+th,td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:13px;color:var(--muted);font-weight:600;background:var(--surface)}
+td.r,th.r{text-align:right}
+tr:last-child td{border-bottom:0}
+
+/* Schedule grid */
+.sched th.wk{text-align:center;min-width:64px}
+.sched th.wk.now{color:var(--blue-strong)}
+.sched td.job,.sched th.job{position:sticky;left:0;background:var(--surface);z-index:1;border-right:1px solid var(--line);min-width:230px}
+.sched td.job .c{font-weight:600}
+.sched td.job .m{font-size:12px;color:var(--muted)}
+.sched td.cell{text-align:center;padding:0;border-left:1px solid var(--soft);font-variant-numeric:tabular-nums}
+.sched td.cell span,.sched td.cell input{display:block;width:100%;padding:8px 4px;text-align:center;border:0;background:transparent;font-variant-numeric:tabular-nums}
+.sched td.cell input{-moz-appearance:textfield}
+.sched td.cell input::-webkit-outer-spin-button,.sched td.cell input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.sched td.cell.ov{box-shadow:inset 3px 0 0 var(--blue)}
+.sched td.job.f-lock{border-left:6px solid var(--text)}
+.sched td.job.f-conf{border-left:6px solid var(--blue)}
+.sched td.job.f-wait{border-left:6px dashed var(--blue)}
+.sched td.job.f-flex{border-left:6px solid color-mix(in srgb, var(--blue) 40%, transparent)}
+.sched td.job.f-guess{border-left:6px dotted var(--muted)}
+.sched td.job.f-fill{border-left:6px dotted var(--line)}
+.sched tr.hrow td.cell{opacity:.4}
+.legend i.fe{width:6px;height:16px;background:none!important}
+.firmbar{display:flex;height:14px;border-radius:3px;overflow:hidden;background:var(--soft);margin:8px 0 10px}
+.firmbar span{display:block;height:100%}
+.firmkey{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px 16px;font-size:13px}
+.firmkey div{display:flex;align-items:center;gap:8px}
+.firmkey i{display:inline-block;width:10px;height:10px;border-radius:2px;flex:none}
+.sched tr.tot td{background:var(--soft);font-weight:600}
+.sched tr.tot td.job{background:var(--soft)}
+.sched td.cell.must{box-shadow:inset -3px 0 0 var(--red)}
+.sched td.gap{position:relative;color:var(--red);font-weight:700}
+.sched td.gap::after{content:"";position:absolute;left:0;right:0;bottom:0;height:6px;background:repeating-linear-gradient(-45deg,var(--yellow) 0 6px,var(--stripe-dark) 6px 12px)}
+.sched td.open{color:var(--muted)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:10px 0 0}
+.legend i{display:inline-block;width:22px;height:10px;vertical-align:middle;margin-right:6px}
+
+/* Forms */
+.field{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--muted)}
+.field input,.field select,.field textarea{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 9px;color:var(--text);font-size:15px}
+.field input:disabled,.field select:disabled{background:var(--soft);color:var(--muted)}
+.btn{background:var(--blue);color:#fff;border:0;border-radius:6px;padding:9px 16px;font-weight:700;cursor:pointer}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.sec{background:var(--soft);color:var(--text);border:1px solid var(--line)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+td input.act{width:90px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface);text-align:right}
+td input.act.miss{border-color:var(--yellow)}
+.banner{border-left:5px solid var(--green);background:var(--surface);border-radius:6px;padding:12px 14px;margin:0 0 16px;border:1px solid var(--line);border-left-width:5px;border-left-color:var(--green)}
+.note{font-size:13px;color:var(--muted)}
+
+/* Alerts feed (Teams-like cards) */
+.feed{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:6px;padding:11px 13px}
+.card.r-overrun,.card.r-gap{border-left-color:var(--red)}
+.card.r-date{border-left-color:var(--yellow)}
+.card.r-digest{border-left-color:var(--muted)}
+.card .h{display:flex;gap:8px;align-items:baseline;justify-content:space-between}
+.card .t{font-weight:700}
+.card .when{font-size:12px;color:var(--muted);white-space:nowrap}
+.card .b{margin:4px 0;white-space:pre-line}
+.card .to{font-size:12px;color:var(--muted)}
+.toggle{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.toggle:first-of-type{border-top:0}
+
+dialog{border:1px solid var(--line);border-radius:10px;padding:0;background:var(--surface);color:var(--text);width:min(720px,calc(100vw - 24px));max-height:calc(100vh - 40px)}
+dialog::backdrop{background:rgba(10,14,18,.55)}
+.dh{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px}
+.db{padding:16px 18px;overflow:auto}
+.df{padding:12px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+.fg{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (max-width:600px){.fg{grid-template-columns:1fr 1fr}}
+.meter{height:10px;background:var(--soft);border-radius:5px;overflow:hidden;position:relative;margin:4px 0 2px}
+.meter i{position:absolute;left:0;top:0;bottom:0;background:var(--blue)}
+.meter i.r{background:var(--red)}
+.stat{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 14px}
+@media (max-width:600px){.stat{grid-template-columns:1fr 1fr}}
+.stat div b{display:block;font-size:20px}
+.stat div{font-size:13px;color:var(--muted)}
+.stat div b{color:var(--text)}
+.board4{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:760px){.board4{grid-template-columns:1fr}}
+.bm .big{font-size:30px;font-weight:700}
+.bm .d{font-size:13px;color:var(--green);font-weight:600}
+.bm .d.bad{color:var(--red)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+.sched td.cell.verb{background:repeating-linear-gradient(45deg,var(--soft) 0 5px,transparent 5px 10px)!important;color:var(--muted)}
+.sched td.cell.wint{outline:2px dashed var(--muted);outline-offset:-4px}
+.sched tr.vrow td.job .c{color:var(--muted)}
+tr.exc td{background:rgba(242,183,5,.12)}
+.crewl{list-style:none;margin:0;padding:0}
+.crewl li{display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.crewl li:first-child{border-top:0}
+.crewl .nm{min-width:150px;font-weight:600}
+.q{font-size:12px;color:var(--muted)}
+.confirm{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.chain{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.chain li{flex:1 1 120px;border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:var(--surface);display:flex;flex-direction:column;gap:2px;font-size:13px}
+.chain li span{color:var(--muted);font-size:12px}
+.chain li.done{border-color:var(--green)}
+.chain li.done b::before{content:"\2713  ";color:var(--green)}
+.chain li.cur{border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue)}
+.wodots{display:inline-flex;gap:4px;vertical-align:middle}
+.wodots i{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--line);display:inline-block}
+.wodots i.done{background:var(--green);border-color:var(--green)}
+.wodots i.cur{border-color:var(--blue);background:var(--tint2)}
+.tag.grn{background:color-mix(in srgb, var(--green) 15%, transparent);color:var(--green)}
+.wobox{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:14px;background:var(--paper)}
+.jyboard{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(200px,1fr);gap:10px;overflow-x:auto;padding-bottom:8px}
+.jycol{background:var(--soft);border-radius:8px;padding:8px;min-height:140px}
+.jycol h3{font-size:13px;margin:2px 4px 8px;display:flex;justify-content:space-between;gap:6px}
+.jycol h3 span{color:var(--muted);font-weight:400}
+.jycard{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:6px;padding:8px 9px;margin-bottom:8px;cursor:pointer;color:var(--text);font:inherit;font-size:13px;line-height:1.35}
+.jycard.late{border-left-color:var(--red)}
+.jycard.soon{border-left-color:var(--yellow)}
+.jycard b{display:block;font-size:14px}
+.jycard .q{display:block;color:var(--muted);font-size:12px;margin-top:3px}
+.jycard .q.r{color:var(--red)}
+.jymeter{height:4px;background:var(--line);border-radius:2px;margin-top:6px;overflow:hidden}
+.jymeter i{display:block;height:100%;background:var(--green)}
+.jyline{display:flex;gap:4px;margin:4px 0 12px;padding:0;list-style:none}
+.jyline li{flex:1;font-size:11px;line-height:1.25;border-top:4px solid var(--line);padding-top:5px;color:var(--muted);min-width:0}
+.jyline li.done{border-color:var(--green)}
+.jyline li.cur{border-color:var(--blue);color:var(--text);font-weight:600}
+.jyline li.late{border-color:var(--red);color:var(--text);font-weight:600}
+.jylist{list-style:none;margin:0;padding:0}
+.jylist li{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;padding:7px 0;border-top:1px solid var(--line);font-size:14px}
+.jylist li.sh{border-top:0;padding:10px 0 2px;font-weight:600;font-size:13px;color:var(--muted);display:block}
+.jylist .q{display:block;font-size:12px;color:var(--muted)}
+.jylist .ok{color:var(--green)}
+.jylist .lt{color:var(--red);font-weight:600}
+details.wobox summary{cursor:pointer;font-weight:600}
+@media (max-width:640px){.jyline li{font-size:0}.jyline li.cur,.jyline li.late{font-size:11px}}
+.wobox details summary{cursor:pointer}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="bar">
+    <div class="brand"><span class="mark">TMI</span><div><b>TMI Ops</b><small>v1 demo with sample data</small></div></div>
+    <label class="who">Viewing as
+      <select id="role"></select>
+    </label>
+    <button class="bell" id="bell" aria-label="Alerts">Alerts<span class="ct" id="bellct" hidden></span></button>
+    <button class="ghost" id="reset" title="Restore the demo to its starting data">Reset demo</button>
+  </div>
+  <nav class="tabs" id="tabs" aria-label="Sections"></nav>
+</header>
+<main id="main"></main>
+<dialog id="jobdlg"></dialog>
+
+<script>
+(function(){
+"use strict";
+/* ---------- utilities ---------- */
+const DAY=864e5;
+const D=s=>new Date(s+"T00:00:00Z");
+const iso=d=>d.toISOString().slice(0,10);
+const addDays=(s,n)=>iso(new Date(D(s).getTime()+n*DAY));
+const mon=w=>addDays(w,-4);
+const fmt=s=>D(s).toLocaleDateString("en-US",{month:"short",day:"numeric",timeZone:"UTC"});
+const fmtY=s=>D(s).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric",timeZone:"UTC"});
+const n0=v=>Math.round(v).toLocaleString("en-US");
+const n1=v=>(Math.round(v*10)/10).toLocaleString("en-US");
+const pct=v=>Math.round(v*100)+"%";
+const usd=v=>v>=1e6?"$"+(v/1e6).toFixed(2)+"M":(v>=1e3?"$"+Math.round(v/1e3)+"K":"$"+Math.round(v));
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid=()=>Math.random().toString(36).slice(2,10);
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const nowStamp=()=>{const d=new Date();return d.toLocaleDateString("en-US",{weekday:"short"})+" "+d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});};
+const range=ws=>ws.length>1?fmt(ws[0])+"–"+fmt(ws[ws.length-1]):fmt(ws[0]);
+
+/* ---------- constants ---------- */
+const START_WEEK="2026-10-16";
+const KEY="tmi-schedule2-demo-v15";
+const QUALS=["Confined space","Lift","Fiberglass"];
+const ROLES={
+  admin:{name:"Austin Lewis",label:"Austin (admin)"},
+  ops:{name:"Scheduler",label:"Scheduler"},
+  lori:{name:"Lori",label:"Lori (job setup)"},
+  est:{name:"Greg Halvorsen",label:"Estimator: Greg Halvorsen"},
+  pm:{name:"PM JS",label:"PM JS",pm:"JS"},
+  supt:{name:"Mike Ramirez",label:"Supt. Mike Ramirez"},
+  crew:{name:"Crew member",label:"Crew member"},
+  ceo:{name:"Derrick",label:"Derrick (CEO)"},
+  acct:{name:"Accounting",label:"Accounting"},
+  rep:{name:"Kelly Wright",label:"Rep: Kelly Wright"},
+  board:{name:"Board member",label:"Board member"}
+};
+const RULES=[
+  {id:"wo",name:"Work order",desc:"Draft ready, sign-offs, send-backs and late reviews"},
+  {id:"bill",name:"Billing",desc:"Job complete and signed off, ready to invoice; late invoices"},
+  {id:"open",name:"Open capacity",desc:"Unsold hours 4 to 8 weeks out, for the sales team"},
+  {id:"date",name:"Date moved",desc:"Start or finish changes on any job"},
+  {id:"overrun",name:"Overrun warning",desc:"Job on pace to beat its hours by the threshold"},
+  {id:"crew",name:"Crew change",desc:"Crew size or leader changes"},
+  {id:"gap",name:"Capacity gap",desc:"Men or leaders short in the next 8 weeks"},
+  {id:"digest",name:"Monday digest",desc:"Week ahead, gaps, missing hours, accuracy"},
+  {id:"cert",name:"Certification reminder",desc:"DOT physical or certification expiring in 60 or 30 days"}
+];
+const TABS=[
+  {id:"me",label:"My week",roles:["crew","supt"]},
+  {id:"dash",label:"Dashboard",roles:["admin","ops","ceo"]},
+  {id:"sched",label:"Schedule",roles:["admin","ops","supt","ceo","rep","lori","est","pm","sched","acct"]},
+  {id:"wo",label:"Work orders",roles:["admin","ops","ceo","lori","est","pm","sched","rep"]},
+  {id:"jy",label:"Job journey",roles:["admin","ops","ceo","lori","est","pm","rep","acct"]},
+  {id:"bill",label:"Billing",roles:["admin","ceo","acct"]},
+  {id:"close",label:"Weekly close",roles:["admin","ops","ceo"]},
+  {id:"rev",label:"Revenue",roles:["admin","ops","ceo","rep","acct"]},
+  {id:"crew",label:"Crew",roles:["admin","ops","ceo"]},
+  {id:"alerts",label:"Alerts and log",roles:["admin","ops","supt","crew","ceo","rep","lori","est","pm","sched","acct"]},
+  {id:"lead",label:"Leader scorecard",roles:["admin","ops","ceo","supt"]},
+  {id:"board",label:"Board view",roles:["admin","ceo","board"]}
+];
+const LEADERS=["Mike Ramirez","Tony Becker","Jake Lund","Dave Olson","Luis Ortega","Brandon Kurth","Sam Nguyen","Ray Thompson","Kevin Jensen","Marco Silva","Pete Larson","Darnell Hayes","Ben Schultz","Travis Moe"];
+const FIRST=["Alex","Jordan","Tyler","Cody","Eric","Nate","Logan","Dylan","Josh","Matt","Ryan","Zach","Adam","Carlos","Jesse","Derek","Shane","Trent","Hector","Andre","Wes","Colton","Isaac","Mason","Owen","Garrett","Juan","Victor","Seth","Caleb","Riley"];
+const LAST=["Anderson","Johnson","Peterson","Nelson","Hanson","Larson","Swanson","Carlson","Erickson","Olson","Miller","Schmidt","Weber","Becker","Hoffman","Lopez","Garcia","Kowalski","Novak","Lindgren","Berg","Dahl","Holm","Stark","Vogel","Krause","Moreno","Ruiz","Thao","Vang","Yang"];
+const CS=["Confined space"], LF=["Lift"];
+const SPEC=[
+  {c:"North Prairie Dairy",t:"Floor system",l:"Lake Norden, SD",o:-2,w:4,cr:6,rep:"GD",pm:"JS",s:"Mike Ramirez"},
+  {c:"Riverbend Ethanol",t:"Tank lining",l:"Bingham Lake, MN",o:-1,w:5,cr:8,rep:"PK",pm:"JS",s:"Tony Becker",f:1.32,q:CS},
+  {c:"Twin Cities Metro Water",t:"Water tower",l:"Woodbury, MN",o:-3,w:6,cr:5,rep:"ER",pm:"RL",s:"Jake Lund",x:1,q:LF},
+  {c:"Granite Falls Grain",t:"Structural steel",l:"Granite Falls, MN",o:0,w:3,cr:4,rep:"CM",pm:"RL",s:"Dave Olson",x:1,q:LF},
+  {c:"Lakeside Foods",t:"Floor system",l:"Owatonna, MN",o:0,w:2,cr:6,rep:"BE",pm:"JS",s:"Luis Ortega"},
+  {c:"Cedar Valley Power",t:"Stack coating",l:"Waterloo, IA",o:-1,w:6,cr:4,rep:"AL",pm:"TK",s:"Brandon Kurth",f:1.24,x:1,q:LF},
+  {c:"St. Croix Paper",t:"Secondary containment",l:"Hudson, WI",o:1,w:3,cr:5,rep:"KK",pm:"TK",s:"Sam Nguyen",q:CS},
+  {c:"Red Wing Malting",t:"Interior painting",l:"Red Wing, MN",o:1,w:2,cr:3,rep:"EM",pm:"RL",s:"Ray Thompson"},
+  {c:"Mesabi Aggregates",t:"Structural steel",l:"Virginia, MN",o:2,w:5,cr:6,rep:"SCS",pm:"TK",s:"Kevin Jensen",x:1,q:LF},
+  {c:"Prairie Pork Processing",t:"Floor system",l:"Worthington, MN",o:2,w:3,cr:8,rep:"GD",pm:"JS",s:"Marco Silva"},
+  {c:"Heartland Fiberglass",t:"Tank lining",l:"Mankato, MN",o:3,w:4,cr:5,rep:"PK",pm:"RL",s:"Pete Larson",q:["Confined space","Fiberglass"]},
+  {c:"City of Owatonna",t:"Water tower",l:"Owatonna, MN",o:3,w:4,cr:4,rep:"ER",pm:"TK",s:"Darnell Hayes",x:1,q:LF},
+  {c:"Bluff Country Creamery",t:"Floor system",l:"Rochester, MN",o:3,w:2,cr:6,rep:"CM",pm:"JS",s:"Mike Ramirez"},
+  {c:"Minnesota Valley Ag",t:"Secondary containment",l:"New Ulm, MN",o:4,w:3,cr:6,rep:"BE",pm:"RL",s:"Ben Schultz",q:CS},
+  {c:"Iron Range Mining",t:"Structural steel",l:"Hibbing, MN",o:4,w:6,cr:8,rep:"AL",pm:"TK",s:"Travis Moe",x:1,q:LF},
+  {c:"Two Rivers Hospital",t:"Interior painting",l:"Mankato, MN",o:4,w:3,cr:4,rep:"KK",pm:"JS",s:"Jake Lund"},
+  {c:"Kasota Stone",t:"Concrete repair",l:"Kasota, MN",o:4,w:2,cr:3,rep:"EM",pm:"RL",s:"Darnell Hayes"},
+  {c:"Northern Plains Wind",t:"Structural steel",l:"Lake Benton, MN",o:4,w:3,cr:5,rep:"SCS",pm:"TK",s:"Luis Ortega",x:1,q:LF},
+  {c:"Riverbend Ethanol",t:"Tank lining, phase 2",l:"Bingham Lake, MN",o:9,w:4,cr:6,rep:"PK",pm:"JS",s:"Tony Becker",q:CS},
+  {c:"Lakeside Foods",t:"Floor system",l:"Cokato, MN",o:10,w:2,cr:5,rep:"BE",pm:"JS",s:"Sam Nguyen"},
+];
+const ILLUS={
+  util:[.41,.43,.42,.45,.44,.47,.46,.49,.50,.52],
+  roster:[.27,.29,.28,.30,.29,.31,.31,.33,.33,.35],
+  backlog:[3.1,3.0,3.4,3.6,3.5,3.9,4.1,4.0,4.4,4.6],
+  acc:[.62,.66,.65,.70,.71,.73,.76,.78,.77,.81],
+  ontime:[.60,.62,.66,.65,.70,.74,.73,.78,.81,.84]
+};
+
+/* ---------- state ---------- */
+let S=null, CUR="dash", PC=null, LASTCLOSE=null, SRC={}, IMPORTNOTE="", DLGWEEK=null;
+const charts=[];
+
+/* ---------- model ---------- */
+const weekList=n=>{const a=[];for(let i=0;i<n;i++)a.push(addDays(S.week,7*i));return a;};
+const inWindow=(j,w)=>j.start<=w&&j.finish>=mon(w);
+const actualToDate=j=>Object.values(j.actual).reduce((a,b)=>a+b,0);
+const hoursLeft=j=>j.proj-actualToDate(j);
+const jobById=id=>S.jobs.find(j=>j.id===id);
+const personById=id=>S.people.find(p=>p.id===id);
+const isVerbal=j=>j.status==="Verbal";
+const FIRM=[
+  {k:"lock",s:"locked",l:"Locked",d:"No flexibility. Shutdown, contract or hard customer date.",c:"var(--text)"},
+  {k:"conf",s:"confirmed",l:"Confirmed, some flexibility",d:"General timing confirmed with the customer. Some room to move.",c:"var(--blue)"},
+  {k:"wait",s:"waiting on another job",l:"Waiting on another job",d:"Timing confirmed, but it can’t start until another job finishes.",c:"var(--blue-strong)"},
+  {k:"flex",s:"very flexible",l:"Very flexible",d:"Customer is open on timing.",c:"color-mix(in srgb, var(--blue) 40%, transparent)"},
+  {k:"guess",s:"best guess",l:"TMI’s best guess",d:"Not confirmed with the customer yet.",c:"var(--yellow)"},
+  {k:"fill",s:"fill-in",l:"Fill-in work",d:"Non-critical work used to fill crew gaps.",c:"var(--muted)"}];
+const FIRMBY=Object.fromEntries(FIRM.map((f,i)=>[f.k,Object.assign({i},f)]));
+const firmOf=j=>FIRMBY[j.firm]||FIRMBY.guess;
+const onHold=j=>j.status==="On hold";
+const statusLabel=x=>x==="Active"?"In progress":x;
+const guessSoon=j=>!j.done&&!isVerbal(j)&&!onHold(j)&&j.firm==="guess"&&j.start<=addDays(S.week,28);
+const predOf=j=>j.firm==="wait"&&j.after?jobById(j.after):null;
+const predIssue=j=>{const p=predOf(j);if(!p||p.done||j.done)return null;if(p.finish>=j.start)return "slip";if(atRisk(p))return "over";return null;};
+const MOVABLE=["fill","flex","guess"];
+const JSTAGES=[
+  {k:"sold",l:"Sold and set up",items:[
+    {k:"po",l:"Contract or PO received",o:"rep",d:-35},
+    {k:"setup",l:"Job entered and Procore project created",o:"lori",d:-30}]},
+  {k:"wo",l:"Work order",items:[
+    {k:"wofinal",l:"Work order final",o:"pm",d:-21,auto:j=>!j.wo||!!j.wo.final,src:"Work orders tab"}]},
+  {k:"paper",l:"Paperwork",items:[
+    {k:"sub",l:"Submittals and product data approved",o:"pm",d:-21},
+    {k:"coi",l:"Insurance certificate and bonds",o:"lori",d:-14},
+    {k:"safety",l:"Safety plan, hazard analysis and permits",o:"pm",d:-7}]},
+  {k:"mat",l:"Materials",items:[
+    {k:"ord",l:"Materials ordered, lead time confirmed",o:"pm",d:-21},
+    {k:"del",l:"Materials delivered",o:"pm",d:-3}]},
+  {k:"equip",l:"Equipment and travel",items:[
+    {k:"rent",l:"Lifts, rentals, trucks and hotels booked",o:"ops",d:-7}]},
+  {k:"hand",l:"Crew handoff",items:[
+    {k:"crew",l:"Leader and crew confirmed",o:"ops",d:-7},
+    {k:"badge",l:"Orientation or badging booked",o:"pm",d:-5},
+    {k:"prejob",l:"Pre-job meeting with the leader",o:"pm",d:-3}]},
+  {k:"prog",l:"In progress",items:[
+    {k:"mob",l:"Crew mobilized",o:"ops",d:0,auto:j=>j.status==="Active"||j.done||Object.keys(j.actual||{}).length>0,src:"weekly close"},
+    {k:"wdone",l:"Work complete",o:"pm",d:0,f:1,auto:j=>!!j.done,src:"job status"}]},
+  {k:"punch",l:"Punch and acceptance",items:[
+    {k:"walk",l:"Final walk and customer sign-off",o:"pm",d:3,f:1}]},
+  {k:"close",l:"Closeout",items:[
+    {k:"inv",l:"Final invoice sent",o:"fin",d:7,f:1,auto:j=>!!j.inv,src:"Billing tab"},
+    {k:"cause",l:"Closeout cause tagged for the scorecard",o:"pm",d:7,f:1},
+    {k:"warr",l:"Warranty letter and closeout documents sent",o:"pm",d:14,f:1}]}];
+const JITEMS=JSTAGES.flatMap((st,si)=>st.items.map(it=>Object.assign({si},it)));
+const STARTUP_STAGES=6;
+const lc1=x=>x.charAt(0).toLowerCase()+x.slice(1);
+const jyDue=(j,it)=>addDays(it.f?j.finish:j.start,it.d);
+const jyDone=(j,it)=>it.auto?it.auto(j):!!(j.jy&&j.jy[it.k]);
+const jyLate=(j,it)=>!jyDone(j,it)&&jyDue(j,it)<S.week;
+const jySoon=(j,it)=>!jyDone(j,it)&&!jyLate(j,it)&&jyDue(j,it)<=addDays(S.week,7);
+const jyStage=j=>{const i=JSTAGES.findIndex(st=>st.items.some(it=>!jyDone(j,it)));return i<0?JSTAGES.length:i;};
+const jyNext=j=>JITEMS.filter(it=>!jyDone(j,it)).sort((a,b)=>jyDue(j,a).localeCompare(jyDue(j,b)))[0];
+const jyLateList=j=>JITEMS.filter(it=>jyLate(j,it));
+const jyReady=j=>{const st=JITEMS.filter(it=>it.si<STARTUP_STAGES);return st.filter(it=>jyDone(j,it)).length/st.length;};
+const jyOwner=(j,it)=>({rep:REPNAME[j.rep]||j.rep,lori:"Lori",pm:"PM "+j.pm,ops:"Scheduler",fin:"Accounting"})[it.o];
+const jyLead=it=>it.d===0?(it.f?"at finish":"at start"):(Math.abs(it.d)+" days "+(it.d<0?"before ":"after ")+(it.f?"finish":"start"));
+const jyCan=(j,it)=>!it.auto&&((S.role==="admin"||S.role==="ceo")||(S.role==="ops"&&it.o==="ops")||(S.role==="lori"&&it.o==="lori")||(S.role==="pm"&&it.o==="pm"&&j.pm===ROLES.pm.pm)||(S.role==="rep"&&it.o==="rep"&&j.rep===myRep()));
+const jyJobs=()=>visibleJobs().filter(j=>!isVerbal(j)&&jyStage(j)<JSTAGES.length);
+const daysLate=(j,it)=>Math.round((D(S.week)-D(jyDue(j,it)))/DAY);
+let JYOPEN=false;
+const sold=j=>!j.done&&!isVerbal(j);
+const isWinter=w=>{const md=mon(w).slice(5);return md>="12-01"||md<="03-15";};
+
+function planFor(j){
+  const out={}; if(j.done) return out;
+  let weeks=weekList(40).filter(w=>inWindow(j,w));
+  if(!weeks.length){ if(j.start<=S.week&&hoursLeft(j)>0) weeks=[S.week]; else return out; }
+  let rem=Math.max(0,hoursLeft(j)); const free=[];
+  weeks.forEach(w=>{ if(j.plan[w]!=null){out[w]=j.plan[w];rem-=j.plan[w];} else free.push(w); });
+  rem=Math.max(0,rem); free.forEach(w=>out[w]=Math.round(rem/free.length));
+  return out;
+}
+function plans(){ if(!PC){PC={};S.jobs.forEach(j=>PC[j.id]=planFor(j));} return PC; }
+const loadW=w=>S.jobs.reduce((a,j)=>a+(sold(j)&&!onHold(j)?(plans()[j.id][w]||0):0),0);
+const holdW=w=>S.jobs.reduce((a,j)=>a+(sold(j)&&onHold(j)?(plans()[j.id][w]||0):0),0);
+const movers=w=>S.jobs.filter(j=>sold(j)&&!onHold(j)&&(plans()[j.id][w]||0)>0&&MOVABLE.includes(j.firm)).sort((a,b)=>firmOf(b).i-firmOf(a).i);
+function firmMix(n){const t={};FIRM.forEach(f=>t[f.k]=0);let hold=0;weekList(n).forEach(w=>S.jobs.forEach(j=>{if(!sold(j))return;const h=plans()[j.id][w]||0;if(!h)return;if(onHold(j))hold+=h;else t[firmOf(j).k]+=h;}));const tot=Object.values(t).reduce((a,b)=>a+b,0);return {t,tot,hold};}
+const verbalW=w=>S.jobs.reduce((a,j)=>a+(isVerbal(j)?(plans()[j.id][w]||0):0),0);
+function offFrac(p,w){let d=0;const m=mon(w);for(let i=0;i<5;i++){const day=addDays(m,i);if(S.timeoff.some(t=>t.pid===p.id&&t.start<=day&&t.end>=day))d++;}return d/5;}
+const availMen=(w,leaders)=>S.people.filter(p=>p.active&&(!leaders||p.role==="Leader")).reduce((a,p)=>a+(1-offFrac(p,w)),0);
+const capacity=w=>availMen(w)*S.set.hpw*(1-S.set.absence);
+const leadersNeeded=w=>S.jobs.filter(j=>sold(j)&&!onHold(j)&&(plans()[j.id][w]||0)>0).reduce((a,j)=>a+(j.proj>=S.set.large?1:0.5),0);
+function eac(j){
+  const ks=Object.keys(j.actual).sort(); if(!ks.length) return j.proj;
+  const last=ks.slice(-2).map(k=>j.actual[k]); const burn=last.reduce((a,b)=>a+b,0)/last.length;
+  const lastW=ks[ks.length-1]; let rem=0; for(let w=addDays(lastW,7);mon(w)<=j.finish;w=addDays(w,7)) rem++;
+  const act=actualToDate(j);
+  return rem>0?act+burn*rem:Math.max(act,j.proj);
+}
+const atRisk=j=>sold(j)&&Object.keys(j.actual).length>0&&eac(j)>j.proj*(1+S.set.overrun);
+const pastFinish=j=>sold(j)&&j.finish<mon(S.week);
+const lateRisk=j=>!j.done&&j.must&&j.finish>j.must;
+const fmtN=v=>v?fmt(v):"blank";
+function gapWeeks(n){return weekList(n).filter(w=>loadW(w)>capacity(w)||leadersNeeded(w)>availMen(w,true));}
+function backlogHrs(){return S.jobs.filter(sold).reduce((a,j)=>a+Math.max(0,hoursLeft(j)),0);}
+function backlogUSD(){return S.jobs.filter(sold).reduce((a,j)=>a+j.value*Math.max(0,hoursLeft(j))/Math.max(1,j.proj),0);}
+function backlogWeeks(){const ws=weekList(13);const cap=ws.reduce((a,w)=>a+capacity(w),0)/ws.length;return cap?backlogHrs()/cap:0;}
+function winterJobs(){return S.jobs.filter(j=>!j.done&&j.ext).map(j=>({j,ws:weekList(30).filter(w=>inWindow(j,w)&&isWinter(w))})).filter(x=>x.ws.length);}
+
+/* ---------- revenue ---------- */
+const labVal=j=>j.value-j.mat;
+const recog=j=>j.mat*j.matDone+labVal(j)*j.labDone;
+const suggestLab=j=>{const a=actualToDate(j);return a?Math.min(1,a/Math.max(eac(j),1)):0;};
+const diverge=j=>sold(j)&&actualToDate(j)>0&&Math.abs(j.labDone-suggestLab(j))>0.15;
+const remainingRev=j=>Math.max(0,j.value-recog(j));
+const bidCost=j=>j.matCost+j.est*S.set.rate;
+const projCost=j=>j.matCost+(sold(j)||j.done?eac(j):j.proj)*S.set.rate;
+const gpBid=j=>1-bidCost(j)/Math.max(1,j.value);
+const gpNow=j=>1-projCost(j)/Math.max(1,j.value);
+const fade=j=>gpNow(j)-gpBid(j);
+const stale=j=>sold(j)&&j.start<=S.week&&j.pctWeek!==S.week;
+const review=j=>diverge(j)||stale(j)||fade(j)<-0.03;
+const allocMat=(value,matCost,est)=>{const t=matCost+est*S.set.rate;return t?Math.round(value*matCost/t/100)*100:0;};
+function recordRev(j){j.rev[S.week]=Math.round(recog(j));}
+const mkOf=w=>w.slice(0,7);
+const prevMk=mk=>{let [y,m]=mk.split("-").map(Number);m--;if(!m){m=12;y--;}return y+"-"+String(m).padStart(2,"0");};
+const nextMk=mk=>{let [y,m]=mk.split("-").map(Number);m++;if(m>12){m=1;y++;}return y+"-"+String(m).padStart(2,"0");};
+const mkLabel=mk=>D(mk+"-01").toLocaleDateString("en-US",{month:"short",year:"2-digit",timeZone:"UTC"});
+function cumThrough(j,mk){const ks=Object.keys(j.rev).filter(k=>mkOf(k)<=mk).sort();return ks.length?j.rev[ks[ks.length-1]]:0;}
+function actualMonth(mk){return visibleJobs().filter(j=>!isVerbal(j)).reduce((a,j)=>a+cumThrough(j,mk)-cumThrough(j,prevMk(mk)),0);}
+function revForecast(j){
+  const out={}; if(j.done) return out;
+  const P=plans()[j.id]; const ws=Object.keys(P).filter(w=>w>=S.week&&P[w]>0).sort();
+  const labRem=labVal(j)*(1-j.labDone), matRem=j.mat*(1-j.matDone);
+  if(labRem+matRem<=0) return out;
+  if(!ws.length){out[S.week]={lab:labRem,mat:matRem};return out;}
+  const tot=ws.reduce((a,w)=>a+P[w],0);
+  ws.forEach((w,i)=>{const sh=P[w]/tot;out[w]={lab:labRem*sh,mat:S.set.matPolicy==="delivered"?(i===0?matRem:0):matRem*sh};});
+  return out;
+}
+function monthly(n){
+  const months=[];let mk=mkOf(S.week);for(let i=0;i<n;i++){months.push(mk);mk=nextMk(mk);}
+  const row=mk=>({mk,actual:0,lab:0,mat:0,verbal:0});
+  const out=months.map(row);
+  out[0].actual=actualMonth(months[0]);
+  visibleJobs().forEach(j=>{const f=revForecast(j);Object.keys(f).forEach(w=>{const i=months.indexOf(mkOf(w));if(i<0)return;
+    if(isVerbal(j)) out[i].verbal+=f[w].lab+f[w].mat; else {out[i].lab+=f[w].lab;out[i].mat+=f[w].mat;}});});
+  return out;
+}
+let SCHF={rep:"",pm:"",sort:"start",firm:""};
+const REPNAME={DM:"Dana Mills",JT:"Jordan Tate",KW:"Kelly Wright",LB:"Lena Brooks",NH:"Nate Holloway",RS:"Rosa Santos",TP:"Tom Pruitt",VC:"Vic Castillo",BF:"Ben Fischer"};
+const RMAP={AL:"DM",PK:"JT",ER:"KW",GD:"LB",CM:"NH",BE:"RS",EM:"TP",KK:"VC",SCS:"BF"};
+const PMNAME={JS:"PM JS",RL:"PM RL",TK:"PM TK"};
+let REVVIEW="month";
+function cumAtWeek(j,w){const ks=Object.keys(j.rev).filter(k=>k<=w).sort();return ks.length?j.rev[ks[ks.length-1]]:0;}
+function weekly(back,fwd){
+  const out=[];for(let i=-back;i<fwd;i++){const w=addDays(S.week,7*i);out.push({w,lbl:"w/e "+fmt(w),actual:0,lab:0,mat:0,verbal:0,cur:i===0});}
+  out.forEach(r=>{if(r.w<=S.week)r.actual=visibleJobs().filter(j=>!isVerbal(j)).reduce((a,j)=>a+cumAtWeek(j,r.w)-cumAtWeek(j,addDays(r.w,-7)),0);});
+  visibleJobs().forEach(j=>{const f=revForecast(j);Object.keys(f).forEach(w=>{const r=out.find(x=>x.w===w);if(!r)return;if(isVerbal(j))r.verbal+=f[w].lab+f[w].mat;else{r.lab+=f[w].lab;r.mat+=f[w].mat;}});});
+  return out;
+}
+function revRows(){return REVVIEW==="week"?weekly(4,13):monthly(5).map(x=>Object.assign({},x,{lbl:mkLabel(x.mk),cur:x.mk===mkOf(S.week)}));}
+function revTable(R){
+  const c=v=>v?usd(v):"";const t=k=>R.reduce((a,r)=>a+r[k],0);
+  return `<div class="scroll" style="margin-top:12px"><table><thead><tr><th>${REVVIEW==="week"?"Week ending":"Month"}</th><th class="r">Recognized</th><th class="r">Forecast labor</th><th class="r">Forecast materials</th><th class="r">Total</th></tr></thead><tbody>${R.map(r=>`<tr ${r.cur?'style="font-weight:700"':""}><td>${REVVIEW==="week"?fmt(r.w):r.lbl}${r.cur?" (current)":""}</td><td class="r num">${c(r.actual)}</td><td class="r num">${c(r.lab)}</td><td class="r num">${c(r.mat)}</td><td class="r num"><b>${usd(r.actual+r.lab+r.mat)}</b></td></tr>`).join("")}<tr class="tot"><td><b>Total shown</b></td><td class="r num"><b>${usd(t("actual"))}</b></td><td class="r num"><b>${usd(t("lab"))}</b></td><td class="r num"><b>${usd(t("mat"))}</b></td><td class="r num"><b>${usd(t("actual")+t("lab")+t("mat"))}</b></td></tr></tbody></table></div>`;
+}
+const netBilling=()=>S.jobs.filter(j=>!isVerbal(j)&&(j.billed||recog(j))).reduce((a,j)=>a+(j.billed-recog(j)),0);
+const signed=v=>(v<0?"(":"")+usd(Math.abs(v))+(v<0?")":"");
+
+/* ---------- crew assignments ---------- */
+function busyMap(w,except){const m=new Map();S.jobs.forEach(j=>{if(j.id===except||!sold(j)||!inWindow(j,w))return;(j.assign[w]||[]).forEach(pid=>m.set(pid,j));});return m;}
+function fillCrew(j,w){
+  const cur=(j.assign[w]||[]).filter(pid=>personById(pid));
+  const leader=S.people.find(p=>p.name===j.supt);
+  if(leader&&!cur.includes(leader.id)) cur.unshift(leader.id);
+  const need=j.crew-cur.length;
+  if(need>0){
+    const busy=busyMap(w,j.id), prev=j.assign[addDays(w,-7)]||[];
+    const ok=p=>j.req.every(q=>p.quals.includes(q));
+    const cands=S.people.filter(p=>p.active&&p.role==="Field"&&!busy.has(p.id)&&!cur.includes(p.id)&&offFrac(p,w)===0&&(!p.driver||p.med>=w));
+    cands.sort((a,b)=>((prev.includes(b.id)?4:0)+(ok(b)?2:0))-((prev.includes(a.id)?4:0)+(ok(a)?2:0))||a.id-b.id);
+    cands.slice(0,need).forEach(p=>cur.push(p.id));
+  }
+  j.assign[w]=cur;
+}
+function crewIssues(ws){
+  const out=[];
+  ws.forEach(w=>{
+    const seen=new Map();
+    S.jobs.forEach(j=>{
+      if(!sold(j)||!inWindow(j,w)) return;
+      const a=j.assign[w]||[];
+      a.forEach(pid=>{const p=personById(pid);if(!p)return;
+        if(seen.has(pid)) out.push({k:"double",w,p,j,j2:seen.get(pid)}); else seen.set(pid,j);
+        if(offFrac(p,w)>0) out.push({k:"off",w,p,j});
+        if(!p.active) out.push({k:"inactive",w,p,j});
+        const miss=j.req.filter(q=>!p.quals.includes(q)||(p.qexp&&p.qexp[q]&&p.qexp[q]<w)); if(miss.length) out.push({k:"qual",w,p,j,miss});
+        if(p.driver&&p.med<w) out.push({k:"med",w,p,j});
+      });
+      if(a.length<j.crew) out.push({k:"short",w,j,have:a.length});
+    });
+  });
+  return out;
+}
+function groupIssues(list){
+  const g=new Map();
+  list.forEach(i=>{const key=i.k+"|"+i.j.id+"|"+(i.p?i.p.id:"")+"|"+(i.j2?i.j2.id:"");if(!g.has(key))g.set(key,Object.assign({},i,{ws:[]}));g.get(key).ws.push(i.w);});
+  return [...g.values()];
+}
+function issueText(i){
+  const jl=`<button class="jl" data-job="${i.j.id}">${i.j.num} ${esc(i.j.customer)}</button>`, r=range(i.ws);
+  switch(i.k){
+    case "double": return `${esc(i.p.name)} is on ${jl} and ${esc(i.j2.customer)} the same week (${r}).`;
+    case "off": return `${esc(i.p.name)} is assigned to ${jl} but has time off (${r}).`;
+    case "inactive": return `${esc(i.p.name)} is off the roster but still assigned to ${jl} (${r}).`;
+    case "qual": return `${esc(i.p.name)} on ${jl} lacks ${i.miss.join(" and ")} (${r}).`;
+    case "med": return `${esc(i.p.name)}’s DOT physical expires before ${jl} (${r}).`;
+    case "short": return `${jl} has ${i.have} of ${i.j.crew} crew assigned (${r}).`;
+  }
+  return "";
+}
+const issueTag={double:"Double-booked",off:"Time off",inactive:"Off roster",qual:"Qualification",med:"DOT physical",short:"Short crew"};
+function jobIssueCount(j,ws){return crewIssues(ws).filter(i=>i.j.id===j.id).length;}
+
+/* ---------- seed ---------- */
+function ppeFor(t){
+  if(/lining/i.test(t)) return "Supplied-air respirator, Tyvek, confined-space permit";
+  if(/containment/i.test(t)) return "Respirator, chemical gloves, Tyvek";
+  if(/Floor/i.test(t)) return "Half-face respirator, knee pads, steel toes";
+  if(/tower|stack|steel|conveyor/i.test(t)) return "Full harness and lanyard, hard hat, safety glasses";
+  return "Hard hat, safety glasses, steel toes";
+}
+function siteFor(i,t,l){
+  return {address:(100+i*37)+" "+["Industrial","Commerce","Mill","Plant","Elevator","Water"][i%6]+" "+["Dr","Rd","St","Ave"][i%4]+", "+l,
+    time:i%3===2?"7:00 AM":"6:30 AM",
+    contact:["Gary Holm","Lisa Ortiz","Dan Berg","Rachel Kim"][i%4]+", 507-555-01"+String(10+i).padStart(2,"0"),
+    orient:i%3===0?"Site orientation, 1 hr, first morning":(i%3===1?"Badge pickup at the guard shack":"None"),
+    ppe:ppeFor(t)};
+}
+function seed(){
+  const r=rng(42);
+  const rd=()=>addDays("2026-10-20",Math.floor(r()*430));
+  const people=[]; let id=1;
+  const q=(pc,pl,pf)=>{const a=[];if(r()<pc)a.push("Confined space");if(r()<pl)a.push("Lift");if(r()<pf)a.push("Fiberglass");return a;};
+  const qx=qs=>{const o={};qs.forEach(qq=>o[qq]=addDays("2027-01-15",Math.floor(r()*560)));return o;};
+  LEADERS.forEach((n,i)=>{const qs=QUALS.slice();people.push({id:id++,name:n,role:"Leader",state:i%5===3?"WI":(i%7===2?"IA":"MN"),active:true,driver:true,med:addDays("2027-02-01",Math.floor(r()*300)),quals:qs,qexp:qx(qs),phone:"612-555-02"+String(10+i).padStart(2,"0")});});
+  const used=new Set(LEADERS);
+  while(people.length<75){
+    const n=FIRST[Math.floor(r()*FIRST.length)]+" "+LAST[Math.floor(r()*LAST.length)];
+    if(used.has(n))continue; used.add(n);
+    const qs=q(.55,.6,.25);
+    people.push({id:id++,name:n,role:"Field",state:["MN","MN","MN","MN","WI","IA","SD"][Math.floor(r()*7)],active:true,driver:r()<0.3,med:rd(),quals:qs,qexp:qx(qs),phone:"612-555-"+String(3000+id)});
+  }
+  const pick=(arr,k)=>{const c=arr.slice(),o=[];while(o.length<k&&c.length)o.push(c.splice(Math.floor(r()*c.length),1)[0]);return o;};
+  const L=people.filter(p=>p.role==="Leader"), F=people.filter(p=>p.role==="Field");
+  const to=[];
+  pick(L.slice(1),5).concat(pick(F,11)).forEach(p=>to.push({id:uid(),pid:p.id,start:"2026-11-09",end:"2026-11-13",type:"Hunting"}));
+  pick(F,10).forEach(p=>to.push({id:uid(),pid:p.id,start:"2026-11-25",end:"2026-11-27",type:"Holiday"}));
+  pick(people.slice(1),30).forEach(p=>to.push({id:uid(),pid:p.id,start:"2026-12-21",end:"2027-01-01",type:"Holiday"}));
+  pick(F,6).forEach(p=>{const s=addDays("2026-10-19",7*Math.floor(r()*6));to.push({id:uid(),pid:p.id,start:s,end:addDays(s,2),type:"PTO"});});
+
+  const jobs=SPEC.map((s,i)=>{
+    const we0=addDays(START_WEEK,7*s.o), start=mon(we0), finish=addDays(we0,7*(s.w-1));
+    const proj=Math.round(s.cr*40*s.w*0.9/10)*10;
+    const est=i===2?Math.round(proj*0.82/10)*10:(i===9?Math.round(proj*1.05/10)*10:proj);
+    const actual={};
+    if(!s.v) for(let k=0;k<s.w;k++){const w=addDays(we0,7*k); if(w<START_WEEK) actual[w]=Math.round(proj/s.w*(s.f||1)*(0.93+r()*0.14));}
+    const value=Math.round(proj*(112+r()*38)/500)*500;
+    const mshare=/lining|Floor|containment/i.test(s.t)?0.40:(/painting/i.test(s.t)?0.20:0.30);
+    const matCost=Math.round(value*mshare*0.55/100)*100;
+    const mat=Math.round(value*matCost/(matCost+est*55)/500)*500;
+    const ks=Object.keys(actual).sort(); let cum=0; const rev={};
+    ks.forEach(k=>{cum+=actual[k];const lp=Math.min(0.95,cum/proj),mp=Math.min(1,lp+0.35);rev[k]=Math.round(mat*mp+(value-mat)*lp);});
+    let labDone=ks.length?Math.round(Math.min(0.95,cum/proj)*20)/20:0, matDone=ks.length?Math.min(1,Math.round((labDone+0.35)*20)/20):0;
+    if(i===5){labDone=0.75;} if(i===1){labDone=0.30;}
+    const recNow=mat*matDone+(value-mat)*labDone; if(ks.length) rev[ks[ks.length-1]]=Math.round(recNow);
+    const billed=ks.length?Math.round(recNow*(0.85+r()*0.3)/100)*100:0;
+    return {id:"j"+(i+1),num:String(4112+i*7),customer:s.c,type:s.t,location:s.l,rep:RMAP[s.rep]||s.rep,estr:ESTIMATORS[i%2],pm:s.pm,supt:s.s,crew:s.cr,est,proj,value,start,finish,baseFinish:finish,
+      status:s.v?"Verbal":(start<=START_WEEK?"Active":"Scheduled"),done:false,actual,plan:{},assign:{},ext:!!s.x,req:s.q||[],mat,matCost,matDone,labDone,billed,rev,pctWeek:ks.length?START_WEEK:null,site:siteFor(i,s.t,s.l),must:i===11?addDays(finish,-7):(i===1||i===9?finish:null),mustWhy:i===11?"Contract obligation":(i===1||i===9?"Shutdown":""),actualFinish:null,notes:[]};
+  });
+  const N=(k,text,who,stamp,pinned,crew)=>jobs[k].notes.push({id:uid(),text,who,stamp,pinned,crew});
+  N(1,"Plant shutdown Nov 2–6. No hot work without a plant permit; the plant supplies the confined-space attendant.","Austin Lewis","Oct 5",true,true);
+  N(11,"Contract carries liquidated damages of $500 a day after Nov 20. Talk recovery plan before adding crew.","Austin Lewis","Oct 8",true,false);
+  N(0,"Gate code 4412. Park on the north side, not by the loading dock.","Mike Ramirez","Oct 12",false,true);
+  N(5,"Customer’s engineer wants a photo update every Friday.","Scheduler","Oct 9",false,false);
+  const FS=["conf","lock","conf","conf","flex","conf","conf","fill","conf","lock","guess","lock","conf","guess","flex","flex","fill","conf","wait","guess"];
+  jobs.forEach((j,i)=>{j.firm=FS[i]||"conf";j.after=null;j.holdWhy="";j.holdUntil=null;});
+  if(jobs[18]){jobs[18].after="j2";}
+  if(jobs[19]){jobs[19].status="On hold";jobs[19].holdWhy="Customer is reworking the floor layout";jobs[19].holdUntil="2027-01-11";}
+  seedWO(jobs);
+  jobs.forEach((j,i)=>{j.jy={};if(j.status==="Verbal")return;
+    JSTAGES.forEach(st=>st.items.forEach(it=>{if(it.auto||it.f)return;const due=addDays(j.start,it.d);
+      if(due<=addDays(START_WEEK,7)||((i*5+it.k.length)%3===0)) j.jy[it.k]={by:({rep:"Rep",lori:"Lori",pm:"PM "+j.pm,ops:"Scheduler",fin:"Finance"})[it.o],at:fmt(due<START_WEEK?due:addDays(START_WEEK,-3))};}));});
+  const unset=(i,ks)=>{if(jobs[i])ks.forEach(k=>delete jobs[i].jy[k]);};
+  jobs.forEach(j=>{const muni=/^City of|County|Metro Water/.test(j.customer);j.po="PO "+(48000+(+j.num));j.billTo="Accounts payable, "+j.customer;j.retPct=muni?0.05:0;j.cpr=muni;j.lien=j.value>=100000;});
+  const DONE=[
+    {num:"4051",c:"Dakota Ridge Ethanol",t:"Tank lining",l:"Marshall, MN",rep:"JT",pm:"JS",s:"Tony Becker",st:"2026-09-14",fin:"2026-10-09",val:148500,bil:118800,signed:"2026-10-09",ready:"2026-10-09"},
+    {num:"4058",c:"Wabasha County Highway Dept",t:"Structural steel",l:"Wabasha, MN",rep:"NH",pm:"TK",s:"Kevin Jensen",st:"2026-09-21",fin:"2026-10-16",val:212000,bil:159000,signed:"2026-10-16",muni:1},
+    {num:"4065",c:"Sunrise Cheese",t:"Floor system",l:"Melrose, MN",rep:"RS",pm:"RL",s:"Luis Ortega",st:"2026-09-28",fin:"2026-10-14",val:86500,bil:43000},
+    {num:"4072",c:"Mankato Water Treatment",t:"Secondary containment",l:"Mankato, MN",rep:"KW",pm:"RL",s:"Pete Larson",st:"2026-08-17",fin:"2026-09-25",val:174000,bil:174000,signed:"2026-09-25",inv:{num:"26-1187",amt:52200,date:"2026-10-02",by:"Accounting"},muni:1},
+    {num:"4079",c:"Ag Partners Co-op",t:"Interior painting",l:"Redwood Falls, MN",rep:"TP",pm:"JS",s:"Ray Thompson",st:"2026-08-24",fin:"2026-09-18",val:58000,bil:58000,signed:"2026-09-18",inv:{num:"26-1162",amt:17400,date:"2026-09-25",by:"Accounting"}}];
+  DONE.forEach((x,k)=>{const steps=freshSteps().map(st=>Object.assign(st,{state:"approved",at:fmt(addDays(x.st,-20))}));
+    const proj=Math.round(x.val/150/10)*10, mat=Math.round(x.val*0.3/500)*500;
+    const jy={};JSTAGES.forEach(stg=>stg.items.forEach(it=>{if(it.auto)return;if(it.f&&it.k!=="walk")return;jy[it.k]={by:"Seeded",at:fmt(addDays(it.f?x.fin:x.st,it.d))};}));
+    if(x.signed) jy.walk={by:"PM "+x.pm,at:fmt(x.signed)}; else delete jy.walk;
+    if(x.inv){jy.cause={by:"PM "+x.pm,at:fmt(addDays(x.fin,5))};}
+    if(x.inv&&k===4) jy.warr={by:"PM "+x.pm,at:fmt(addDays(x.fin,10))};
+    jobs.push({id:"d"+(k+1),num:x.num,customer:x.c,type:x.t,location:x.l,rep:x.rep,estr:ESTIMATORS[k%2],pm:x.pm,supt:x.s,crew:5,est:proj,proj,value:x.val,start:x.st,finish:x.fin,baseFinish:x.fin,status:"Complete",done:true,completed:x.fin,actualFinish:x.fin,
+      actual:{[x.fin]:proj},plan:{},assign:{},ext:false,req:[],mat,matCost:Math.round(mat*0.55/100)*100,matDone:1,labDone:1,billed:x.bil,rev:{[x.fin]:x.val},pctWeek:null,site:{},must:null,mustWhy:"",notes:[],
+      wo:{file:"WO-"+x.num+" v2.pdf",ver:2,cur:4,steps,since:addDays(x.st,-20),final:true,filed:true,returned:null,hist:[]},firm:"conf",after:null,holdWhy:"",holdUntil:null,jy,
+      po:"PO "+(48000+(+x.num)),billTo:"Accounts payable, "+x.c,retPct:x.muni?0.05:0,cpr:!!x.muni,lien:x.val>=100000,inv:x.inv||null,billReady:x.ready||null,billWait:false,retPaid:x.inv&&!x.muni?x.inv.date:null});
+  });
+  jobs.forEach(j=>{j.billMethod=j.billMethod||"final";j.invoices=j.invoices||[];j.milestones=j.milestones||[];if(j.inv)j.invoices.push({kind:"final",num:j.inv.num,amt:j.inv.amt,date:j.inv.date,by:j.inv.by});});
+  {const J=k=>jobs[k];
+   J(2).billMethod="monthly"; J(2).billed=0;
+   J(0).billMethod="monthly"; if(J(0).billed) J(0).invoices.push({kind:"progress",period:"2026-09",num:"26-1171",amt:J(0).billed,date:"2026-09-25",by:"Accounting"}); else J(0).invoices.push({kind:"skip",period:"2026-09",amt:0,date:"2026-09-25",by:"Accounting"});
+   J(11).billMethod="monthly";
+   const rb=J(1); rb.billMethod="milestone"; rb.milestones=[{l:"Mobilization",pct:20,reached:"2026-10-09",by:"PM JS",inv:{num:"26-1194",amt:Math.round(rb.value*0.2),date:"2026-10-09",by:"Accounting"}},{l:"Tank 1 lined",pct:40,reached:"2026-10-16",by:"PM JS"},{l:"Tank 2 lined",pct:30}];
+   rb.billed=Math.round(rb.value*0.2); rb.invoices.push({kind:"milestone",l:"Mobilization",num:"26-1194",amt:rb.billed,date:"2026-10-09",by:"Accounting"});
+   J(14).billMethod="milestone"; J(14).milestones=MSTEMPLATE.map(([l,pc])=>({l,pct:pc}));
+   const wb=jobs.find(j=>j.num==="4058"); if(wb){wb.billMethod="monthly";wb.invoices.push({kind:"progress",period:"2026-09",num:"26-1176",amt:wb.billed,date:"2026-09-25",by:"Accounting"});}}
+  unset(10,["ord","sub"]); unset(3,["prejob"]); unset(11,["coi"]); unset(9,["safety"]); unset(13,["po"]);
+  const metrics=ILLUS.util.map((u,i)=>({week:addDays(START_WEEK,-7*(10-i)),util:u,utilRoster:ILLUS.roster[i],backlog:ILLUS.backlog[i],backlogUSD:0,acc:ILLUS.acc[i],ontime:ILLUS.ontime[i],illus:true}));
+  return {v:11,hist:seedHist(),week:START_WEEK,role:"admin",people,timeoff:to,jobs,events:[],alerts:[],metrics,snap:{},fc4:{},confirm:{},muted:{},
+    set:{absence:0.10,hpw:40,large:400,overrun:0.15,target:50,matPolicy:"delivered",rate:55,openMin:400,woDays:2,invDays:3,payDay:25},lastGapKey:"",lastMissing:[],seen:{},closes:0,ack:{},crewDemo:null};
+}
+const CAUSES=["Field","Estimate","Change order not captured","Customer delay","Weather"];
+function seedHist(){
+  const r=rng(7),out=[];
+  const types=["Floor system","Tank lining","Water tower","Structural steel","Secondary containment","Interior painting","Stack coating"];
+  const custs=["Prairie Gold Dairy","Northstar Ethanol","City of Mankato","Bluff Valley Foods","Midwest Grain Co-op","Lakeshore Paper","River City Water","Heartland Malting","Summit Agri","Crown Creamery"];
+  const skill={"Mike Ramirez":0.96,"Tony Becker":1.17,"Jake Lund":1.02,"Dave Olson":1.05,"Luis Ortega":0.98,"Brandon Kurth":1.12,"Sam Nguyen":1.0,"Ray Thompson":1.07,"Kevin Jensen":0.99,"Marco Silva":1.03,"Pete Larson":1.09,"Darnell Hayes":1.01,"Ben Schultz":0.97,"Travis Moe":1.04};
+  let n=3100;
+  LEADERS.forEach(L=>{const k=2+Math.floor(r()*5);for(let i=0;i<k;i++){
+    const est=Math.round((200+r()*1400)/10)*10,value=Math.round(est*(115+r()*40)/500)*500,gpBid=0.38+r()*0.12;
+    const matCost=Math.round(value*(1-gpBid)-est*55);
+    const ratio=(skill[L]||1)*(0.92+r()*0.16);let cause=null;
+    if(ratio>1.08){const x=r();cause=(skill[L]||1)>1.06?(x<0.6?"Field":x<0.75?"Estimate":x<0.9?"Change order not captured":"Customer delay"):(x<0.25?"Field":x<0.55?"Estimate":x<0.8?"Change order not captured":x<0.9?"Customer delay":"Weather");}
+    const actual=Math.round(est*ratio),cost=matCost*(0.97+r()*0.06)+actual*55;
+    out.push({id:"h"+n,num:String(n+=11),customer:custs[Math.floor(r()*custs.length)],type:types[Math.floor(r()*types.length)],supt:L,est,actual,value,gpBid,gpFinal:1-cost/value,onTime:r()<(ratio>1.1?0.55:0.9),finished:addDays(START_WEEK,-7*(1+Math.floor(r()*50))),cause});
+  }});
+  return out;
+}
+function seedAssignments(){
+  weekList(16).forEach(w=>{S.jobs.filter(j=>sold(j)&&inWindow(j,w)).sort((a,b)=>a.start<b.start?-1:1).forEach(j=>fillCrew(j,w));});
+}
+function seedFc4(){
+  const r=rng(7), P=plans();
+  for(let i=0;i<4;i++){const w=addDays(START_WEEK,7*i);const per={};let load=0;
+    S.jobs.forEach(j=>{if(!sold(j))return;const h=P[j.id][w]||0;if(!h)return;const f=0.82+r()*0.36;per[j.id]=Math.round(h*f);load+=per[j.id];});
+    S.fc4[w]={load,perJob:per,made:addDays(w,-28),seeded:true};}
+}
+
+function save(){PC=null;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function load(){try{const t=localStorage.getItem(KEY);if(t){const o=JSON.parse(t);if(o&&o.v===11)return o;}}catch(e){}return null;}
+
+/* ---------- events and alerts ---------- */
+function logEvent(obj,field,from,to){S.events.unshift({at:Date.now(),stamp:nowStamp(),who:ROLES[S.role].name,obj,field,from:String(from),to:String(to)});}
+function notify(rule,title,body,to,jobId){S.alerts.unshift({id:uid(),rule,title,body,to,jobId:jobId||null,at:Date.now(),stamp:nowStamp()});}
+const jobTo=j=>["PM "+j.pm,"Supt. "+j.supt,"Austin","Derrick"];
+function capacityCheck(){
+  const g=gapWeeks(8), key=g.join(",");
+  if(key&&key!==S.lastGapKey){
+    const lines=g.map(w=>{const L=loadW(w),C=capacity(w),LN=leadersNeeded(w),LA=availMen(w,true);const parts=[];
+      if(L>C)parts.push(n0(L)+" hrs scheduled vs "+n0(C)+" available");
+      if(LN>LA)parts.push(n1(LN)+" leaders needed vs "+n1(LA)+" available");
+      return "Week ending "+fmt(w)+": "+parts.join("; ");}).join("\n");
+    notify("gap","Capacity gap in "+g.length+" of the next 8 weeks",lines,["Austin","Derrick"]);
+  }
+  S.lastGapKey=key;
+  openCheck();
+  woCheck();
+}
+function openWeeks(){return weekList(9).slice(4).map(w=>({w,open:capacity(w)-loadW(w)})).filter(x=>x.open>=(S.set.openMin||400));}
+function openCheck(){
+  const o=openWeeks(), key=o.map(x=>x.w).join(",");
+  if(key&&key!==S.lastOpenKey) notify("open","Open capacity to sell: "+o.length+" week"+(o.length>1?"s":"")+" 4 to 8 weeks out",o.map(x=>"Week ending "+fmt(x.w)+": "+n0(x.open)+" hrs open, about "+n0(x.open/S.set.hpw)+" men").join("\n")+"\nFast lane: existing accounts run about a month from quote to crews, so this is the window to sell into.",["Sales team","Austin"]);
+  S.lastOpenKey=key;
+}
+function postDigest(){
+  const w=S.week, P=plans();
+  const jobsNow=S.jobs.filter(j=>sold(j)&&(P[j.id][w]||0)>0);
+  const g=gapWeeks(8);
+  const miss=S.lastMissing.map(jobById).filter(Boolean);
+  const real=S.metrics.filter(m=>!m.illus); const acc=real.length?real[real.length-1].acc:null;
+  const iss=groupIssues(crewIssues([w,addDays(w,7)])).length;
+  const unconf=jobsNow.filter(j=>!S.confirm[j.id+"|"+w]).length;
+  const verb=S.jobs.filter(j=>isVerbal(j)&&!j.done);
+  const lines=[
+    jobsNow.length+" jobs on the board this week, "+n0(loadW(w))+" hrs scheduled vs "+n0(capacity(w))+" available.",
+    "Leaders: "+jobsNow.map(j=>j.supt.split(" ")[0]+" ("+j.customer+")").join(", ")+".",
+    unconf?unconf+" crews not yet confirmed by their leader.":"Every crew confirmed by its leader.",
+    iss?iss+" crew issues in the next two weeks (double-booked, time off, qualifications).":"No crew issues in the next two weeks.",
+    (()=>{const lr=S.jobs.filter(j=>lateRisk(j)&&!isVerbal(j));return lr.length?"Projected past must-finish: "+lr.map(j=>j.customer+" ("+fmt(j.finish)+" vs "+fmt(j.must)+")").join(", ")+".":"";})(),
+    (()=>{const o=openWeeks();return o.length?"Open to sell, 4 to 8 weeks out: "+o.map(x=>fmt(x.w)+" ("+n0(x.open)+" hrs)").join(", ")+".":"";})(),
+    g.length?"Gaps ahead: "+g.map(fmt).join(", ")+".":"No capacity gaps in the next 8 weeks.",
+    miss.length?"Missing hours from last close: "+miss.map(j=>j.num+" "+j.customer+" (PM "+j.pm+")").join(", ")+".":"All hours entered at last close.",
+    (()=>{const o=S.jobs.filter(woOpen);if(!o.length)return "Every booked job has a final work order.";const l=o.filter(woLate).length,s2=o.filter(j=>daysTo(j.start)<=14).length;return "Work orders: "+o.length+" not final"+(l?", "+l+" past the review deadline":"")+(s2?", "+s2+" starting within 2 weeks":"")+".";})(),
+    verb.length?"Verbal awards not yet counted: "+verb.map(j=>j.customer).join(", ")+".":"",
+    (()=>{const M=monthly(1)[0];return mkLabel(M.mk)+" revenue forecast "+usd(M.actual+M.lab+M.mat)+", "+usd(M.actual)+" recognized so far.";})(),
+    acc!=null?"Forecast accuracy, 4 weeks out: "+pct(acc)+".":"Forecast accuracy starts after the first close."
+  ].filter(Boolean);
+  notify("digest","Monday digest for the week of "+fmt(mon(w)),lines.join("\n"),["Leadership team"]);
+}
+function certReminders(){
+  S.people.filter(p=>p.active).forEach(p=>{
+    const items=[]; if(p.driver) items.push(["DOT physical",p.med]);
+    p.quals.forEach(qq=>{if(p.qexp&&p.qexp[qq]) items.push([qq,p.qexp[qq]]);});
+    items.forEach(([nm,exp])=>{
+      const days=Math.round((D(exp)-D(S.week))/DAY); const th=days<0?0:(days<=30?30:(days<=60?60:null)); if(th==null) return;
+      p.rem=p.rem||{}; const key=nm+"|"+exp+"|"+th; if(p.rem[key]) return; p.rem[key]=1;
+      const when=days<0?"expired "+fmtY(exp):"expires in "+days+" days ("+fmtY(exp)+")";
+      notify("cert",nm+(days<0?" expired: ":" expiring: ")+p.name,p.name+"’s "+nm+" "+when+". Text sent to "+p.name.split(" ")[0]+"; copy to the scheduler."+(nm==="DOT physical"?" Without a current card he can’t drive company vehicles, and the schedule will flag him.":""),[p.name+" (text)","Scheduler"]);
+    });
+  });
+}
+function snapshot(){
+  const P=plans();
+  const mk=w=>{const per={};let load=0;S.jobs.forEach(j=>{if(!sold(j))return;const h=P[j.id][w]||0;if(h){per[j.id]=h;load+=h;}});return {load,perJob:per};};
+  S.snap[S.week]=mk(S.week);
+  const t=addDays(S.week,28); if(!S.fc4[t]) S.fc4[t]=Object.assign(mk(t),{made:S.week});
+}
+function alertsFor(role){
+  const muted=S.muted[role]||{};
+  return S.alerts.filter(a=>{
+    if(muted[a.rule]) return false;
+    if(role==="board") return false;
+    if(a.rule==="wo"&&(role==="supt"||role==="crew")) return false;
+    if(role==="acct") return a.rule==="bill"||a.rule==="digest";
+    if(a.rule==="bill"&&(role==="ops"||role==="supt"||role==="crew"||role==="lori"||role==="est")) return false;
+    if(role==="lori") return (a.rule==="wo"&&a.to.includes("Lori"))||a.rule==="digest";
+    if(role==="est") return a.rule==="wo"&&a.to.includes(ROLES.est.name);
+    if(role==="sched") return (a.rule==="wo"&&a.to.includes("Scheduler"))||["gap","date","crew","digest"].includes(a.rule);
+    if(role==="pm"){if(a.rule==="digest")return true;if(a.rule==="wo")return a.to.includes(ROLES.pm.name);const j=a.jobId&&jobById(a.jobId);return !!(j&&j.pm===ROLES.pm.pm);}
+    if(role==="supt") return a.rule==="digest"||(a.jobId&&jobById(a.jobId)&&jobById(a.jobId).supt===ROLES.supt.name);
+    if(role==="rep"){if(a.rule==="open"||a.rule==="digest")return true;if(a.rule==="wo")return a.to.includes(ROLES.rep.name);const j=a.jobId&&jobById(a.jobId);return !!(j&&j.rep===myRep());}
+    if(role==="crew"){const me=personById(S.crewDemo);if(!me)return false;if(a.rule==="cert")return a.to.includes(me.name+" (text)");const j=a.jobId&&jobById(a.jobId);return !!(j&&[S.week,addDays(S.week,7)].some(w=>(j.assign[w]||[]).includes(me.id)));}
+    return true;
+  });
+}
+
+/* ---------- work orders ---------- */
+const ESTIMATORS=["Greg Halvorsen","Paula Kern"];
+const STEPDEF=[{k:"est",role:"Estimator",what:"Hours and scope"},{k:"rep",role:"Sales rep",what:"Contract terms"},{k:"pm",role:"PM",what:"Execution plan"},{k:"sched",role:"Scheduler",what:"Crew and dates"}];
+const freshSteps=()=>STEPDEF.map(()=>({state:"pending"}));
+function newWO(){return {file:null,ver:0,cur:0,steps:freshSteps(),since:S?S.week:START_WEEK,final:false,filed:false,returned:null,hist:[]};}
+function woWho(j,k){return k==="est"?(j.estr||"Estimator"):k==="rep"?(REPNAME[j.rep]||j.rep):k==="pm"?"PM "+j.pm:"Scheduler";}
+const woLabel=(j,k)=>k==="est"?"Estimator "+woWho(j,k):k==="rep"?"Rep "+woWho(j,k):woWho(j,k);
+function woStatus(j){const o=j.wo;if(!o||o.final)return "Final";if(o.returned)return "Returned";if(!o.file)return "Awaiting draft";return o.cur===0?"Draft":"In review";}
+const WOTAG={"Awaiting draft":"yel","Returned":"red","Draft":"","In review":"blue","Final":"grn"};
+const woTag=(j,short)=>{const s=woStatus(j);return `<span class="tag ${WOTAG[s]}">${short?s:(s==="Final"?"Work order final":"Work order: "+s.toLowerCase())}</span>`;};
+const daysTo=d=>Math.round((D(d)-D(S.week))/DAY);
+const woOpen=j=>!j.done&&!isVerbal(j)&&!!j.wo&&!j.wo.final;
+const woDays=j=>j.wo?Math.max(0,Math.round((D(S.week)-D(j.wo.since))/DAY)):0;
+const woLate=j=>woOpen(j)&&woDays(j)>(S.set.woDays||2);
+function woWaiting(j){const s=woStatus(j);if(s==="Final")return j.wo&&!j.wo.filed?"Lori, to file in Procore":"";if(s==="Awaiting draft"||s==="Returned")return "Lori";return woLabel(j,STEPDEF[j.wo.cur].k);}
+function woMine(j){if(!j.wo||j.done)return false;const s=woStatus(j),r=S.role;
+  if(r==="lori")return s==="Awaiting draft"||s==="Returned"||(s==="Final"&&!j.wo.filed);
+  if(s!=="Draft"&&s!=="In review")return false;const k=STEPDEF[j.wo.cur].k;
+  return (r==="est"&&k==="est"&&j.estr===ROLES.est.name)||(r==="rep"&&k==="rep"&&j.rep===myRep())||(r==="pm"&&k==="pm"&&j.pm===ROLES.pm.pm)||(r==="ops"&&k==="sched");}
+function woCanAct(j){const s=woStatus(j);if(s!=="Draft"&&s!=="In review")return false;return S.role==="admin"||S.role==="ceo"||woMine(j);}
+const woCanUpload=j=>["lori","ops","admin","ceo"].includes(S.role)&&["Awaiting draft","Returned"].includes(woStatus(j));
+const woCanFile=j=>["lori","ops","admin","ceo"].includes(S.role)&&woStatus(j)==="Final"&&!j.wo.filed;
+function woHist(j,act,note){j.wo.hist.unshift({stamp:nowStamp(),who:ROLES[S.role].name,act,note:note||""});}
+function woBooked(j){
+  woHist(j,"Job booked on the schedule. Work order opened, awaiting a draft.");
+  notify("wo","New job booked, draft the work order: "+j.num+" "+j.customer,"Booked on the schedule now for "+fmt(j.start)+" to "+fmt(j.finish)+". The work order runs alongside it.\nDraft it in Claude from the estimate and the proposal or contract, using the TMI work order template, then upload it to the job. Estimator: "+j.estr+".",["Lori"],j.id);
+}
+function woCheck(){
+  if(!S||!S.jobs)return; const due=S.set.woDays||2;
+  S.jobs.forEach(j=>{
+    if(!woLate(j))return; const s=woStatus(j), key=j.wo.since+"|"+s+"|"+j.wo.cur; if(j.wo.pinged===key)return; j.wo.pinged=key;
+    const lori=s==="Awaiting draft"||s==="Returned", who=lori?"Lori":woLabel(j,STEPDEF[j.wo.cur].k);
+    const what=s==="Awaiting draft"?"the draft":(s==="Returned"?"the revised draft":STEPDEF[j.wo.cur].what.toLowerCase());
+    notify("wo","Work order review late: "+j.num+" "+j.customer,"Waiting "+woDays(j)+" days on "+who+" for "+what+". The review deadline is "+due+" days.\nJob starts "+fmt(j.start)+". PM "+j.pm+" pinged.",["PM "+j.pm,lori?"Lori":woWho(j,STEPDEF[j.wo.cur].k)],j.id);
+  });
+}
+function woAttention(){
+  const due=S.set.woDays||2,out=[];
+  S.jobs.filter(woOpen).sort((a,b)=>a.start.localeCompare(b.start)).forEach(j=>{
+    const late=woLate(j), soon=daysTo(j.start)<=14; if(!late&&!soon)return;
+    out.push(`<li><span class="tag ${late?"red":"yel"}">Work order</span><span><button class="jl" data-job="${j.id}">${j.num} ${esc(j.customer)}</button> ${late?`waiting ${woDays(j)} days on ${esc(woWaiting(j))}, past the ${due}-day review deadline. PM ${esc(j.pm)} pinged.`:`is ${woStatus(j).toLowerCase()}, waiting on ${esc(woWaiting(j))}.`}${soon?` Starts ${fmt(j.start)} without a final work order.`:""}</span></li>`);
+  });
+  return out;
+}
+function woAction(act,id){
+  const j=jobById(id); if(!j||!j.wo) return; const o=j.wo, me=ROLES[S.role].name, due=S.set.woDays||2;
+  if(act==="upload"){
+    if(!woCanUpload(j))return; const f=document.getElementById("woFile");
+    const nm=f&&f.files&&f.files[0]?f.files[0].name:"WO-"+j.num+"-draft-v"+(o.ver+1)+".pdf", wasRet=!!o.returned;
+    o.file=nm;o.ver++;o.returned=null;o.cur=0;o.steps=freshSteps();o.since=S.week;
+    woHist(j,(wasRet?"Uploaded revised draft ":"Uploaded draft ")+nm+".");
+    logEvent("Job "+j.num,"Work order draft",wasRet?"sent back":"none",nm);
+    notify("wo",(wasRet?"Revised draft":"Draft work order")+" ready for review: "+j.num+" "+j.customer,me+" uploaded "+nm+". Your step: check hours and scope against the estimate. Due in "+due+" days.\nThe job is already booked on the schedule for "+fmt(j.start)+".",[j.estr],j.id);
+  } else if(act==="approve"){
+    if(!woCanAct(j))return; const d=STEPDEF[o.cur], who=woWho(j,d.k);
+    o.steps[o.cur]={state:"approved",by:me,at:nowStamp()};
+    woHist(j,d.role+" sign-off: "+d.what.toLowerCase()+" approved"+(me!==who?", for "+woLabel(j,d.k):"")+".");
+    logEvent("Job "+j.num,"Work order, "+d.role.toLowerCase()+" sign-off","pending","approved");
+    o.cur++; o.since=S.week;
+    if(o.cur>=STEPDEF.length){
+      o.final=true; woHist(j,"Work order final. All four sign-offs complete.");
+      notify("wo","Work order final: "+j.num+" "+j.customer,"Estimator, rep, PM and scheduler have all signed off.\nLori files the final in Procore as the work order of record. TMI Ops shows it from there.",["Lori","PM "+j.pm,REPNAME[j.rep]||j.rep,"Scheduler"],j.id);
+    } else {
+      const n=STEPDEF[o.cur];
+      notify("wo","Work order ready for your sign-off: "+j.num+" "+j.customer,d.role+" signed off on "+d.what.toLowerCase()+". Your step: "+n.what.toLowerCase()+". Due in "+due+" days.",[woWho(j,n.k)],j.id);
+    }
+  } else if(act==="return"){
+    if(!woCanAct(j))return; const el=document.getElementById("woComment"), cm=(el?el.value:"").trim();
+    if(!cm){alert("Add a comment so Lori knows what to fix.");return;}
+    const d=STEPDEF[o.cur]; o.returned={by:me,role:d.role,comment:cm,at:nowStamp()}; o.cur=0; o.steps=freshSteps(); o.since=S.week;
+    woHist(j,"Sent back by the "+d.role.toLowerCase()+".",cm);
+    logEvent("Job "+j.num,"Work order","in review","sent back: "+(cm.length>60?cm.slice(0,60)+"…":cm));
+    notify("wo","Work order sent back: "+j.num+" "+j.customer,me+", at the "+(d.role==="PM"?"PM":d.role.toLowerCase())+" step: "+cm+"\nLori revises the draft and re-uploads it. Sign-offs restart with the estimator.",["Lori","PM "+j.pm],j.id);
+  } else if(act==="filed"){
+    if(!woCanFile(j))return; o.filed=true; woHist(j,"Final filed in Procore as the work order of record.");
+    logEvent("Job "+j.num,"Work order","final","filed in Procore");
+  } else if(act==="procore"){
+    alert("In the live build this opens the final work order in Procore. TMI Ops reads it there and never edits it."); return;
+  }
+  save(); openJob(j.id,DLGWEEK);
+}
+function woPanel(j){
+  if(!j.wo||isVerbal(j))return "";
+  const o=j.wo, s=woStatus(j), due=S.set.woDays||2, late=woLate(j), dd=woDays(j);
+  const steps=STEPDEF.map((d,i)=>{const st=o.steps[i]||{}, cls=o.final||i<o.cur?"done":(i===o.cur&&o.file&&!o.returned?"cur":"");
+    return `<li class="${cls}"><b>${d.role}</b><span>${esc(woWho(j,d.k))}</span><span>${d.what}</span><span>${st.state==="approved"?"Signed off "+esc(st.at):(cls==="cur"?"Waiting, day "+dd+" of "+due:"Pending")}</span></li>`;}).join("");
+  const acts=[];
+  if(woCanUpload(j)) acts.push(`<div class="row" style="margin-top:10px"><label class="field">Draft from Claude (PDF or Word)<input type="file" id="woFile" accept=".pdf,.doc,.docx"></label><button class="btn" data-woact="upload|${j.id}">${o.returned?"Upload revised draft":"Upload draft"}</button><span class="note">No file handy? Upload with nothing chosen to use a sample.</span></div>`);
+  if(woCanAct(j)){const d=STEPDEF[o.cur]; acts.push(`<div class="field" style="margin-top:10px"><textarea id="woComment" rows="2" placeholder="Comment, required to send it back" aria-label="Work order comment"></textarea></div><div class="row" style="margin-top:6px"><button class="btn" data-woact="approve|${j.id}">Sign off: ${d.what.toLowerCase()}</button><button class="btn sec" data-woact="return|${j.id}">Send back to Lori</button>${woMine(j)?"":`<span class="note">Acting for ${esc(woLabel(j,d.k))}. Logged under your name.</span>`}</div>`);}
+  if(woCanFile(j)) acts.push(`<div class="row" style="margin-top:10px"><button class="btn" data-woact="filed|${j.id}">Mark filed in Procore</button><span class="note">TMI Ops reads Procore and never writes to it, so Lori files the final there.</span></div>`);
+  if(o.final&&o.filed) acts.push(`<div class="row" style="margin-top:10px"><button class="btn sec" data-woact="procore|${j.id}">View in Procore</button><span class="note">Final work order of record. The copy here always pulls Procore’s current version.</span></div>`);
+  const stateLine=s==="Final"?(o.filed?"Filed in Procore.":"Waiting on Lori to file it in Procore."):"Waiting on "+esc(woWaiting(j))+", "+dd+" day"+(dd===1?"":"s")+(late?`, <b style="color:var(--red)">past the ${due}-day deadline</b>`:"")+".";
+  return `<div class="wobox"><div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:15px">Work order</b>${woTag(j)}</div>
+  <p class="note" style="margin:6px 0 10px">${o.file?(o.final?"Final ":"Draft ")+esc(o.file)+(o.ver>1?" (version "+o.ver+")":"")+". ":"No draft yet. "}${stateLine} The job stays booked on the schedule either way.</p>
+  ${o.returned?`<ul class="att" style="margin:0 0 10px"><li><span class="tag red">Sent back</span><span>At the ${o.returned.role==="PM"?"PM":esc(o.returned.role.toLowerCase())} step, ${esc(o.returned.by)}: ${esc(o.returned.comment)}</span></li></ul>`:""}
+  <ol class="chain">${steps}</ol>${acts.join("")}
+  ${o.hist.length?`<details style="margin-top:10px"><summary class="note">Work order history (${o.hist.length})</summary><ul class="att" style="margin-top:6px">${o.hist.slice(0,12).map(h=>`<li><span class="tag">${esc(h.stamp)}</span><span>${esc(h.who)}: ${esc(h.act)}${h.note?`<br><span class="q">“${esc(h.note)}”</span>`:""}</span></li>`).join("")}</ul></details>`:""}</div>`;
+}
+const signedOff=j=>!!(j.jy&&j.jy.walk);
+const retHeld=j=>Math.round((j.retPct||0)*j.value);
+const toBill=j=>Math.max(0,j.value-(j.billed||0));
+const billState=j=>!j.done||isVerbal(j)?null:(!j.inv?(signedOff(j)?"ready":"wait"):((j.retPct||0)>0&&!j.retPaid?"ret":"closed"));
+const invDue=j=>j.billReady?addDays(j.billReady,S.set.invDays||3):null;
+const invLate=j=>billState(j)==="ready"&&invDue(j)<S.week;
+const acctTo=j=>["Accounting","Jared","PM "+j.pm,"Austin"];
+const BMETH={final:"Final invoice only",monthly:"Monthly progress billing",milestone:"Milestone billing"};
+const MSTEMPLATE=[["Mobilization",20],["Surface prep complete",30],["Coatings applied",40]];
+const bm=j=>j.billMethod||"final";
+const invs=j=>j.invoices||[];
+const monthName=p=>new Date(p+"-01T00:00:00Z").toLocaleDateString("en-US",{month:"long",year:"numeric",timeZone:"UTC"});
+const nextP=p=>{const [y,m]=p.split("-").map(Number);return m===12?(y+1)+"-01":y+"-"+String(m+1).padStart(2,"0");};
+const periodsFor=j=>{const out=[];let p=j.start.slice(0,7);const end=S.week.slice(0,7);while(p<=end){out.push(p);p=nextP(p);}return out;};
+const payDue=p=>p+"-"+String(S.set.payDay||25).padStart(2,"0");
+const progDue=j=>bm(j)!=="monthly"||isVerbal(j)||j.done||j.start>S.week?[]:periodsFor(j).filter(p=>!invs(j).some(i=>i.period===p&&(i.kind==="progress"||i.kind==="skip")));
+const progLate=p=>payDue(p)<S.week;
+const progSuggest=j=>Math.max(0,Math.round((recog(j)-(j.billed||0))/100)*100);
+const msAmt=(j,m)=>Math.round(j.value*m.pct/100);
+const msReady=j=>(j.milestones||[]).map((m,i)=>Object.assign({i},m)).filter(m=>m.reached&&!m.inv);
+const msTotal=j=>(j.milestones||[]).reduce((a,m)=>a+(+m.pct||0),0);
+const canMs=j=>(S.role==="admin"||S.role==="ceo"||S.role==="ops")||(S.role==="pm"&&j.pm===ROLES.pm.pm);
+function billSweep(){
+  const cp=S.week.slice(0,7), due=S.jobs.filter(j=>progDue(j).length);
+  if(due.length&&S.billPeriodAlert!==cp){S.billPeriodAlert=cp;
+    notify("bill","Progress billing for "+monthName(cp)+": "+due.length+" job"+(due.length>1?"s":""),due.map(j=>j.num+" "+j.customer+": "+progDue(j).map(monthName).join(", ")+", suggested "+usd(progSuggest(j))).join("\n")+"\nPay applications due by the "+(S.set.payDay||25)+"th.",["Accounting","Jared"]);}
+  S.jobs.forEach(j=>{const st=billState(j);
+    progDue(j).filter(progLate).forEach(p=>{j.payLate=j.payLate||{};if(!j.payLate[p]){j.payLate[p]=true;
+      notify("bill","Progress invoice late: "+j.num+" "+j.customer,monthName(p)+" was due "+fmt(payDue(p))+". "+usd(progSuggest(j))+" recognized but not billed.",["Accounting","Jared","Austin"],j.id);}});
+    if(st==="ready"&&!j.billReady){j.billReady=S.week;
+      notify("bill","Ready to invoice: "+j.num+" "+j.customer,"Job complete "+fmt(j.actualFinish||j.completed||S.week)+" and signed off by the customer.\nFinal invoice "+usd(toBill(j))+(retHeld(j)?", retainage held "+usd(retHeld(j)):"")+". PO "+(j.po||"not on file")+".\nInvoice due by "+fmt(invDue(j))+".",acctTo(j),j.id);
+      logEvent("Job "+j.num,"Billing","waiting","ready to invoice");}
+    if(st==="wait"&&!j.billWait){j.billWait=true;
+      notify("bill","Complete, waiting on sign-off: "+j.num+" "+j.customer,"The job is complete but the customer hasn’t signed off at the final walk. PM "+j.pm+" to get the sign-off so accounting can invoice.",acctTo(j),j.id);}
+    if(st==="ready"&&invLate(j)&&!j.billLateSent){j.billLateSent=true;
+      notify("bill","Invoice late: "+j.num+" "+j.customer,"Ready to invoice since "+fmt(j.billReady)+"; it was due "+fmt(invDue(j))+". "+usd(toBill(j))+" not yet billed.",["Accounting","Jared","Austin"],j.id);}
+  });
+}
+const canBill=()=>S.role==="acct"||S.role==="admin"||S.role==="ceo";
+function billCard(j){
+  const st=billState(j), late=invLate(j);
+  const line=st==="wait"?`Finished ${fmt(j.actualFinish||j.completed)}. Waiting on PM ${esc(j.pm)} for sign-off.`:
+    st==="ready"?`Final invoice, ${usd(toBill(j))}. Due ${fmt(invDue(j))}${late?", late":""}.`:
+    st==="ret"?`Invoice ${esc(j.inv.num)}, ${fmt(j.inv.date)}. Retainage ${usd(retHeld(j))} outstanding.`:
+    `Invoice ${esc(j.inv.num)}, ${fmt(j.inv.date)}.${retHeld(j)?" Retainage received.":""}`;
+  return `<button class="jycard ${late?"late":(st==="wait"?"soon":"")}" data-job="${j.id}" data-billopen="1"><b>${j.num} ${esc(j.customer)}</b><span class="q ${late?"r":""}">${line}</span></button>`;
+}
+const msCard=(j,m)=>`<button class="jycard" data-job="${j.id}" data-billopen="1"><b>${j.num} ${esc(j.customer)}</b><span class="q">Milestone: ${esc(m.l)}, ${m.pct}%, ${usd(msAmt(j,m))}. Reached ${fmt(m.reached)}.</span></button>`;
+function vBill(){
+  const js=S.jobs.filter(j=>billState(j)); const by=k=>js.filter(j=>billState(j)===k);
+  const ready=by("ready"), wait=by("wait"), ret=by("ret"), closed=by("closed").sort((a,b)=>(b.inv.date||"").localeCompare(a.inv.date||"")).slice(0,8);
+  const ms=S.jobs.flatMap(j=>msReady(j).map(m=>({j,m})));
+  const prog=S.jobs.flatMap(j=>progDue(j).map(p=>({j,p}))).sort((a,b)=>a.p.localeCompare(b.p)||a.j.num.localeCompare(b.j.num));
+  const readyUSD=ready.reduce((a,j)=>a+toBill(j),0)+ms.reduce((a,x)=>a+msAmt(x.j,x.m),0);
+  const col=(t,html,n,empty)=>`<div class="jycol"><h3>${t}<span>${n}</span></h3>${html||`<p class="note" style="margin:4px">${empty}</p>`}</div>`;
+  const under=S.jobs.filter(j=>sold(j)&&!j.done&&bm(j)==="final"&&recog(j)-j.billed>1000).sort((a,b)=>(recog(b)-b.billed)-(recog(a)-a.billed));
+  const cnt=k=>S.jobs.filter(j=>!isVerbal(j)&&!j.done&&bm(j)===k).length;
+  return `<h1>Billing</h1>
+  <p class="lead">Each job bills one of three ways: a final invoice only, monthly progress invoices, or milestones. Whatever is due lands here with an alert. Draft invoices in Sage as usual, then record the number here. TMI Ops never writes to Sage.</p>
+  <div class="kpis">
+    <div class="kpi ${prog.some(x=>progLate(x.p))?"warn":""}"><div class="v num">${prog.length}</div><div class="l">Progress invoices due${prog.some(x=>progLate(x.p))?`, ${prog.filter(x=>progLate(x.p)).length} late`:""}</div></div>
+    <div class="kpi ${ready.length+ms.length?"warn":""}"><div class="v num">${ready.length+ms.length}</div><div class="l">Final and milestone invoices ready, ${usd(readyUSD)}</div></div>
+    <div class="kpi"><div class="v num">${wait.length}</div><div class="l">Complete, waiting on customer sign-off</div></div>
+    <div class="kpi"><div class="v num">${usd(ret.reduce((a,j)=>a+retHeld(j),0))}</div><div class="l">Retainage outstanding on ${ret.length} job${ret.length===1?"":"s"}</div></div>
+  </div>
+  <p class="note">Open jobs by billing method: ${cnt("final")} final only, ${cnt("monthly")} monthly, ${cnt("milestone")} milestone. Set the method in each job’s billing section.</p>
+  <h2>Monthly progress billing</h2>
+  <p class="note">One pay application per job per month, due by the ${S.set.payDay||25}th. The suggested amount is revenue recognized from the Monday percent complete, less what’s already billed.</p>
+  ${prog.length?`<div class="scroll"><table><thead><tr><th>Job</th><th>Month</th><th>Due</th><th class="r">Recognized</th><th class="r">Billed</th><th class="r">Suggested</th><th></th></tr></thead><tbody>${prog.map(x=>`<tr><td><button class="jl" data-job="${x.j.id}" data-billopen="1">${x.j.num} ${esc(x.j.customer)}</button></td><td>${monthName(x.p)}</td><td>${progLate(x.p)?`<span class="tag red">Late</span> `:""}${fmt(payDue(x.p))}</td><td class="r num">${usd(recog(x.j))}</td><td class="r num">${usd(x.j.billed||0)}</td><td class="r num">${usd(progSuggest(x.j))}</td><td><button class="btn sec" data-job="${x.j.id}" data-billopen="1">Open</button></td></tr>`).join("")}</tbody></table></div>`:`<div class="panel"><p class="note" style="margin:0">No progress invoices due.</p></div>`}
+  <h2>Final and milestone invoices</h2>
+  <div class="jyboard">${col("Waiting on sign-off",wait.map(billCard).join(""),wait.length,"None")}${col("Ready to invoice",ms.map(x=>msCard(x.j,x.m)).join("")+ready.map(billCard).join(""),ready.length+ms.length,"Nothing to invoice")}${col("Invoiced, retainage outstanding",ret.map(billCard).join(""),ret.length,"None")}${col("Closed",closed.map(billCard).join(""),closed.length,"None yet")}</div>
+  <h2>Final-only jobs running ahead of billing</h2>
+  <p class="note">Recognized revenue ahead of billing by more than $1,000 on jobs set to final invoice only. Worth asking whether they should bill monthly.</p>
+  ${under.length?`<div class="scroll"><table><thead><tr><th>Job</th><th class="r">Contract</th><th class="r">Recognized</th><th class="r">Billed</th><th class="r">Under billed</th></tr></thead><tbody>${under.map(j=>`<tr><td><button class="jl" data-job="${j.id}" data-billopen="1">${j.num} ${esc(j.customer)}</button></td><td class="r num">${usd(j.value)}</td><td class="r num">${usd(recog(j))}</td><td class="r num">${usd(j.billed)}</td><td class="r num">${usd(recog(j)-j.billed)}</td></tr>`).join("")}</tbody></table></div>`:`<div class="panel"><p class="note" style="margin:0">None.</p></div>`}`;
+}
+let BILLOPEN=false;
+function billPanel(j){
+  if(isVerbal(j)) return "";
+  const st=billState(j), m=bm(j), cb=canBill(), pd=progDue(j), mr=msReady(j);
+  const rows=[["Billing method",BMETH[m]],["Contract value",usd(j.value)],["Approved change orders","None yet. Pulled from Procore once connected."],["Billed to date",usd(j.billed||0)],["Remaining to bill",usd(toBill(j))],["Retainage",retHeld(j)?usd(retHeld(j))+" ("+pct(j.retPct)+")":"None"],["Customer PO",j.po||"Not on file"],["Billing contact",j.billTo||"Not on file"],["Lien waivers",j.lien?"Required":"Not required"],["Certified payroll",j.cpr?"Required":"Not required"]];
+  if(st) rows.splice(8,0,["Customer sign-off",signedOff(j)?"Signed "+esc(j.jy.walk.at)+" ("+esc(j.jy.walk.by)+")":"Not yet"]);
+  const label=st?{wait:"complete, waiting on customer sign-off",ready:invLate(j)?"final invoice ready, late":"final invoice ready",ret:"invoiced, retainage outstanding",closed:"invoiced and closed"}[st]:(pd.length?(pd.some(progLate)?"progress invoice late":"progress invoice due"):(mr.length?"milestone ready to invoice":lc1(BMETH[m])));
+  let h="";
+  if(cb&&!j.done) h+=`<div class="row" style="margin-top:10px"><label class="field">Billing method<select id="bMeth">${Object.keys(BMETH).map(k=>`<option value="${k}" ${k===m?"selected":""}>${BMETH[k]}</option>`).join("")}</select></label><button class="btn sec" data-billact="meth|${j.id}">Change method</button></div>`;
+  if(m==="monthly"){
+    h+=`<h3 style="font-size:14px;margin:14px 0 6px">Progress invoices</h3>`;
+    if(pd.length) h+=pd.map(p=>`<div class="panel" style="padding:10px;margin-bottom:8px"><b>${monthName(p)}</b> <span class="note">${progLate(p)?`<span class="tag red">Late</span> was due`:"due"} ${fmt(payDue(p))}. Suggested ${usd(progSuggest(j))}: ${usd(recog(j))} recognized less ${usd(j.billed||0)} billed.</span>
+      ${cb?`<div class="fg" style="margin-top:8px"><label class="field">Invoice number<input id="pNum_${p}" placeholder="From Sage"></label><label class="field">Amount ($)<input id="pAmt_${p}" type="number" min="0" step="100" value="${progSuggest(j)}"></label></div><div class="row" style="margin-top:6px"><button class="btn" data-billact="prog|${j.id}|${p}">Record progress invoice</button><button class="btn sec" data-billact="skip|${j.id}|${p}">Nothing to bill this month</button></div>`:""}</div>`).join("");
+    else if(!j.done) h+=`<p class="note" style="margin:0">${j.start>S.week?"Starts "+fmt(j.start)+". First pay application due "+fmt(payDue(j.start.slice(0,7)))+".":"Up to date. Next pay application due "+fmt(payDue(nextP(S.week.slice(0,7))))+"."}</p>`;
+  }
+  if(m==="milestone"){
+    const ml=j.milestones||[], edit=cb&&!j.done;
+    h+=`<h3 style="font-size:14px;margin:14px 0 6px">Milestones</h3><div class="scroll"><table><thead><tr><th>Milestone</th><th class="r">%</th><th class="r">Amount</th><th>Status</th><th></th></tr></thead><tbody>${ml.map((x,i)=>{
+      const lock=!!x.inv||!edit;
+      const status=x.inv?`Invoiced ${esc(x.inv.num)}, ${fmt(x.inv.date)}`:(x.reached?`<b>Reached ${fmt(x.reached)}</b>, by ${esc(x.by||"")}`:"Not reached");
+      const act=x.inv?"":(x.reached?(cb?`<span class="row" style="gap:6px"><input id="mNum_${i}" placeholder="Invoice no." style="width:110px" aria-label="Invoice number"><button class="btn" data-billact="msinv|${j.id}|${i}">Record invoice</button></span>`:""):(canMs(j)&&!j.done?`<button class="btn sec" data-billact="msreach|${j.id}|${i}">Mark reached</button>`:""));
+      return `<tr><td>${lock?esc(x.l):`<input data-msl="${i}" value="${esc(x.l)}" aria-label="Milestone name">`}</td><td class="r">${lock?x.pct:`<input data-msp="${i}" type="number" min="0" max="100" value="${x.pct}" style="width:64px" aria-label="Percent">`}</td><td class="r num">${usd(msAmt(j,x))}</td><td>${status}</td><td>${act}</td></tr>`;}).join("")}
+      <tr><td>Final invoice at customer sign-off</td><td class="r">${Math.max(0,100-msTotal(j))}</td><td class="r num">${usd(Math.round(j.value*Math.max(0,100-msTotal(j))/100))}</td><td>${j.inv?"Invoiced":"At completion"}</td><td></td></tr></tbody></table></div>
+      ${edit?`<div class="row" style="margin-top:8px"><button class="btn sec" data-billact="msadd|${j.id}">Add milestone</button><button class="btn sec" data-billact="mssave|${j.id}">Save milestones</button><span class="note">Milestones total ${msTotal(j)}%. The rest bills at sign-off.</span></div>`:""}`;
+  }
+  if(m==="final"&&!j.done) h+=`<p class="note" style="margin:10px 0 0">One invoice for the full contract once the job is complete and the customer signs off.</p>`;
+  if(st==="ready"&&cb) h+=`<h3 style="font-size:14px;margin:14px 0 6px">Final invoice</h3><div class="fg"><label class="field">Invoice number<input id="invNum" placeholder="From Sage"></label><label class="field">Invoice amount ($)<input id="invAmt" type="number" min="0" step="100" value="${toBill(j)}"></label></div><div class="row" style="margin-top:8px"><button class="btn" data-billact="inv|${j.id}">Record invoice</button><span class="note">Due ${fmt(invDue(j))}.</span></div>`;
+  if(st==="ret"&&cb) h+=`<div class="row" style="margin-top:10px"><button class="btn" data-billact="ret|${j.id}">Retainage received</button></div>`;
+  if(st==="wait") h+=`<p class="note" style="margin:10px 0 0">The PM marks the final walk done in the job journey. That sends it to Ready to invoice.</p>`;
+  const hist=invs(j).filter(i=>i.kind!=="skip");
+  if(hist.length) h+=`<h3 style="font-size:14px;margin:14px 0 6px">Invoice history</h3><div class="scroll"><table><thead><tr><th>Invoice</th><th>Type</th><th>Date</th><th class="r">Amount</th></tr></thead><tbody>${hist.map(i=>`<tr><td>${esc(i.num)}</td><td>${i.kind==="progress"?"Progress, "+monthName(i.period):(i.kind==="milestone"?"Milestone: "+esc(i.l):"Final")}</td><td>${fmt(i.date)}</td><td class="r num">${usd(i.amt)}</td></tr>`).join("")}</tbody></table></div>`;
+  const open=BILLOPEN||st==="ready"||pd.length||mr.length;
+  return `<details class="wobox" ${open?"open":""}><summary>Billing: ${label}</summary><div class="scroll" style="margin-top:8px"><table>${rows.map(r=>`<tr><td>${r[0]}</td><td class="r">${r[1]}</td></tr>`).join("")}</table></div>${h}</details>`;
+}
+function billAction(a,id,x){
+  const j=jobById(id); if(!j) return;
+  const who=ROLES[S.role].name, v=sel=>{const e=document.getElementById(sel);return e?e.value.trim():"";};
+  const addInv=(o)=>{j.invoices=j.invoices||[];j.invoices.push(Object.assign({date:S.week,by:who},o));j.billed=(j.billed||0)+(o.amt||0);};
+  if(a==="msreach"){if(!canMs(j))return;const m=j.milestones[+x];m.reached=S.week;m.by=who;
+    logEvent("Job "+j.num,"Milestone: "+m.l,"not reached","reached");
+    notify("bill","Milestone reached: "+j.num+" "+j.customer,m.l+" ("+m.pct+"%, "+usd(msAmt(j,m))+"). Ready to invoice.\nMarked by "+who+".",["Accounting","Jared","PM "+j.pm],j.id);}
+  else{ if(!canBill()) return;
+  if(a==="inv"){const num=v("invNum"), amt=+v("invAmt")||0;
+    if(!num){alert("Enter the invoice number from Sage.");return;}
+    j.inv={num,amt,date:S.week,by:who}; addInv({kind:"final",num,amt});
+    logEvent("Job "+j.num,"Final invoice","none",num+", "+usd(amt));
+    notify("bill","Invoiced: "+j.num+" "+j.customer,"Final invoice "+num+" for "+usd(amt)+"."+(retHeld(j)?" Retainage "+usd(retHeld(j))+" still outstanding.":"")+"\nRecorded by "+who+".",["Jared","Austin","PM "+j.pm,REPNAME[j.rep]||j.rep],j.id);}
+  if(a==="ret"){j.retPaid=S.week;logEvent("Job "+j.num,"Retainage","outstanding","received "+usd(retHeld(j)));}
+  if(a==="prog"){const num=v("pNum_"+x), amt=+v("pAmt_"+x)||0;
+    if(!num){alert("Enter the invoice number from Sage.");return;}
+    addInv({kind:"progress",period:x,num,amt});logEvent("Job "+j.num,"Progress invoice "+monthName(x),"not billed",num+", "+usd(amt));
+    notify("bill","Progress invoiced: "+j.num+" "+j.customer,monthName(x)+": invoice "+num+" for "+usd(amt)+".\nRecorded by "+who+".",["Jared","PM "+j.pm,REPNAME[j.rep]||j.rep],j.id);}
+  if(a==="skip"){j.invoices=j.invoices||[];j.invoices.push({kind:"skip",period:x,date:S.week,by:who,amt:0});logEvent("Job "+j.num,"Progress invoice "+monthName(x),"due","nothing to bill");}
+  if(a==="meth"){const nm=v("bMeth");if(nm&&nm!==bm(j)){logEvent("Job "+j.num,"Billing method",BMETH[bm(j)],BMETH[nm]);j.billMethod=nm;
+    if(nm==="milestone"&&!(j.milestones||[]).length) j.milestones=MSTEMPLATE.map(([l,pc])=>({l,pct:pc}));}}
+  if(a==="msadd"){j.milestones=j.milestones||[];j.milestones.push({l:"New milestone",pct:0});}
+  if(a==="mssave"){const ml=j.milestones||[];const nx=ml.map((m,i)=>{const le=document.querySelector(`[data-msl="${i}"]`),pe=document.querySelector(`[data-msp="${i}"]`);return Object.assign({},m,le?{l:le.value.trim()||m.l}:{},pe?{pct:Math.max(0,+pe.value||0)}:{});});
+    const tot=nx.reduce((s2,m)=>s2+m.pct,0); if(tot>100){alert("Milestones add up to "+tot+"%. Keep them at 100% or less; anything left bills at sign-off.");return;}
+    j.milestones=nx.filter(m=>m.pct>0||m.inv);logEvent("Job "+j.num,"Milestones","edited",j.milestones.map(m=>m.l+" "+m.pct+"%").join(", "));}
+  if(a==="msinv"){const m=j.milestones[+x], num=v("mNum_"+x);if(!num){alert("Enter the invoice number from Sage.");return;}
+    const amt=msAmt(j,m); m.inv={num,amt,date:S.week,by:who}; addInv({kind:"milestone",l:m.l,num,amt});
+    logEvent("Job "+j.num,"Milestone invoice: "+m.l,"not billed",num+", "+usd(amt));
+    notify("bill","Milestone invoiced: "+j.num+" "+j.customer,m.l+": invoice "+num+" for "+usd(amt)+".\nRecorded by "+who+".",["Jared","PM "+j.pm,REPNAME[j.rep]||j.rep],j.id);}
+  }
+  save(); BILLOPEN=true; openJob(id,DLGWEEK); render();
+}
+function jyCard(j){
+  const lt=jyLateList(j), nx=jyNext(j), r=jyReady(j), si=jyStage(j);
+  const soon=!lt.length&&nx&&jySoon(j,nx);
+  const when=si>=STARTUP_STAGES?(j.done?"Finished "+fmt(j.actualFinish||j.finish):"Finish "+fmt(j.finish)):"Starts "+fmt(j.start);
+  return `<button class="jycard ${lt.length?"late":(soon?"soon":"")}" data-job="${j.id}"><b>${j.num} ${esc(j.customer)}</b><span class="q">${when}. PM ${esc(j.pm)}.</span>
+  ${nx?`<span class="q ${lt.length?"r":""}">${lt.length?lt.length+" overdue. ":""}Next: ${esc(lc1(nx.l))}, ${esc(jyOwner(j,nx))}, due ${fmt(jyDue(j,nx))}.</span>`:""}
+  ${si<STARTUP_STAGES?`<span class="jymeter" title="Startup ${pct(r)} done"><i style="width:${r*100}%"></i></span>`:""}</button>`;
+}
+function vJourney(){
+  const js=jyJobs(), w=S.week;
+  const startSoon=js.filter(j=>j.start<=addDays(w,21)&&jyStage(j)<STARTUP_STAGES);
+  const notReady=startSoon.filter(j=>JITEMS.some(it=>it.si<STARTUP_STAGES&&(jyLate(j,it)||jySoon(j,it))));
+  const late=js.flatMap(j=>jyLateList(j).map(it=>({j,it}))).sort((a,b)=>daysLate(b.j,b.it)-daysLate(a.j,a.it));
+  const inClose=js.filter(j=>jyStage(j)>=7).length;
+  const mine=S.role==="admin"||S.role==="ceo"?[]:js.flatMap(j=>JITEMS.filter(it=>jyCan(j,it)&&!jyDone(j,it)&&jyDue(j,it)<=addDays(w,14)).map(it=>({j,it}))).sort((a,b)=>jyDue(a.j,a.it).localeCompare(jyDue(b.j,b.it)));
+  const cols=JSTAGES.map((st,si)=>{const cj=js.filter(j=>jyStage(j)===si).sort((a,b)=>(jyLateList(b).length-jyLateList(a).length)||a.start.localeCompare(b.start));
+    return `<div class="jycol"><h3>${esc(st.l)}<span>${cj.length}</span></h3>${cj.map(jyCard).join("")||`<p class="note" style="margin:4px">None</p>`}</div>`;}).join("");
+  const row=x=>`<tr><td><button class="jl" data-job="${x.j.id}">${x.j.num} ${esc(x.j.customer)}</button></td><td>${esc(x.it.l)}</td><td>${esc(jyOwner(x.j,x.it))}</td><td>${fmt(jyDue(x.j,x.it))}</td><td class="r num">${jyLate(x.j,x.it)?daysLate(x.j,x.it):"—"}</td><td>${jyCan(x.j,x.it)?`<button class="btn sec" data-jy="${x.it.k}|${x.j.id}">Mark done</button>`:""}</td></tr>`;
+  const head=`<thead><tr><th>Job</th><th>Checkpoint</th><th>Owner</th><th>Due</th><th class="r">Days late</th><th></th></tr></thead>`;
+  return `<h1>Job journey</h1>
+  <p class="lead">Where every open job stands, from sale to closeout. Each checkpoint has an owner and a due date set from the job’s start or finish. Rough draft: the stages, owners and lead times are placeholders to adjust.</p>
+  <div class="kpis">
+    <div class="kpi"><div class="v num">${startSoon.length}</div><div class="l">Jobs starting in the next 3 weeks</div></div>
+    <div class="kpi ${notReady.length?"warn":""}"><div class="v num">${notReady.length}</div><div class="l">Of those, not ready: startup checkpoints late or due this week</div></div>
+    <div class="kpi ${late.length?"warn":""}"><div class="v num">${late.length}</div><div class="l">Checkpoints overdue</div></div>
+    <div class="kpi"><div class="v num">${inClose}</div><div class="l">Jobs in punch or closeout</div></div>
+  </div>
+  ${mine.length?`<h2>Your checkpoints, next 2 weeks</h2><div class="scroll"><table>${head}<tbody>${mine.map(row).join("")}</tbody></table></div>`:""}
+  <h2>The board</h2>
+  <p class="note">Each job sits at its earliest unfinished stage. Red edge: something is overdue. Yellow: due within a week. The green bar is startup progress.</p>
+  <div class="jyboard">${cols}</div>
+  <h2>Overdue checkpoints</h2>
+  ${late.length?`<div class="scroll"><table>${head}<tbody>${late.map(row).join("")}</tbody></table></div>`:`<div class="panel"><p class="note" style="margin:0">Nothing overdue.</p></div>`}
+  <h2>The journey, step by step</h2>
+  <div class="scroll"><table><thead><tr><th>Stage</th><th>Checkpoint</th><th>Owner</th><th>Due</th></tr></thead><tbody>${JITEMS.map(it=>`<tr><td>${esc(JSTAGES[it.si].l)}</td><td>${esc(it.l)}${it.auto?` <span class="q">(automatic, from the ${esc(it.src)})</span>`:""}</td><td>${({rep:"Sales rep",lori:"Lori",pm:"PM",ops:"Scheduler",fin:"Accounting"})[it.o]}</td><td>${jyLead(it)}</td></tr>`).join("")}</tbody></table></div>
+  <p class="note">Once Procore is connected, submittals, purchase orders and invoices can check themselves off from what’s already entered there.</p>`;
+}
+function jyPanel(j){
+  if(isVerbal(j)) return "";
+  const si=jyStage(j), lt=jyLateList(j);
+  const line=JSTAGES.map((st,i)=>{const sl=st.items.some(it=>jyLate(j,it));const all=st.items.every(it=>jyDone(j,it));return `<li class="${sl?"late":(all?"done":(i===si?"cur":""))}">${esc(st.l)}</li>`;}).join("");
+  const list=JSTAGES.map((st,i)=>`<li class="sh">${esc(st.l)}</li>`+st.items.map(it=>{const d=jyDone(j,it), rec=(j.jy||{})[it.k];
+    const state=d?`<span class="ok">Done${rec?" by "+esc(rec.by)+", "+esc(rec.at):(it.auto?", from the "+esc(it.src):"")}</span>`:(jyLate(j,it)?`<span class="lt">${daysLate(j,it)} days late, was due ${fmt(jyDue(j,it))}</span>`:`Due ${fmt(jyDue(j,it))}`);
+    const act=jyCan(j,it)?`<button class="btn sec" data-jy="${it.k}|${j.id}">${d?"Undo":"Mark done"}</button>`:"";
+    return `<li><span>${esc(it.l)}<span class="q">${esc(jyOwner(j,it))}. ${state}</span></span>${act}</li>`;}).join("")).join("");
+  return `<details class="wobox" ${JYOPEN?"open":""}><summary>Job journey: ${si>=JSTAGES.length?"complete":esc(JSTAGES[si].l.toLowerCase())}${lt.length?`, <span style="color:var(--red)">${lt.length} overdue</span>`:""}</summary>
+  <ol class="jyline" aria-label="Job journey stages">${line}</ol><ul class="jylist">${list}</ul></details>`;
+}
+function jyToggle(k,id){
+  const j=jobById(id), it=JITEMS.find(x=>x.k===k); if(!j||!it||!jyCan(j,it)) return;
+  j.jy=j.jy||{};
+  if(j.jy[k]){delete j.jy[k];logEvent("Job "+j.num,"Journey: "+it.l,"done","reopened");}
+  else{j.jy[k]={by:ROLES[S.role].name,at:nowStamp()};logEvent("Job "+j.num,"Journey: "+it.l,"open","done");}
+  save(); const dlg=document.getElementById("jobdlg");
+  if(dlg.open){JYOPEN=true;openJob(id,DLGWEEK);} render();
+}
+function vWO(){
+  const due=S.set.woDays||2;
+  const list=visibleJobs().filter(j=>!j.done&&!isVerbal(j)&&j.wo);
+  const open=list.filter(woOpen);
+  const q=["lori","est","rep","pm","ops"].includes(S.role)?list.filter(woMine):null;
+  const k=(lbl,v,warn)=>`<div class="kpi ${warn?"warn":""}"><div class="v num">${v}</div><div class="l">${lbl}</div></div>`;
+  const dots=j=>{if(!j.wo.file&&!j.wo.final)return '<span class="note">No draft yet</span>';
+    return `<span class="wodots" aria-label="${j.wo.final?4:j.wo.cur} of 4 signed off">${STEPDEF.map((d,i)=>{const st=j.wo.final||i<j.wo.cur?"done":(i===j.wo.cur&&!j.wo.returned?"cur":"");return `<i class="${st}" title="${d.role}: ${st==="done"?"signed off":(st==="cur"?"waiting":"pending")}"></i>`;}).join("")}</span>`;};
+  const row=j=>{const late=woLate(j), dd=woOpen(j)?woDays(j):null;
+    return `<tr><td><button class="jl" data-job="${j.id}">${j.num} ${esc(j.customer)}</button><div class="note">${esc(j.type)}. Estimator ${esc(j.estr||"–")}, rep ${esc(REPNAME[j.rep]||j.rep)}, PM ${esc(j.pm)}</div></td><td>${fmt(j.start)}${woOpen(j)&&daysTo(j.start)<=14?' <span class="tag yel">Soon</span>':""}</td><td>${woTag(j,true)}${j.wo.final?(j.wo.filed?' <span class="note">In Procore</span>':' <span class="tag yel">File in Procore</span>'):""}</td><td>${dots(j)}</td><td>${esc(woWaiting(j))||"–"}</td><td class="r num"${late?' style="color:var(--red);font-weight:700"':""}>${dd==null?"–":dd+(late?" (late)":"")}</td></tr>`;};
+  const table=arr=>`<div class="scroll"><table><thead><tr><th>Job</th><th>Starts</th><th>Status</th><th>Sign-offs</th><th>Waiting on</th><th class="r">Days waiting</th></tr></thead><tbody>${arr.map(row).join("")||`<tr><td colspan="6" class="note">Nothing waiting on you.</td></tr>`}</tbody></table></div>`;
+  const sorted=list.slice().sort((a,b)=>(woOpen(b)-woOpen(a))||a.start.localeCompare(b.start));
+  const qTitle={lori:"Your queue: drafts to create, revise or file",est:"Your queue: drafts to check against the estimate",rep:"Your queue: contract terms to confirm",pm:"Your queue: execution plans to sign off",ops:"Your queue: crew and dates to set"}[S.role];
+  const soon=open.filter(j=>daysTo(j.start)<=14).length, lateN=open.filter(woLate).length;
+  return `<h1>Work orders</h1>
+  <p class="lead">Every sold job goes on the schedule as booked the moment it’s added. Its work order runs alongside and never holds the job off the board. Lori drafts it in Claude from the estimate and proposal, uploads it here, and it moves through four sign-offs. The final is filed in Procore as the work order of record.</p>
+  <div class="kpis">${k("Awaiting a draft or revision",open.filter(j=>!j.wo.file||j.wo.returned).length)}${k("In sign-off",open.filter(j=>j.wo.file&&!j.wo.returned).length)}${k("Past the "+due+"-day review deadline",lateN,lateN)}${k("Starting within 2 weeks, not final",soon,soon)}</div>
+  <div class="panel" style="margin-top:16px"><ol class="chain"><li><b>Lori</b><span>Drafts in Claude from the estimate and proposal, uploads it</span></li>${STEPDEF.map(d=>`<li><b>${d.role}</b><span>${d.what}</span></li>`).join("")}<li><b>Procore</b><span>Final filed as the record</span></li></ol>
+  <p class="note" style="margin:8px 0 0">Each step has ${due} days. A late step pings the PM and shows on the dashboard. Anyone in the chain can send it back with a comment; Lori revises it and sign-offs restart with the estimator.</p></div>
+  ${q?`<h2>${qTitle}</h2>${table(q)}`:""}
+  <h2>All work orders</h2>${table(sorted)}`;
+}
+function seedWO(jobs){
+  const W=START_WEEK, ago=n=>addDays(W,-n);
+  jobs.forEach(j=>{const s0=addDays(j.start,-12), up=addDays(s0,-3);
+    j.wo={file:"WO-"+j.num+"-draft-v1.pdf",ver:1,cur:4,steps:STEPDEF.map(d=>({state:"approved",by:woWho(j,d.k),at:fmt(s0)})),since:s0,final:true,filed:true,returned:null,
+      hist:[{stamp:fmt(s0),who:"Lori",act:"Final filed in Procore as the work order of record.",note:""},{stamp:fmt(s0),who:"Scheduler",act:"Scheduler sign-off: crew and dates approved.",note:""},{stamp:fmt(up),who:"Lori",act:"Uploaded draft WO-"+j.num+"-draft-v1.pdf.",note:""}]};});
+  const mid=(i,cur,days,estr)=>{const j=jobs[i]; if(estr) j.estr=estr; const at=k=>fmt(ago(days+cur-1-k));
+    j.wo={file:"WO-"+j.num+"-draft-v1.pdf",ver:1,cur,steps:STEPDEF.map((d,k)=>k<cur?{state:"approved",by:woWho(j,d.k),at:at(k)}:{state:"pending"}),since:ago(days),final:false,filed:false,returned:null,
+      hist:STEPDEF.slice(0,cur).map((d,k)=>({stamp:at(k),who:woWho(j,d.k),act:d.role+" sign-off: "+d.what.toLowerCase()+" approved.",note:""})).reverse().concat([{stamp:fmt(ago(days+cur)),who:"Lori",act:"Uploaded draft WO-"+j.num+"-draft-v1.pdf.",note:""}])};};
+  mid(9,3,1);                       // Prairie Pork: waiting on scheduler, starts in 10 days
+  mid(11,1,1);                      // City of Owatonna: waiting on rep Kelly Wright
+  mid(12,2,2);                      // Bluff Country: waiting on PM JS, due today
+  mid(13,0,4,"Greg Halvorsen");     // Minnesota Valley Ag: estimator 4 days, late
+  mid(15,0,0,"Greg Halvorsen");     // Two Rivers Hospital: draft just uploaded
+  mid(16,0,1,"Paula Kern");         // Kasota Stone
+  const ir=jobs[14];                // Iron Range: sent back by the PM
+  ir.wo={file:"WO-"+ir.num+"-draft-v1.pdf",ver:1,cur:0,steps:freshSteps(),since:ago(1),final:false,filed:false,
+    returned:{by:"PM TK",role:"PM",comment:"Access plan doesn’t match the estimate. Scope calls for three boom lifts and the estimate carries two. Add the third lift and the extra mobilization before I sign.",at:fmt(ago(1))},
+    hist:[{stamp:fmt(ago(1)),who:"PM TK",act:"Sent back by the PM.",note:"Access plan doesn’t match the estimate. Scope calls for three boom lifts and the estimate carries two. Add the third lift and the extra mobilization before I sign."},
+      {stamp:fmt(ago(2)),who:woWho(ir,"rep"),act:"Sales rep sign-off: contract terms approved.",note:""},{stamp:fmt(ago(3)),who:ir.estr,act:"Estimator sign-off: hours and scope approved.",note:""},{stamp:fmt(ago(4)),who:"Lori",act:"Uploaded draft WO-"+ir.num+"-draft-v1.pdf.",note:""}]};
+  [[17,1],[18,0],[19,0]].forEach(([i,d])=>{const j=jobs[i]; j.wo={file:null,ver:0,cur:0,steps:freshSteps(),since:ago(d),final:false,filed:false,returned:null,hist:[{stamp:fmt(ago(d)),who:"Lori",act:"Job booked on the schedule. Work order opened, awaiting a draft.",note:""}]};});
+  jobs[8].wo.filed=false; jobs[8].wo.hist.shift();   // Mesabi: final, not yet filed in Procore
+}
+
+/* ---------- permissions ---------- */
+const own=j=>j.supt===ROLES.supt.name;
+const can={
+  editPlan:()=>(S.role==="admin"||S.role==="ceo"),
+  editJob:(j,f)=>(S.role==="admin"||S.role==="ceo")||((f==="firm"||f==="after")&&(S.role==="ops"||(S.role==="pm"&&j.pm===ROLES.pm.pm)||(S.role==="rep"&&j.rep===myRep())))||(S.role==="supt"&&own(j)&&(f==="finish"||f==="crew"))||(S.role==="ops"&&(f==="status"||f==="actualFinish")),
+  editCrew:j=>(S.role==="admin"||S.role==="ceo")||(S.role==="supt"&&own(j)),
+  editSite:()=>(S.role==="admin"||S.role==="ceo")||S.role==="ops",
+  crew:()=>(S.role==="admin"||S.role==="ceo")||S.role==="ops",
+  roster:()=>(S.role==="admin"||S.role==="ceo"),
+  settings:()=>(S.role==="admin"||S.role==="ceo")
+};
+const myRep=()=>Object.keys(REPNAME).find(k=>REPNAME[k]===ROLES.rep.name);
+const visibleJobs=()=>S.role==="supt"?S.jobs.filter(own):(S.role==="rep"?S.jobs.filter(j=>j.rep===myRep()):(S.role==="pm"?S.jobs.filter(j=>j.pm===ROLES.pm.pm):S.jobs));
+
+/* ---------- rendering ---------- */
+function killCharts(){while(charts.length)charts.pop().destroy();}
+function render(){
+  killCharts(); billSweep();
+  const tabs=TABS.filter(t=>t.roles.includes(S.role));
+  if(!tabs.some(t=>t.id===CUR)) CUR=tabs[0].id;
+  if(CUR==="alerts") S.seen[S.role]=Date.now();
+  document.getElementById("tabs").innerHTML=tabs.map(t=>`<button data-tab="${t.id}" ${t.id===CUR?'aria-current="page"':""}>${t.label}</button>`).join("");
+  const unread=alertsFor(S.role).filter(a=>a.at>(S.seen[S.role]||0)).length;
+  const ct=document.getElementById("bellct"); ct.hidden=!unread; ct.textContent=unread;
+  document.getElementById("bell").hidden=S.role==="board";
+  document.getElementById("reset").hidden=S.role!=="admin";
+  const m=document.getElementById("main");
+  m.innerHTML={me:vMe,dash:vDash,sched:vSched,close:vClose,rev:vRev,crew:vCrew,alerts:vAlerts,lead:vLead,board:vBoard,wo:vWO,jy:vJourney,bill:vBill}[CUR]();
+  if(CUR==="dash") drawDash();
+  if(CUR==="rev") drawRev();
+  if(CUR==="board") drawBoard();
+}
+function chartDefaults(){Chart.defaults.color=css("--muted");Chart.defaults.borderColor=css("--line");Chart.defaults.font.family='Calibri, Carlito, "Segoe UI", system-ui, sans-serif';}
+
+const fmtDay=s=>D(s).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",timeZone:"UTC"});
+function vMe(){
+  const me=S.role==="crew"?personById(S.crewDemo):S.people.find(p=>p.name===ROLES.supt.name);
+  if(!me) return `<h1>My week</h1><p class="lead">No person linked to this login.</p>`;
+  const maps=a=>"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(a);
+  const weekBlock=(w,label)=>{
+    const jobs=S.jobs.filter(j=>sold(j)&&inWindow(j,w)&&(j.assign[w]||[]).includes(me.id));
+    const off=S.timeoff.filter(t=>t.pid===me.id&&t.start<=w&&t.end>=mon(w));
+    const ackKey=me.id+"|"+w, acked=S.ack[ackKey];
+    const cards=jobs.map(j=>{const st=j.start>mon(w)?j.start:mon(w), en=j.finish<w?j.finish:w, site=j.site||{}, lead=S.people.find(p=>p.name===j.supt);
+      const crew=(j.assign[w]||[]).map(personById).filter(Boolean).map(p=>esc(p.name.split(" ")[0])).join(", ");
+      return `<div class="panel" style="margin-bottom:10px"><div style="font-size:18px;font-weight:700">${esc(j.customer)}</div><div class="note">${esc(j.type)}. Job ${j.num}.</div>
+      <ul class="att" style="margin-top:8px">
+        <li><span class="tag blue">When</span><span>${fmtDay(st)}${st!==en?" to "+fmtDay(en):""}, start ${esc(site.time||"6:30 AM")}</span></li>
+        <li><span class="tag blue">Where</span><span>${esc(site.address||j.location)}<br><a class="jl" href="${maps(site.address||j.location)}" target="_blank" rel="noopener">Open in Maps</a></span></li>
+        <li><span class="tag blue">Leader</span><span>${esc(j.supt)}${lead&&lead.phone?`, <a class="jl" href="tel:${lead.phone}">${lead.phone}</a>`:""}</span></li>
+        <li><span class="tag">Site contact</span><span>${esc(site.contact||"Ask your leader")}</span></li>
+        <li><span class="tag">On arrival</span><span>${esc(site.orient||"None")}</span></li>
+        <li><span class="tag yel">PPE</span><span>${esc(site.ppe||"Hard hat, safety glasses, steel toes")}</span></li>
+        ${(j.notes||[]).filter(n=>n.crew).map(n=>`<li><span class="tag red">Note</span><span>${esc(n.text)}</span></li>`).join("")}
+        <li><span class="tag">Crew</span><span>${crew}</span></li>
+      </ul></div>`;}).join("");
+    return `<h2>${label}, week ending ${fmt(w)}</h2>
+      ${off.length?`<div class="banner" style="border-left-color:var(--yellow)">Time off: ${off.map(t=>fmt(t.start)+"–"+fmt(t.end)+" ("+t.type+")").join(", ")}.</div>`:""}
+      ${cards||`<p class="note">No job assigned yet. Your leader or the office will post it here.</p>`}
+      ${jobs.length?(acked?`<p class="note" style="color:var(--green)">You acknowledged this week (${acked}).</p>`:`<button class="btn" data-ack="${ackKey}">Got it</button>`):""}`;
+  };
+  const certs=[]; if(me.driver) certs.push(["DOT physical",me.med]); me.quals.forEach(qq=>certs.push([qq,(me.qexp||{})[qq]]));
+  const status=exp=>{if(!exp)return "";const d=Math.round((D(exp)-D(S.week))/DAY);return d<0?`<span class="tag red">Expired</span>`:(d<=60?`<span class="tag yel">${d} days left</span>`:`<span class="tag" style="color:var(--green)">Current</span>`);};
+  return `<h1>${esc(me.name.split(" ")[0])}’s week</h1>
+  <p class="lead">Where you’re going, when, and what to bring. Tap Got it so your leader knows you’ve seen it. Changes reach you by text.</p>
+  ${weekBlock(S.week,"This week")}${weekBlock(addDays(S.week,7),"Next week")}
+  <h2>My certifications</h2>
+  <div class="scroll"><table><thead><tr><th>Certification</th><th>Expires</th><th>Status</th></tr></thead><tbody>${certs.length?certs.map(([n,e])=>`<tr><td>${esc(n)}</td><td>${e?fmtY(e):"No date"}</td><td>${status(e)}</td></tr>`).join(""):`<tr><td colspan="3" class="note">No certifications on file. See the scheduler.</td></tr>`}</tbody></table></div>
+  <p class="note">The scheduler keeps these current. Reminders go out by text at 60 and 30 days.</p>`;
+}
+function vDash(){
+  const w=S.week, L=loadW(w), men=availMen(w), LA=availMen(w,true), LN=leadersNeeded(w);
+  const g=gapWeeks(8), risk=S.jobs.filter(atRisk), late=S.jobs.filter(pastFinish);
+  const miss=S.lastMissing.map(jobById).filter(Boolean);
+  const iss=groupIssues(crewIssues(weekList(6)));
+  const thisWeek=S.jobs.filter(j=>sold(j)&&inWindow(j,w));
+  const unconf=thisWeek.filter(j=>!S.confirm[j.id+"|"+w]);
+  const wint=winterJobs();
+  const verb=S.jobs.filter(j=>isVerbal(j)&&!j.done);
+  const att=[];
+  g.forEach(x=>{const parts=[];if(loadW(x)>capacity(x))parts.push(n0(loadW(x)-capacity(x))+" hrs over");if(leadersNeeded(x)>availMen(x,true))parts.push(n1(leadersNeeded(x)-availMen(x,true))+" leaders short");att.push(`<li><span class="tag red">Gap</span><span>Week ending ${fmt(x)}: ${parts.join(", ")}.</span></li>`);});
+  g.forEach(x=>{const mv=movers(x);if(mv.length)att.push(`<li><span class="tag blue">Move first</span><span>Week ending ${fmt(x)}: the most movable work is ${mv.slice(0,3).map(j=>`<button class="jl" data-job="${j.id}">${j.num} ${esc(j.customer)}</button> (${esc(firmOf(j).s)})`).join(", ")}. Locked jobs stay put.</span></li>`);});
+  S.jobs.filter(guessSoon).forEach(j=>att.push(`<li><span class="tag yel">Confirm</span><span><button class="jl" data-job="${j.id}">${j.num} ${esc(j.customer)}</button> starts ${fmt(j.start)} on TMI’s best guess. ${esc(REPNAME[j.rep]||j.rep)} to confirm timing with the customer.</span></li>`));
+  S.jobs.filter(j=>predIssue(j)).forEach(j=>{const p=predOf(j),k=predIssue(j);att.push(`<li><span class="tag ${k==="slip"?"red":"yel"}">${k==="slip"?"Blocked":"Watch"}</span><span><button class="jl" data-job="${j.id}">${j.num} ${esc(j.customer)}</button> can’t start until <button class="jl" data-job="${p.id}">${p.num} ${esc(p.customer)}</button> finishes. ${k==="slip"?`That job now runs to ${fmt(p.finish)}, past this one’s ${fmt(j.start)} start. Move the start or the crew.`:`That job is on pace for ${n0(eac(p))} hrs against ${n0(p.proj)}. Check the ${fmt(j.start)} start.`}</span></li>`);});
+  S.jobs.filter(j=>onHold(j)&&j.holdUntil&&j.holdUntil<=S.week).forEach(j=>att.push(`<li><span class="tag yel">On hold</span><span><button class="jl" data-job="${j.id}">${j.num} ${esc(j.customer)}</button> was due to restart ${fmt(j.holdUntil)}. Update the status or the restart date.</span></li>`));
+  risk.forEach(j=>att.push(`<li><span class="tag red">Overrun</span><span><button class="jl" data-job="${j.id}">${j.num} ${esc(j.customer)}</button> on pace for ${n0(eac(j))} hrs vs ${n0(j.proj)} projected (+${pct(eac(j)/j.proj-1)}).</span></li>`));
+  iss.slice(0,8).forEach(i=>att.push(`<li><span class="tag ${i.k==="double"||i.k==="off"?"red":"yel"}">${issueTag[i.k]}</span><span>${issueText(i)}</span></li>`));
+  if(iss.length>8) att.push(`<li><span class="tag">Crew</span><span>${iss.length-8} more crew issues in the next 6 weeks. Open a job to see its crew.</span></li>`);
+  if(unconf.length) att.push(`<li><span class="tag yel">Unconfirmed</span><span>${unconf.length} of ${thisWeek.length} crews this week not confirmed by their leader: ${unconf.map(j=>esc(j.supt.split(" ")[0])).join(", ")}.</span></li>`);
+  wint.forEach(x=>att.push(`<li><span class="tag blue">Winter</span><span>Exterior work on <button class="jl" data-job="${x.j.id}">${x.j.num} ${esc(x.j.customer)}</button> falls in winter weeks (${range(x.ws)})${isVerbal(x.j)?", verbal award":""}. Confirm the weather plan.</span></li>`));
+  S.jobs.filter(j=>lateRisk(j)&&!isVerbal(j)).forEach(j=>att.push(`<li><span class="tag red">Deadline</span><span><button class="jl" data-job="${j.id}">${j.num} ${esc(j.customer)}</button> is projected to finish ${fmt(j.finish)}, after its ${esc((j.mustWhy||"must-finish").toLowerCase())} deadline of ${fmt(j.must)}.</span></li>`));
+  openWeeks().forEach(x=>att.push(`<li><span class="tag blue">Sell</span><span>Week ending ${fmt(x.w)} has ${n0(x.open)} hrs open, about ${n0(x.open/S.set.hpw)} men. Sales team alerted.</span></li>`));
+  late.forEach(j=>att.push(`<li><span class="tag yel">Late</span><span><button class="jl" data-job="${j.id}">${j.num} ${esc(j.customer)}</button> passed its finish date with ${n0(hoursLeft(j))} hrs left.</span></li>`));
+  miss.forEach(j=>att.push(`<li><span class="tag yel">Missing</span><span><button class="jl" data-job="${j.id}">${j.num} ${esc(j.customer)}</button> had no hours at the last close (PM ${j.pm}).</span></li>`));
+  woAttention().forEach(x=>att.push(x));
+  {const js=S.jobs.filter(j=>!isVerbal(j)&&!j.done&&j.start<=addDays(w,21)&&jyStage(j)<STARTUP_STAGES);
+   js.forEach(j=>{const lt=JITEMS.filter(it=>it.si<STARTUP_STAGES&&jyLate(j,it));if(lt.length)att.push(`<li><span class="tag red">Not ready</span><span><button class="jl" data-job="${j.id}">${j.num} ${esc(j.customer)}</button> starts ${fmt(j.start)} with ${lt.map(it=>esc(lc1(it.l))+" ("+esc(jyOwner(j,it))+")").join(", ")} overdue.</span></li>`);});
+   const other=S.jobs.filter(j=>!isVerbal(j)&&!js.includes(j)).reduce((a,j)=>a+jyLateList(j).length,0);
+   if(other) att.push(`<li><span class="tag yel">Journey</span><span>${other} more overdue checkpoint${other>1?"s":""} on other jobs. <button class="jl" data-tab="jy">Open the job journey</button></span></li>`);}
+  const dis=can.settings()?"":"disabled";
+  return `<h1>Week ending ${fmtY(w)}</h1>
+  <p class="lead">Sold work only. Capacity is the active roster less time off, at ${S.set.hpw} hrs a man-week less ${pct(S.set.absence)} absence.</p>
+  <div class="kpis">
+    <div class="kpi"><div class="v num">${n0(L/S.set.hpw)} <small>/ ${n0(S.set.target)}</small></div><div class="l">Men scheduled vs. ${n0(S.set.target)}-man target (${n0(men)} available)</div></div>
+    <div class="kpi ${LN>LA?"warn":""}"><div class="v num">${n1(LN)} <small>/ ${n1(LA)}</small></div><div class="l">Leaders needed / available</div></div>
+    <div class="kpi"><div class="v num">${n1(backlogWeeks())} <small>wks</small></div><div class="l">Sold backlog, ${usd(backlogUSD())}</div></div>
+    <div class="kpi ${risk.length?"warn":""}"><div class="v num">${risk.length}</div><div class="l">Jobs on pace to overrun</div></div>
+    <div class="kpi ${g.length?"warn":""}"><div class="v num">${g.length}</div><div class="l">Gap weeks in the next 8</div></div>
+  </div>
+  <div class="grid2" style="margin-top:16px">
+    <div class="panel"><h2 style="margin-top:0">Hours: scheduled vs available, 13 weeks</h2><div class="chartbox"><canvas id="c1" aria-label="Scheduled hours against available hours by week"></canvas></div><p class="note">Red bars are over capacity. Space under the line is open capacity sales needs to fill.</p></div>
+    <div class="panel"><h2 style="margin-top:0">Job leaders: needed vs available</h2><div class="chartbox"><canvas id="c2" aria-label="Leaders needed against leaders available by week"></canvas></div><p class="note">Jobs over ${n0(S.set.large)} projected hrs need a dedicated leader; smaller jobs count as half.</p></div>
+  </div>
+  ${verb.length?`<h2>Verbal awards, not yet counted</h2><div class="scroll"><table><thead><tr><th>Job</th><th>Weeks</th><th class="r">Hrs</th><th class="r">Value</th><th>Leader planned</th></tr></thead><tbody>${verb.map(j=>`<tr><td><button class="jl" data-job="${j.id}">${j.num} ${esc(j.customer)}</button> <span class="q">${esc(j.type)}</span></td><td>${fmt(j.start)}–${fmt(j.finish)}</td><td class="r num">${n0(j.proj)}</td><td class="r num">${usd(j.value)}</td><td>${esc(j.supt)}</td></tr>`).join("")}</tbody></table></div>`:""}
+  ${(()=>{const m=firmMix(8);if(!m.tot)return "";const pc=k=>m.t[k]/m.tot;const firm=pc("lock")+pc("conf")+pc("wait");
+  return `<h2>How firm the next 8 weeks are</h2><div class="panel"><p class="note" style="margin:0">${pct(firm)} of scheduled hours are locked or confirmed with the customer. ${pct(pc("guess"))} are TMI’s best guess.${m.hold?` ${n0(m.hold)} hrs on hold are left out of capacity.`:""}</p>
+  <div class="firmbar" role="img" aria-label="Scheduled hours by date firmness">${FIRM.map(f=>m.t[f.k]?`<span style="width:${pc(f.k)*100}%;background:${f.c}" title="${esc(f.l)}: ${n0(m.t[f.k])} hrs"></span>`:"").join("")}</div>
+  <div class="firmkey">${FIRM.map(f=>`<div><i style="background:${f.c}"></i><span>${esc(f.l)}: <b class="num">${n0(m.t[f.k])}</b> hrs</span></div>`).join("")}</div></div>`;})()}
+  <h2>Needs attention</h2>
+  <div class="panel">${att.length?`<ul class="att">${att.join("")}</ul>`:`<p class="note" style="margin:0">Nothing needs attention this week.</p>`}</div>
+  <h2>Assumptions</h2>
+  <div class="panel"><div class="row">
+    <label class="field">Target working headcount<input type="number" min="10" max="150" data-set="target" value="${S.set.target}" ${dis}></label>
+    <label class="field">Absence rate (%)<input type="number" min="0" max="50" data-set="absence" value="${Math.round(S.set.absence*100)}" ${dis}></label>
+    <label class="field">Hours per man-week<input type="number" min="20" max="60" data-set="hpw" value="${S.set.hpw}" ${dis}></label>
+    <label class="field">Dedicated-leader job size (hrs)<input type="number" min="0" step="50" data-set="large" value="${S.set.large}" ${dis}></label>
+    <label class="field">Open-capacity alert (hrs a week)<input type="number" min="0" step="50" data-set="openMin" value="${S.set.openMin||400}" ${dis}></label>
+    <label class="field">Overrun alert threshold (%)<input type="number" min="0" max="100" data-set="overrun" value="${Math.round(S.set.overrun*100)}" ${dis}></label>
+    <label class="field">Progress pay applications due (day of month)<input type="number" min="1" max="31" data-set="payDay" value="${S.set.payDay||25}" ${dis}></label>
+    <label class="field">Invoice deadline after sign-off (days)<input type="number" min="1" max="30" data-set="invDays" value="${S.set.invDays||3}" ${dis}></label>
+    <label class="field">Work order review deadline (days per step)<input type="number" min="1" max="14" data-set="woDays" value="${S.set.woDays||2}" ${dis}></label>
+  </div><p class="note" style="margin-bottom:0">Utilization is measured against the target working headcount, with full roster shown beside it. Winter for exterior work is Dec 1 to Mar 15.</p></div>`;
+}
+function drawDash(){
+  if(!window.Chart) return; chartDefaults();
+  const ws=weekList(13), lbl=ws.map(fmt);
+  const blue=css("--blue"), red=css("--red"), ink=css("--text"), mut=css("--line");
+  const load=ws.map(loadW), cap=ws.map(capacity), vb=ws.map(verbalW);
+  charts.push(new Chart(document.getElementById("c1"),{data:{labels:lbl,datasets:[
+    {type:"line",label:"Available hrs",data:cap.map(Math.round),borderColor:ink,borderDash:[5,4],pointRadius:0,borderWidth:2,stepped:"middle",stack:"cap"},
+    {type:"bar",label:"Scheduled hrs (sold)",data:load.map(Math.round),backgroundColor:load.map((v,i)=>v>cap[i]?red:blue),borderRadius:2,stack:"load"},
+  ]},options:{maintainAspectRatio:false,plugins:{legend:{position:"bottom"}},scales:{y:{stacked:true,beginAtZero:true,ticks:{callback:v=>n0(v)}},x:{stacked:true,grid:{display:false}}}}}));
+  const ln=ws.map(leadersNeeded), la=ws.map(w=>availMen(w,true));
+  charts.push(new Chart(document.getElementById("c2"),{data:{labels:lbl,datasets:[
+    {type:"line",label:"Leaders available",data:la.map(v=>Math.round(v*10)/10),borderColor:ink,borderDash:[5,4],pointRadius:0,borderWidth:2,stepped:"middle"},
+    {type:"bar",label:"Leaders needed",data:ln,backgroundColor:ln.map((v,i)=>v>la[i]?red:blue),borderRadius:2}
+  ]},options:{maintainAspectRatio:false,plugins:{legend:{position:"bottom"}},scales:{y:{beginAtZero:true},x:{grid:{display:false}}}}}));
+}
+
+function vSched(){
+  const ws=weekList(13), P=plans(), ed=can.editPlan();
+  const allJobs=visibleJobs().filter(j=>!j.done&&Object.keys(P[j.id]).length);
+  const key={start:j=>j.start,finish:j=>j.finish,rep:j=>REPNAME[j.rep]||j.rep,pm:j=>j.pm,customer:j=>j.customer}[SCHF.sort]||(j=>j.start);
+  const jobs=allJobs.filter(j=>(!SCHF.rep||j.rep===SCHF.rep)&&(!SCHF.pm||j.pm===SCHF.pm)&&(!SCHF.firm||(SCHF.firm==="hold"?onHold(j):(!onHold(j)&&firmOf(j).k===SCHF.firm)))).sort((a,b)=>(isVerbal(a)-isVerbal(b))||String(key(a)).localeCompare(String(key(b)))||(a.start<b.start?-1:1));
+  const opt=(arr,v,lab)=>arr.map(x=>`<option value="${x}" ${x===v?"selected":""}>${esc(lab(x))}</option>`).join("");
+  const reps=[...new Set(allJobs.map(j=>j.rep))].sort((a,b)=>(REPNAME[a]||a).localeCompare(REPNAME[b]||b)), pms=[...new Set(allJobs.map(j=>j.pm))].sort();
+  const filt=`<div class="row" style="margin-bottom:12px"><label class="field">Sales rep<select data-schf="rep"><option value="">All reps</option>${opt(reps,SCHF.rep,x=>REPNAME[x]||x)}</select></label><label class="field">Project manager<select data-schf="pm"><option value="">All PMs</option>${opt(pms,SCHF.pm,x=>PMNAME[x]||x)}</select></label><label class="field">Date firmness<select data-schf="firm"><option value="">All</option>${FIRM.map(f=>`<option value="${f.k}" ${SCHF.firm===f.k?"selected":""}>${esc(f.l)}</option>`).join("")}<option value="hold" ${SCHF.firm==="hold"?"selected":""}>On hold</option></select></label><label class="field">Sort by<select data-schf="sort">${opt(["start","finish","rep","pm","customer"],SCHF.sort,x=>({start:"Start date",finish:"Projected finish",rep:"Sales rep",pm:"Project manager",customer:"Customer"})[x])}</select></label><span class="note">Showing ${jobs.length} of ${allJobs.length} jobs.${(SCHF.rep||SCHF.pm||SCHF.firm)&&S.role!=="supt"?" Totals below stay company-wide.":""}</span></div>`;
+  const issW=crewIssues(weekList(6));
+  const rows=jobs.map(j=>{
+    const vb=isVerbal(j), full=j.crew*S.set.hpw;
+    const isMust=w=>j.must&&mon(w)<=j.must&&j.must<=addDays(w,2);
+    const cells=ws.map(w=>{const h=P[j.id][w];if(h==null)return `<td class="cell${isMust(w)?" must":""}"></td>`;
+      const a=Math.min(1,h/Math.max(1,full)), bg=vb?"":`background:color-mix(in srgb, var(--blue) ${Math.round(8+a*30)}%, transparent)`;
+      const cls=["cell"]; if(j.plan[w]!=null)cls.push("ov"); if(vb)cls.push("verb"); if(j.ext&&isWinter(w))cls.push("wint"); if(isMust(w))cls.push("must");
+      return (ed&&!vb)?`<td class="${cls.join(" ")}" style="${bg}"><input type="number" min="0" step="10" data-plan="${j.id}|${w}" value="${h}" aria-label="${esc(j.customer)} hours week ending ${fmt(w)}"></td>`:`<td class="${cls.join(" ")}" style="${bg}"><span>${n0(h)}</span></td>`;}).join("");
+    const tags=[];
+    if(vb) tags.push('<span class="tag">Verbal</span>');
+    if(atRisk(j)) tags.push('<span class="tag red">Overrun</span>');
+    if(pastFinish(j)) tags.push('<span class="tag yel">Late</span>');
+    if(lateRisk(j)) tags.push('<span class="tag red">Past must-finish</span>');
+    if(onHold(j)) tags.push(`<span class="tag yel" title="${esc(j.holdWhy||"")}">On hold${j.holdUntil?" to "+fmt(j.holdUntil):""}</span>`);
+    if(guessSoon(j)) tags.push('<span class="tag yel">Confirm dates</span>');
+    {const pj=predOf(j),pi=predIssue(j);if(pj) tags.push(`<span class="tag ${pi?"red":""}">${pi==="slip"?"Blocked by ":(pi==="over"?"Watch ":"After ")}${pj.num}</span>`);}
+    if((j.notes||[]).some(n=>n.pinned)) tags.push(`<span class="tag yel" title="${esc(j.notes.filter(n=>n.pinned).map(n=>n.text).join(" | "))}">Pinned note</span>`);
+    if(!vb&&issW.some(i=>i.j.id===j.id)) tags.push('<span class="tag yel">Crew issue</span>');
+    if(j.ext) tags.push('<span class="tag blue">Exterior</span>');
+    if(!vb&&j.wo&&!j.wo.final) tags.push(woTag(j));
+    if(S.confirm[j.id+"|"+S.week]) tags.push('<span class="tag" style="color:var(--green)">Confirmed</span>');
+    return `<tr class="${vb?"vrow":""}${onHold(j)?" hrow":""}"><td class="job ${vb?"":"f-"+firmOf(j).k}"><button class="jl c" data-job="${j.id}">${j.num} ${esc(j.customer)}</button> ${tags.join(" ")}<div class="m">${esc(j.type)}, ${esc(j.location)}. Rep <b title="${esc(REPNAME[j.rep]||j.rep)}">${esc(REPNAME[j.rep]||j.rep)}</b>, PM <b>${esc(j.pm)}</b>. ${esc(j.supt)}, crew ${j.crew}</div><div class="m">${vb?"":esc(onHold(j)?"On hold: "+(j.holdWhy||"no reason given")+". ":firmOf(j).l+". ")}${!vb&&j.status==="Active"?"In progress. ":""}Start ${fmt(j.start)}. Projected ${fmt(j.finish)}.${j.must?` <b>${esc(j.mustWhy||"Must-finish")} deadline ${fmt(j.must)}.</b>`:""}</div></td>${cells}</tr>`;
+  }).join("");
+  let tot="";
+  if(S.role!=="supt"){
+    const sc=ws.map(loadW), cp=ws.map(capacity), ln=ws.map(leadersNeeded), la=ws.map(w=>availMen(w,true)), vb=ws.map(verbalW);
+    tot=`<tr class="tot"><td class="job">Scheduled hrs (sold)</td>${sc.map(v=>`<td class="cell"><span>${n0(v)}</span></td>`).join("")}</tr>
+    ${ws.some(w=>holdW(w)>0)?`<tr class="tot"><td class="job">On hold, not counted</td>${ws.map(w=>`<td class="cell"><span>${holdW(w)?n0(holdW(w)):""}</span></td>`).join("")}</tr>`:""}
+    <tr class="tot"><td class="job">Available hrs</td>${cp.map(v=>`<td class="cell"><span>${n0(v)}</span></td>`).join("")}</tr>
+    <tr class="tot"><td class="job">Open (+) or short (−)</td>${sc.map((v,i)=>{const d=cp[i]-v;return `<td class="cell ${d<0?"gap":"open"}"><span>${d<0?"−":"+"}${n0(Math.abs(d))}</span></td>`;}).join("")}</tr>
+    <tr class="tot"><td class="job">Leaders needed / available</td>${ln.map((v,i)=>`<td class="cell ${v>la[i]?"gap":""}"><span>${n1(v)}/${n1(la[i])}</span></td>`).join("")}</tr>`;
+  }
+  let confirm="";
+  if(S.role==="supt"){
+    const mine=S.jobs.filter(j=>own(j)&&sold(j)&&inWindow(j,S.week));
+    const done=mine.length&&mine.every(j=>S.confirm[j.id+"|"+S.week]);
+    confirm=`<div class="panel" style="margin-bottom:16px"><div class="confirm"><div><b>Your crews for week ending ${fmt(S.week)}</b>${mine.map(j=>`<div class="note">${esc(j.customer)}: ${(j.assign[S.week]||[]).map(pid=>esc(personById(pid).name)).join(", ")||"no crew assigned"}</div>`).join("")||`<div class="note">No jobs this week.</div>`}</div>
+    ${mine.length?(done?`<span class="tag" style="color:var(--green)">Confirmed</span>`:`<button class="btn" id="confirmWeek">Confirm my crews</button>`):""}</div></div>`;
+  }
+  return `<h1>${S.role==="supt"?"Your jobs":"Schedule"}</h1>
+  <p class="lead">${ed?"Planned hours spread evenly from today to each job’s finish. Type over any week to set it; the rest of the job rebalances. Click a job to change dates, crew or leader.":"Planned hours by week. Click a job for its crew, details and history."}</p>
+  ${confirm}
+  ${((S.role==="admin"||S.role==="ceo")||S.role==="ops"||S.role==="lori")?`<div class="row" style="margin-bottom:12px"><button class="btn" id="newJob">Add job from estimate</button><span class="note">Sold jobs come in with the estimate’s hours and projected material cost.</span></div>`:""}
+  ${filt}
+  <div class="scroll"><table class="sched"><thead><tr><th class="job">Job</th>${ws.map((w,i)=>`<th class="wk ${i===0?"now":""}">${fmt(w)}</th>`).join("")}</tr></thead><tbody>${rows||`<tr><td class="job" colspan="14">No open jobs.</td></tr>`}${tot}</tbody></table></div>
+  <div class="legend">${FIRM.map(f=>`<span><i class="fe" style="border-left:6px ${f.k==="wait"?"dashed":(f.k==="guess"||f.k==="fill"?"dotted":"solid")} ${f.k==="wait"?"var(--blue)":(f.k==="fill"?"var(--line)":(f.k==="guess"?"var(--muted)":f.c))}"></i>${esc(f.l)}</span>`).join("")}<span><i style="background:color-mix(in srgb, var(--blue) 38%, transparent)"></i>Darker means closer to full crew</span><span><i style="outline:2px dashed var(--muted);outline-offset:-3px"></i>Exterior work in a winter week</span><span><i style="box-shadow:inset -3px 0 0 var(--red)"></i>Shutdown or contract deadline</span>${ed?`<span><i style="box-shadow:inset 3px 0 0 var(--blue)"></i>Week set by hand</span>`:""}${S.role!=="supt"?`<span><i class="hazard"></i>Short on men or leaders</span>`:""}</div>`;
+}
+
+function closeRows(){return S.jobs.filter(j=>sold(j)&&j.start<=S.week);}
+const plannedNow=j=>(S.snap[S.week]&&S.snap[S.week].perJob[j.id])||plans()[j.id][S.week]||0;
+function vClose(){
+  const w=S.week, rows=closeRows();
+  const banner=LASTCLOSE?`<div class="banner"><b>Week ending ${fmt(LASTCLOSE.w)} closed.</b> ${LASTCLOSE.entered} jobs entered, ${n0(LASTCLOSE.total)} hrs. ${LASTCLOSE.missing?LASTCLOSE.missing+" missing, named in Monday’s digest. ":""}${LASTCLOSE.alerts} alerts sent. Schedule rolled to week ending ${fmt(S.week)}.</div>`:"";
+  return `${banner}<h1>Close week ending ${fmtY(w)}</h1>
+  <p class="lead">Import the week’s hours from the time system, review the exceptions, then close. Closing archives the week, recalculates hours left and forecasts, fires any alerts, and rolls the schedule forward.</p>
+  <div class="panel" style="margin-bottom:14px"><div class="row">
+    <button class="btn" id="imp">Import from time system</button>
+    <label class="btn sec" style="font-weight:600" for="csv">Upload a CSV<input type="file" id="csv" accept=".csv,text/csv" hidden></label>
+    <span class="note">CSV columns: job number, hours. Anything you type by hand is marked as typed.</span>
+  </div>${IMPORTNOTE?`<p class="note" style="margin:10px 0 0">${IMPORTNOTE}</p>`:""}</div>
+  <div class="scroll"><table><thead><tr><th>Job</th><th>Supt.</th><th class="r">Planned</th><th class="r">Actual hrs</th><th>Source</th><th>Review</th><th class="r">Hours left</th><th>Finished</th></tr></thead><tbody>
+  ${rows.map(j=>`<tr data-row="${j.id}"><td><button class="jl" data-job="${j.id}">${j.num} ${esc(j.customer)}</button></td><td>${esc(j.supt)}</td><td class="r num">${n0(plannedNow(j))}</td><td class="r"><input class="act num" type="number" min="0" step="1" data-act="${j.id}" aria-label="Actual hours ${esc(j.customer)}"></td><td class="note" data-src="${j.id}"></td><td data-rev="${j.id}"></td><td class="r num">${n0(hoursLeft(j))}</td><td><input type="checkbox" data-done="${j.id}" aria-label="Mark ${esc(j.customer)} finished"></td></tr>`).join("")}
+  </tbody></table></div>
+  <div class="row" style="margin-top:14px;justify-content:flex-end">
+    <span class="note" id="cnt" style="margin-right:12px">0 of ${rows.length} entered</span><button class="btn" id="doclose">Close week and roll forward</button>
+  </div>
+  <p class="note">The demo import runs close to plan, with Riverbend Ethanol burning hot, Granite Falls Grain missing from the export, and one time-card line coded to a job that isn’t on the schedule.</p>`;
+}
+function refreshReview(){
+  const rows=closeRows(); let n=0, exc=0;
+  rows.forEach(j=>{const el=document.querySelector(`[data-act="${j.id}"]`); if(!el) return;
+    const v=el.value.trim(), tr=document.querySelector(`[data-row="${j.id}"]`), rv=document.querySelector(`[data-rev="${j.id}"]`), sc=document.querySelector(`[data-src="${j.id}"]`);
+    sc.textContent=v===""?"":(SRC[j.id]||"Typed");
+    let msg="";
+    if(v===""){ if(Object.keys(SRC).length) msg="Missing"; }
+    else { n++; const p=plannedNow(j); if(p&&Math.abs(+v-p)/p>S.set.overrun) msg=(+v>p?"+":"−")+pct(Math.abs(+v-p)/p)+" vs plan"; }
+    rv.innerHTML=msg?`<span class="tag ${msg==="Missing"?"yel":"red"}">${msg}</span>`:""; tr.classList.toggle("exc",!!msg); if(msg)exc++;
+  });
+  const c=document.getElementById("cnt"); if(c) c.textContent=n+" of "+rows.length+" entered"+(exc?", "+exc+" to review":"");
+}
+function applyImport(map,label,unmatched){
+  closeRows().forEach(j=>{const el=document.querySelector(`[data-act="${j.id}"]`);if(map[j.num]!=null){el.value=map[j.num];SRC[j.id]=label;}});
+  const cnt=Object.keys(map).length-(unmatched||[]).length;
+  IMPORTNOTE=`${label}: ${cnt} jobs matched.`+(unmatched&&unmatched.length?` Not on the schedule: ${unmatched.map(esc).join(", ")}. Fix the job code in the time system.`:"");
+  const p=document.querySelector("#imp")?.closest(".panel"); if(p){let n=p.querySelector("p.note");if(!n){n=document.createElement("p");n.className="note";n.style.margin="10px 0 0";p.appendChild(n);}n.innerHTML=IMPORTNOTE;}
+  refreshReview();
+}
+function doClose(){
+  const w=S.week, rows=closeRows(); let total=0, entered=0; const missing=[], completed=[];
+  const before=S.alerts.length;
+  rows.forEach(j=>{
+    const v=document.querySelector(`[data-act="${j.id}"]`).value.trim();
+    const done=document.querySelector(`[data-done="${j.id}"]`).checked;
+    if(v===""){missing.push(j.id);} else {const h=Math.max(0,Math.round(+v));j.actual[w]=h;total+=h;entered++;logEvent("Job "+j.num,"Actual hrs, week ending "+fmt(w)+" ("+(SRC[j.id]||"Typed")+")","blank",h);}
+    if(done){j.done=true;j.status="Complete";j.completed=w;j.actualFinish=w;j.labDone=1;j.matDone=1;j.rev[w]=Math.round(recog(j));completed.push(j);logEvent("Job "+j.num,"Status","Active","Complete");}
+  });
+  PC=null;
+  rows.forEach(j=>{ if(j.done||j.actual[w]==null) return; const e=eac(j);
+    if(e>j.proj*(1+S.set.overrun)) notify("overrun","Overrun warning: "+j.num+" "+j.customer,"On pace for "+n0(e)+" hrs against "+n0(j.proj)+" projected (+"+pct(e/j.proj-1)+"). Last week: "+n0(j.actual[w])+" hrs. Hours left: "+n0(hoursLeft(j))+".",jobTo(j),j.id);
+  });
+  const util=total/Math.max(1,S.set.target*S.set.hpw), utilRoster=total/Math.max(1,S.people.filter(p=>p.active).length*S.set.hpw);
+  let acc=null; const f=S.fc4[w];
+  if(f){ let fc=f.load, act=total; missing.forEach(id=>{fc-=(f.perJob[id]||0);}); if(fc>0) acc=Math.max(0,1-Math.abs(act-fc)/fc); }
+  const prev=S.metrics[S.metrics.length-1];
+  const ontime=completed.length?completed.filter(j=>w<=(j.must||j.baseFinish)).length/completed.length:prev.ontime;
+  S.week=addDays(w,7); PC=null;
+  S.jobs.forEach(j=>Object.keys(j.plan).forEach(k=>{if(k<S.week)delete j.plan[k];}));
+  S.metrics.push({week:w,util,utilRoster,backlog:backlogWeeks(),backlogUSD:backlogUSD(),acc:acc==null?prev.acc:acc,ontime,illus:false});
+  S.lastMissing=missing; S.closes++;
+  logEvent("Schedule","Week closed","week ending "+fmt(w),"rolled to "+fmt(S.week));
+  S.jobs.filter(j=>sold(j)&&inWindow(j,addDays(S.week,21))&&!(j.assign[addDays(S.week,21)]||[]).length).forEach(j=>fillCrew(j,addDays(S.week,21)));
+  snapshot(); postDigest(); capacityCheck(); certReminders();
+  LASTCLOSE={w,entered,missing:missing.length,total,alerts:S.alerts.length-before};
+  SRC={}; IMPORTNOTE="";
+  save(); render(); window.scrollTo(0,0);
+}
+
+function vRev(){
+  const M=monthly(5), m0=M[0], ed=(S.role==="admin"||S.role==="ceo")||S.role==="ops";
+  const thisF=m0.actual+m0.lab+m0.mat, nextF=M[1].lab+M[1].mat;
+  const jobs=visibleJobs().filter(j=>!isVerbal(j)&&(sold(j)||(j.done&&j.completed&&mkOf(j.completed)>=prevMk(mkOf(S.week))))).sort((a,b)=>(review(b)-review(a))||(a.start<b.start?-1:1));
+  const rv=S.jobs.filter(review);
+  const remain=S.jobs.filter(sold).reduce((a,j)=>a+remainingRev(j),0);
+  const div=S.jobs.filter(diverge), net=netBilling();
+  const dis=ed?"":"disabled";
+  const rows=jobs.map(j=>{const rec=recog(j), ob=j.billed-rec, sg=suggestLab(j), dv=diverge(j), fd=fade(j);
+    const why=[]; if(stale(j))why.push(`<span class="tag yel">Not updated ${j.pctWeek?"since "+fmt(mon(j.pctWeek)):"yet"}</span>`); if(dv)why.push('<span class="tag red">% vs hours</span>'); if(fd<-0.03)why.push('<span class="tag red">Margin fade</span>');
+    return `<tr${review(j)?' class="exc"':""}><td><button class="jl" data-job="${j.id}">${j.num} ${esc(j.customer)}</button><div class="q">${esc(j.type)}</div>${why.join(" ")}</td>
+    <td class="r num">${usd(j.value)}<div class="q">${usd(j.mat)} materials rev.</div><div class="q">${usd(j.matCost)} material cost</div></td>
+    <td class="r"><input class="act num" type="number" min="0" max="100" step="5" data-mat="${j.id}" value="${Math.round(j.matDone*100)}" ${dis} aria-label="Materials percent complete ${esc(j.customer)}"></td>
+    <td class="r"><input class="act num" type="number" min="0" max="100" step="5" data-lab="${j.id}" value="${Math.round(j.labDone*100)}" ${dis} aria-label="Labor percent complete ${esc(j.customer)}"><div class="q">Hours say ${pct(sg)}${dv&&ed?` <button class="jl" data-uselab="${j.id}">Use</button>`:""}</div></td>
+    <td class="r num">${usd(rec)}</td>
+    <td class="r"><input class="act num" type="number" min="0" step="1000" data-billed="${j.id}" value="${j.billed}" ${dis} style="width:110px" aria-label="Billed to date ${esc(j.customer)}"></td>
+    <td class="r num" ${Math.abs(ob)>j.value*0.1?'style="color:var(--red);font-weight:700"':""}>${signed(ob)}</td>
+    <td class="r num">${usd(remainingRev(j))}</td>
+    <td class="r num">${pct(gpBid(j))} → <b ${fd<-0.03?'style="color:var(--red)"':(fd>0.03?'style="color:var(--green)"':"")}>${pct(gpNow(j))}</b></td></tr>`;}).join("");
+  return `<h1>Revenue and WIP</h1>
+  <p class="lead">${S.role==="rep"?"Your jobs only. Margin at bid against where each job is tracking now. ":""}Updated at the Monday job cost meeting. Each contract splits into materials and labor in proportion to the estimate’s costs. Materials count when shipped; labor by percent complete. The forecast spreads what’s left across the schedule, so moving a job moves its revenue.</p>
+  <div class="kpis">
+    <div class="kpi"><div class="v num">${usd(m0.actual)}</div><div class="l">Recognized so far in ${mkLabel(m0.mk)}</div></div>
+    <div class="kpi"><div class="v num">${usd(thisF)}</div><div class="l">${mkLabel(m0.mk)} forecast, recognized plus scheduled</div></div>
+    <div class="kpi"><div class="v num">${usd(nextF)}</div><div class="l">${mkLabel(M[1].mk)} forecast</div></div>
+    <div class="kpi"><div class="v num">${usd(remain)}</div><div class="l">Sold revenue not yet recognized</div></div>
+    <div class="kpi ${rv.length?"warn":""}"><div class="v num">${rv.length}</div><div class="l">Jobs for Monday’s review: stale %, % vs hours, or margin fade</div></div>
+  </div>
+  <div class="panel" style="margin-top:16px"><div class="confirm"><h2 style="margin:0">Revenue by ${REVVIEW==="week"?"week":"month"}, sold work</h2><div role="group" aria-label="Revenue period" style="display:flex;gap:6px"><button class="btn ${REVVIEW==="month"?"":"sec"}" data-revview="month" aria-pressed="${REVVIEW==="month"}">Monthly</button><button class="btn ${REVVIEW==="week"?"":"sec"}" data-revview="week" aria-pressed="${REVVIEW==="week"}">Weekly</button></div></div><div class="chartbox" style="margin-top:10px"><canvas id="r1" aria-label="Recognized and forecast revenue by period"></canvas></div>
+  <p class="note">${REVVIEW==="week"?"Past four weeks show what was recognized at each Monday meeting; the current week and the next twelve are forecast from the schedule.":mkLabel(m0.mk)+" combines what’s already recognized with what the schedule says is left this month."}</p>${revTable(revRows())}</div>
+  <h2>WIP schedule</h2>
+  <div class="scroll"><table><thead><tr><th>Job</th><th class="r">Contract</th><th class="r">Materials shipped %</th><th class="r">Labor %</th><th class="r">Recognized</th><th class="r">Billed to date</th><th class="r">Over (under) billed</th><th class="r">Left to recognize</th><th class="r">GP %, bid → now</th></tr></thead><tbody>${rows}
+  <tr class="tot"><td><b>Total</b></td><td class="r num"><b>${usd(jobs.reduce((a,j)=>a+j.value,0))}</b></td><td></td><td></td><td class="r num"><b>${usd(jobs.reduce((a,j)=>a+recog(j),0))}</b></td><td class="r num"><b>${usd(jobs.reduce((a,j)=>a+j.billed,0))}</b></td><td class="r num"><b>${signed(net)}</b></td><td class="r num"><b>${usd(jobs.reduce((a,j)=>a+remainingRev(j),0))}</b></td><td></td></tr></tbody></table></div>
+  <p class="note">Review rows sort to the top: percentages not updated at this week’s meeting, a labor % 15+ points from what hours suggest, or margin down 3+ points from bid. GP now uses hours at completion at ${usd(S.set.rate)}/hr labor cost plus the estimate’s material cost. Over-billed is cash ahead of the work; under-billed is work not yet invoiced.</p>
+  <h2>Recognition rules</h2>
+  <div class="panel"><div class="row"><label class="field">Materials count as complete when<select data-set="matPolicy" ${(S.role==="admin"||S.role==="ceo")?"":"disabled"}><option value="delivered" ${S.set.matPolicy==="delivered"?"selected":""}>Shipped (finance policy)</option><option value="installed" ${S.set.matPolicy==="installed"?"selected":""}>Installed, alongside labor</option></select></label>
+  <label class="field">Burdened labor cost ($/hr)<input type="number" min="10" max="200" data-set="rate" value="${S.set.rate}" ${(S.role==="admin"||S.role==="ceo")?"":"disabled"}></label></div>
+  <p class="note" style="margin-bottom:0">Set by finance. Shipped puts the rest of each job’s material revenue in its first scheduled week.</p></div>`;
+}
+function drawRev(){
+  if(!window.Chart) return; chartDefaults();
+  const M=revRows(), blue=css("--blue"), strong=css("--blue-strong"), yel=css("--yellow"), grey=css("--line");
+  charts.push(new Chart(document.getElementById("r1"),{type:"bar",data:{labels:M.map(x=>REVVIEW==="week"?fmt(x.w):x.lbl),datasets:[
+    {label:"Recognized",data:M.map(x=>Math.round(x.actual)),backgroundColor:strong},
+    {label:"Forecast labor",data:M.map(x=>Math.round(x.lab)),backgroundColor:blue},
+    {label:"Forecast materials",data:M.map(x=>Math.round(x.mat)),backgroundColor:yel},
+  ]},options:{maintainAspectRatio:false,plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+usd(c.parsed.y)}}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,ticks:{callback:v=>usd(v)}}}}}));
+}
+
+function vCrew(){
+  const ws=weekList(13), edit=can.crew(), ros=can.roster();
+  const avail=ws.map(w=>availMen(w)), lav=ws.map(w=>availMen(w,true));
+  const minA=Math.min(...avail);
+  const active=S.people.filter(p=>p.active);
+  const upcoming=S.timeoff.filter(t=>t.end>=mon(S.week)).sort((a,b)=>a.start<b.start?-1:1);
+  const nextOff=p=>{const t=upcoming.find(t=>t.pid===p.id);return t?fmt(t.start)+(t.end!==t.start?"–"+fmt(t.end):"")+" ("+t.type+")":"";};
+  const onJob=p=>{const j=S.jobs.find(j=>sold(j)&&(j.assign[S.week]||[]).includes(p.id));return j?esc(j.customer):"";};
+  const rosterRows=S.people.map(p=>{const soon=p.driver&&p.med<=addDays(S.week,60);return `<tr><td>${esc(p.name)}</td><td>${p.role}</td><td>${p.state}</td><td class="q">${edit?QUALS.map(qq=>`<label style="margin-right:8px;white-space:nowrap" title="${p.qexp&&p.qexp[qq]?"Expires "+fmtY(p.qexp[qq]):""}"><input type="checkbox" data-qual="${p.id}|${qq}" ${p.quals.includes(qq)?"checked":""}> ${qq}</label>`).join("")+`<label style="white-space:nowrap"><input type="checkbox" data-driver="${p.id}" ${p.driver?"checked":""}> Driver</label>`:((p.quals.join(", ")||"None")+(p.driver?", driver":""))}</td><td>${onJob(p)}</td><td>${nextOff(p)}</td><td>${!p.driver?`<span class="q">Not a driver</span>`:(soon?`<span class="tag ${p.med<S.week?"red":"yel"}">${fmtY(p.med)}</span>`:fmtY(p.med))}</td><td>${ros?`<input type="checkbox" data-active="${p.id}" ${p.active?"checked":""} aria-label="${esc(p.name)} active">`:(p.active?"Yes":"No")}</td></tr>`;}).join("");
+  const opts=active.slice().sort((a,b)=>a.name<b.name?-1:1).map(p=>`<option value="${p.id}">${esc(p.name)}${p.role==="Leader"?" (leader)":""}</option>`).join("");
+  const qc=QUALS.map(q=>`${q} ${active.filter(p=>p.quals.includes(q)).length}`).join(", ");
+  return `<h1>Crew</h1>
+  <p class="lead">${active.length} on the active roster, ${active.filter(p=>p.role==="Leader").length} of them job leaders. Qualified: ${qc}. Time off entered here flows straight into capacity and flags anyone already assigned. The scheduler keeps qualifications current here.</p>
+  <div class="scroll"><table><thead><tr><th>Week ending</th>${ws.map(w=>`<th class="r">${fmt(w)}</th>`).join("")}</tr></thead><tbody>
+    <tr><td>Men available</td>${avail.map(v=>`<td class="r num" ${v===minA?'style="color:var(--red);font-weight:700"':""}>${n1(v)}</td>`).join("")}</tr>
+    <tr><td>Leaders available</td>${lav.map((v,i)=>`<td class="r num" ${v<leadersNeeded(ws[i])?'style="color:var(--red);font-weight:700"':""}>${n1(v)}</td>`).join("")}</tr>
+  </tbody></table></div>
+  ${edit?`<h2>Add time off</h2><div class="panel"><div class="row">
+    <label class="field">Person<select id="toP">${opts}</select></label>
+    <label class="field">First day<input type="date" id="toS" value="${addDays(S.week,3)}"></label>
+    <label class="field">Last day<input type="date" id="toE" value="${addDays(S.week,7)}"></label>
+    <label class="field">Type<select id="toT"><option>PTO</option><option>Holiday</option><option>Hunting</option><option>Medical</option><option>Other</option></select></label>
+    <button class="btn" id="toAdd">Add time off</button></div></div>`:""}
+  <h2>Upcoming time off</h2>
+  <div class="scroll"><table><thead><tr><th>Name</th><th>Dates</th><th>Type</th>${edit?"<th></th>":""}</tr></thead><tbody>
+  ${upcoming.slice(0,40).map(t=>{const p=personById(t.pid);return `<tr><td>${esc(p?p.name:"")}</td><td>${fmt(t.start)}–${fmt(t.end)}</td><td>${t.type}</td>${edit?`<td><button class="jl" data-delto="${t.id}">Remove</button></td>`:""}</tr>`;}).join("")}
+  </tbody></table></div>${upcoming.length>40?`<p class="note">Showing the next 40 of ${upcoming.length}.</p>`:""}
+  <h2>Roster</h2>
+  <div class="row" style="margin-bottom:10px"><label class="field" style="flex:1;max-width:320px">Find a person<input type="search" id="q" placeholder="Name"></label></div>
+  <div class="scroll"><table id="roster"><thead><tr><th>Name</th><th>Role</th><th>State</th><th>Qualifications</th><th>This week</th><th>Next time off</th><th>DOT physical expires</th><th>Active</th></tr></thead><tbody>${rosterRows}</tbody></table></div>`;
+}
+
+function vAlerts(){
+  const list=alertsFor(S.role);
+  const muted=S.muted[S.role]||{};
+  const showLog=S.role!=="supt"&&S.role!=="crew";
+  return `<h1>Alerts and log</h1>
+  <p class="lead">${S.role==="crew"||S.role==="supt"?"Texts and notices that reach you: certification reminders, and changes to jobs you’re on.":"What would post to the leadership Teams channel, with email as backup. Each person chooses which rules reach them. Every change anyone makes is logged below with who, what and when."}</p>
+  <div class="grid2" style="grid-template-columns:3fr 2fr">
+    <div><h2 style="margin-top:0">${S.role==="crew"?"Your messages":"Teams channel"}</h2><div class="feed">${list.length?list.slice(0,60).map(a=>{const j=a.jobId&&jobById(a.jobId);return `<div class="card r-${a.rule}"><div class="h"><span class="t">${esc(a.title)}</span><span class="when">${a.stamp}</span></div><div class="b">${esc(a.body)}</div><div class="to">${RULES.find(r=>r.id===a.rule).name} to ${esc(a.to.join(", "))}${j?` · <button class="jl" data-job="${j.id}">Open job</button>`:""}</div></div>`;}).join(""):`<p class="note">No alerts yet. Move a job’s dates on the Schedule or close a week to see them arrive.</p>`}</div></div>
+    <div><h2 style="margin-top:0">Rules that reach you</h2><div class="panel">${RULES.map(r=>`<label class="toggle"><span><b>${r.name}</b><br><span class="note">${r.desc}</span></span><input type="checkbox" data-mute="${r.id}" ${muted[r.id]?"":"checked"}></label>`).join("")}</div>
+    ${(S.role==="admin"||S.role==="ceo")?`<div class="row" style="margin-top:12px"><button class="btn sec" id="digest">Send Monday digest now</button></div>`:""}</div>
+  </div>
+  ${showLog?`<h2>Change log</h2><div class="scroll"><table><thead><tr><th>When</th><th>Who</th><th>What</th><th>Field</th><th>From</th><th>To</th></tr></thead><tbody>${S.events.length?S.events.slice(0,100).map(e=>`<tr><td>${e.stamp}</td><td>${esc(e.who)}</td><td>${esc(e.obj)}</td><td>${esc(e.field)}</td><td>${esc(e.from)}</td><td>${esc(e.to)}</td></tr>`).join(""):`<tr><td colspan="6" class="note">No changes logged yet.</td></tr>`}</tbody></table></div>`:""}`;
+}
+
+let LEADOPEN=null;
+const ptsS=v=>(v>=0?"+":"−")+n1(Math.abs(v*100))+" pts";
+const usdS=v=>(v<0?"(":"")+usd(Math.abs(v))+(v<0?")":"");
+function leaderRows(){
+  const names=S.role==="supt"?[ROLES.supt.name]:LEADERS;
+  return names.map(L=>{
+    const h=(S.hist||[]).filter(x=>x.supt===L).sort((a,b)=>b.finished.localeCompare(a.finished));
+    const sum=f=>h.reduce((a,x)=>a+f(x),0);
+    const est=sum(x=>x.est),act=sum(x=>x.actual),val=sum(x=>x.value);
+    const fd=x=>x.value*(x.gpFinal-x.gpBid);
+    const fadeUSD=sum(fd),fieldUSD=h.filter(x=>x.cause==="Field").reduce((a,x)=>a+fd(x),0);
+    const live=S.jobs.filter(j=>j.supt===L&&sold(j)&&Object.keys(j.actual).length);
+    return {L,h,n:h.length,hrs:est?act/est-1:0,fadeUSD,fieldUSD,fadePts:val?fadeUSD/val:0,
+      over:h.filter(x=>x.actual>x.est*(1+S.set.overrun)).length,ontime:h.length?h.filter(x=>x.onTime).length/h.length:null,
+      live,liveFade:live.reduce((a,j)=>a+j.value*fade(j),0)};
+  }).sort((a,b)=>a.fieldUSD-b.fieldUSD||a.fadeUSD-b.fadeUSD);
+}
+function vLead(){
+  const R=leaderRows(),me=S.role==="supt",canTag=S.role==="admin"||S.role==="ops"||S.role==="ceo";
+  if(me) LEADOPEN=R[0].L;
+  const all=(S.hist||[]).filter(x=>!me||x.supt===ROLES.supt.name);
+  const fd=x=>x.value*(x.gpFinal-x.gpBid);
+  const byCause={};all.forEach(x=>{if(fd(x)<0){const k=x.cause||"Untagged";byCause[k]=(byCause[k]||0)+fd(x);}});
+  const lost=Object.values(byCause).reduce((a,b)=>a+b,0);
+  const est=all.reduce((a,x)=>a+x.est,0),act=all.reduce((a,x)=>a+x.actual,0);
+  const bad=v=>v<0?' style="color:var(--red)"':"";
+  const detail=r=>`<tr class="ldet"><td colspan="9"><div class="scroll"><table><thead><tr><th>Job</th><th>Finished</th><th class="r">Hours bid</th><th class="r">Hours actual</th><th class="r">GP bid</th><th class="r">GP final</th><th class="r">Fade</th><th>On time</th><th>Cause of overrun</th></tr></thead><tbody>
+    ${r.h.map(x=>`<tr><td>${x.num} ${esc(x.customer)}<div class="note">${esc(x.type)}</div></td><td>${fmt(x.finished)}</td><td class="r num">${n0(x.est)}</td><td class="r num"${x.actual>x.est*(1+S.set.overrun)?' style="color:var(--red)"':""}>${n0(x.actual)}</td><td class="r num">${pct(x.gpBid)}</td><td class="r num">${pct(x.gpFinal)}</td><td class="r num"${bad(x.gpFinal-x.gpBid)}>${ptsS(x.gpFinal-x.gpBid)}</td><td>${x.onTime?"Yes":'<span class="tag red">Late</span>'}</td>
+      <td>${x.actual>x.est*1.03||x.cause?(canTag?`<select data-cause="${x.id}"><option value="">Untagged</option>${CAUSES.map(c=>`<option ${c===x.cause?"selected":""}>${c}</option>`).join("")}</select>`:esc(x.cause||"Untagged")):'<span class="note">On budget</span>'}</td></tr>`).join("")}
+    ${r.live.map(j=>`<tr><td>${j.num} ${esc(j.customer)} <span class="tag blue">Running</span><div class="note">${esc(j.type)}</div></td><td>Due ${fmt(j.finish)}</td><td class="r num">${n0(j.est)}</td><td class="r num"${eac(j)>j.est*(1+S.set.overrun)?' style="color:var(--red)"':""}>${n0(eac(j))} proj.</td><td class="r num">${pct(gpBid(j))}</td><td class="r num">${pct(gpNow(j))} proj.</td><td class="r num"${bad(fade(j))}>${ptsS(fade(j))}</td><td></td><td class="note">Tagged at closeout</td></tr>`).join("")}
+    </tbody></table></div></td></tr>`;
+  return `<h1>${me?"My scorecard":"Leader scorecard"}</h1>
+  <p class="lead">${me?"Your":"Each leader’s"} completed jobs over the last 12 months, plus jobs running now. Fade is final margin against bid margin. The PM tags the cause of every overrun at closeout, so estimating misses and uncaptured change orders don’t land on the leader. Ranked by field-caused fade.</p>
+  <div class="kpis">
+    <div class="kpi"><div class="note">Jobs completed, 12 months</div><div class="big num">${all.length}</div></div>
+    <div class="kpi"><div class="note">Hours against bid</div><div class="big num"${est&&act>est?' style="color:var(--red)"':""}>${est?(act>=est?"+":"−")+n0(Math.abs(act/est-1)*100)+"%":"–"}</div></div>
+    <div class="kpi"><div class="note">Margin lost to fade</div><div class="big num"${bad(lost)}>${usdS(lost)}</div></div>
+    <div class="kpi"><div class="note">Lost margin by cause</div><div class="num" style="font-size:14px;line-height:1.5">${Object.entries(byCause).sort((a,b)=>a[1]-b[1]).map(([k,v])=>`${esc(k)}: ${pct(lost?v/lost:0)}`).join("<br>")||"None"}</div></div>
+  </div>
+  <div class="scroll"><table><thead><tr><th>Leader</th><th class="r">Jobs</th><th class="r">Hours vs bid</th><th class="r">Jobs over ${pct(S.set.overrun)}</th><th class="r">Margin fade</th><th class="r">Fade $</th><th class="r">Field-caused $</th><th class="r">On time</th><th class="r">Running now</th></tr></thead><tbody>
+  ${R.map(r=>`<tr data-x="1" data-lead="${esc(r.L)}" style="cursor:pointer"><td><strong>${esc(r.L)}</strong> ${r.n<4?'<span class="tag yel">Small sample</span>':""}</td><td class="r num">${r.n}</td><td class="r num"${r.hrs>S.set.overrun?' style="color:var(--red)"':""}>${(r.hrs>=0?"+":"−")+n0(Math.abs(r.hrs)*100)}%</td><td class="r num">${r.over}</td><td class="r num"${bad(r.fadePts)}>${ptsS(r.fadePts)}</td><td class="r num"${bad(r.fadeUSD)}>${usdS(r.fadeUSD)}</td><td class="r num"${bad(r.fieldUSD)}>${usdS(r.fieldUSD)}</td><td class="r num">${r.ontime==null?"–":pct(r.ontime)}</td><td class="r num"${bad(r.liveFade)}>${r.live.length?r.live.length+" · "+usdS(r.liveFade):"–"}</td></tr>${LEADOPEN===r.L?detail(r):""}`).join("")}
+  </tbody></table></div>
+  <p class="note">${me?"":"Click a leader to see the jobs behind the numbers. "}Sample history is illustrative. In the live build it fills in as jobs close out.</p>`;
+}
+function boardSeries(){
+  // fill illustrative backlog dollars at the current dollars-per-week ratio
+  const ratio=backlogWeeks()?backlogUSD()/backlogWeeks():0;
+  return S.metrics.map(m=>m.illus?Object.assign({},m,{backlogUSD:m.backlog*ratio}):m);
+}
+function vBoard(){
+  const m=boardSeries(), f=m[0], l=m[m.length-1];
+  const real=m.filter(x=>!x.illus).length;
+  const card=(id,title,val,d,good,sub)=>`<div class="panel bm"><div class="note">${title}</div><div class="big num">${val}</div><div class="d ${good?"":"bad"}">${d} since ${fmt(f.week)}</div>${sub?`<div class="note">${sub}</div>`:""}<div class="chartbox sm"><canvas id="${id}"></canvas></div></div>`;
+  const dp=(a,b)=>(b-a>=0?"+":"−")+Math.abs(Math.round((b-a)*100))+" pts";
+  const changes=S.events.length, alertsSent=S.alerts.length, digests=S.alerts.filter(a=>a.rule==="digest").length;
+  return `<h1>Board view</h1>
+  <p class="lead">Four numbers the board can check quarter to quarter. The ten weeks before ${fmt(START_WEEK)} are illustrative, showing what ten weeks live would look like; ${real?`the last ${real} come from weeks closed in this demo.`:"close a week in the demo and it lands here as real data."}</p>
+  <div class="board4">
+    ${card("b1","Crew utilization",pct(l.util),dp(f.util,l.util),l.util>=f.util,`Against the ${n0(S.set.target)}-man working target. Against the full roster: ${pct(l.utilRoster)}.`)}
+    ${card("b2","Sold backlog",n1(l.backlog)+" wks",(l.backlog-f.backlog>=0?"+":"−")+n1(Math.abs(l.backlog-f.backlog))+" weeks",l.backlog>=f.backlog,`${usd(l.backlogUSD)} of sold work not yet performed.`)}
+    ${card("b3","Forecast accuracy",pct(l.acc),dp(f.acc,l.acc),l.acc>=f.acc,"Actual hours against the forecast made four weeks earlier.")}
+    ${card("b4","On-time completion",pct(l.ontime),dp(f.ontime,l.ontime),l.ontime>=f.ontime,"Shutdown and contract jobs against their deadline; all others against the finish date set at scheduling.")}
+  </div>
+  ${(()=>{const m=firmMix(8);if(!m.tot)return "";const f=(m.t.lock+m.t.conf+m.t.wait)/m.tot;return `<p class="note">Next 8 weeks: ${pct(f)} of scheduled hours locked or confirmed with the customer, ${pct(m.t.guess/m.tot)} TMI’s best guess, ${pct((m.t.flex+m.t.fill)/m.tot)} flexible or fill-in.</p>`;})()}
+  <h2>Revenue by month</h2>
+  <div class="panel"><div class="chartbox"><canvas id="b5" aria-label="Revenue recognized and forecast by month"></canvas></div><p class="note">Recognized from PM percent complete; forecast from the schedule. Sold work only.</p></div>
+  <h2>Communication record</h2>
+  <div class="kpis" style="grid-template-columns:repeat(5,1fr)">
+    <div class="kpi"><div class="v num">${changes}</div><div class="l">Changes logged with name and time</div></div>
+    <div class="kpi"><div class="v num">${alertsSent}</div><div class="l">Alerts sent to leadership</div></div>
+    <div class="kpi"><div class="v num">${digests}</div><div class="l">Monday digests sent</div></div>
+    <div class="kpi"><div class="v num">${S.closes}</div><div class="l">Weeks closed in the system</div></div>
+    <div class="kpi"><div class="v num">${Object.keys(S.ack).length}</div><div class="l">Field schedule acknowledgments</div></div>
+  </div>
+  <h2>Before and after</h2>
+  <div class="scroll"><table><thead><tr><th>Question the board asks</th><th>Before</th><th>Now</th></tr></thead><tbody>
+    <tr><td>Are crews busy?</td><td>Estimated from job cost after the fact</td><td>Utilization every week, against target and full roster</td></tr>
+    <tr><td>How much work is sold ahead?</td><td>Read off a spreadsheet by eye</td><td>Backlog in weeks and dollars, trended</td></tr>
+    <tr><td>Can we trust the schedule?</td><td>No way to tell</td><td>Each week’s actual against the forecast made four weeks before</td></tr>
+    <tr><td>Do we finish when we say?</td><td>Not tracked</td><td>Shutdown and contract deadlines tracked to the date; every other job against the finish date set when it was scheduled</td></tr>
+    <tr><td>What revenue lands this quarter?</td><td>Estimated at month end</td><td>Weekly WIP from the Monday job cost meeting: recognized revenue, over and under billing, margin fade, forecast from the schedule</td></tr>
+    <tr><td>Do we have the right people?</td><td>Known by memory</td><td>Crew assignments checked for double-booking, time off and qualifications</td></tr>
+    <tr><td>Who knew about a change?</td><td>One person’s workbook, overwritten weekly</td><td>Full change log, automatic alerts, Monday digest, leader sign-off, and every crew member sees and acknowledges their week</td></tr>
+  </tbody></table></div>`;
+}
+function drawBoard(){
+  if(!window.Chart) return; chartDefaults();
+  const m=boardSeries(), lbl=m.map(x=>fmt(x.week)), blue=css("--blue"), mut=css("--muted");
+  const mk=(id,key,fmtV)=>{const el=document.getElementById(id);if(!el)return;
+    charts.push(new Chart(el,{type:"line",data:{labels:lbl,datasets:[{data:m.map(x=>fmtV.v(x[key])),borderColor:blue,backgroundColor:blue,borderWidth:2,tension:.25,
+      pointRadius:m.map(x=>x.illus?0:4),segment:{borderDash:c=>m[c.p1DataIndex]&&!m[c.p1DataIndex].illus?[]:[4,3],borderColor:c=>m[c.p1DataIndex]&&!m[c.p1DataIndex].illus?blue:mut}}]},
+      options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtV.t(c.parsed.y)}}},scales:{x:{grid:{display:false},ticks:{maxTicksLimit:6}},y:{ticks:{callback:v=>fmtV.t(v),maxTicksLimit:4}}}}}));};
+  const P={v:x=>Math.round(x*100),t:v=>v+"%"}, W={v:x=>Math.round(x*10)/10,t:v=>v+" wks"};
+  mk("b1","util",P); mk("b2","backlog",W); mk("b3","acc",P); mk("b4","ontime",P);
+  const M=monthly(5);
+  charts.push(new Chart(document.getElementById("b5"),{type:"bar",data:{labels:M.map(x=>mkLabel(x.mk)),datasets:[
+    {label:"Recognized",data:M.map(x=>Math.round(x.actual)),backgroundColor:css("--blue-strong")},
+    {label:"Forecast",data:M.map(x=>Math.round(x.lab+x.mat)),backgroundColor:blue}
+  ]},options:{maintainAspectRatio:false,plugins:{legend:{position:"bottom"},tooltip:{callbacks:{label:c=>c.dataset.label+": "+usd(c.parsed.y)}}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,ticks:{callback:v=>usd(v)}}}}}));
+}
+
+/* ---------- job dialog ---------- */
+function openJob(id,week){
+  const j=jobById(id); if(!j) return;
+  const dlg=document.getElementById("jobdlg");
+  const dis=f=>can.editJob(j,f)?"":"disabled";
+  const act=actualToDate(j), e=eac(j), vb=isVerbal(j);
+  const span=Math.max(1,(D(j.finish)-D(j.start))/DAY), el=Math.min(1,Math.max(0,(D(S.week)-D(j.start))/DAY/span));
+  const used=Math.min(1.2,act/Math.max(1,j.proj));
+  const leaders=S.people.filter(p=>p.role==="Leader"&&p.active).map(p=>`<option ${p.name===j.supt?"selected":""}>${esc(p.name)}</option>`).join("");
+  const hist=Object.keys(j.actual).sort().map(k=>`<tr><td>${fmt(k)}</td><td class="r num">${n0(j.actual[k])}</td></tr>`).join("");
+  const log=S.events.filter(ev=>ev.obj==="Job "+j.num).slice(0,12).map(ev=>`<li><span class="tag">${ev.stamp}</span><span>${esc(ev.who)}: ${esc(ev.field)} ${esc(ev.from)} → ${esc(ev.to)}</span></li>`).join("");
+  const anyEdit=["status","supt","crew","proj","start","finish","must","actualFinish","firm"].some(f=>can.editJob(j,f))||can.editSite();
+  const cws=weekList(30).filter(w=>inWindow(j,w));
+  DLGWEEK=cws.includes(week)?week:cws[0]||null;
+  let crewHTML="";
+  if(vb){crewHTML=`<p class="note">Verbal award. Crew gets assigned once it’s marked Scheduled.</p>`;}
+  else if(DLGWEEK){
+    const a=j.assign[DLGWEEK]||[], iss=crewIssues([DLGWEEK]).filter(i=>i.j.id===j.id), ce=can.editCrew(j);
+    const busy=busyMap(DLGWEEK,j.id);
+    const addOpts=S.people.filter(p=>p.active&&!a.includes(p.id)&&!busy.has(p.id)&&offFrac(p,DLGWEEK)===0).sort((x,y)=>(j.req.every(q=>y.quals.includes(q))-j.req.every(q=>x.quals.includes(q)))||(x.name<y.name?-1:1))
+      .map(p=>`<option value="${p.id}">${esc(p.name)}${j.req.length&&!j.req.every(q=>p.quals.includes(q))?" (not qualified)":""}</option>`).join("");
+    crewHTML=`<div class="row" style="margin-bottom:8px"><label class="field">Week ending<select id="cw">${cws.map(w=>`<option value="${w}" ${w===DLGWEEK?"selected":""}>${fmt(w)}</option>`).join("")}</select></label>
+      <span class="note">${a.length} of ${j.crew} assigned.${j.req.length?" Requires "+j.req.join(" and ")+".":""}${S.confirm[j.id+"|"+DLGWEEK]?" Confirmed by leader.":""}</span></div>
+      <ul class="crewl">${a.map(pid=>{const p=personById(pid);if(!p)return"";const pi=iss.filter(i=>i.p&&i.p.id===pid);return `<li><span class="nm">${esc(p.name)}</span><span class="q">${p.role==="Leader"?"Leader. ":""}${p.quals.join(", ")||"No quals"}</span>${pi.map(i=>`<span class="tag ${i.k==="double"||i.k==="off"?"red":"yel"}">${issueTag[i.k]}${i.k==="qual"?": "+i.miss.join(", "):""}${i.k==="double"?": "+esc(i.j2.customer):""}</span>`).join(" ")}${ce?`<button class="jl" data-unassign="${pid}" style="margin-left:auto">Remove</button>`:""}</li>`;}).join("")}</ul>
+      ${ce?`<div class="row" style="margin-top:10px"><label class="field">Add a person<select id="addP">${addOpts}</select></label><button class="btn sec" id="addCrew">Add</button><button class="btn sec" id="autoCrew">Fill to crew size</button></div>`:""}`;
+  }
+  const st=["Scheduled","Active","On hold","Complete"];
+  const others=S.jobs.filter(o=>o.id!==j.id&&!o.done&&!isVerbal(o)).sort((a,b)=>a.num.localeCompare(b.num));
+  dlg.innerHTML=`<div class="dh"><div><b style="font-size:19px">${j.num} ${esc(j.customer)}</b><div class="note">${esc(j.type)}, ${esc(j.location)}${j.ext?", exterior":""}. Rep ${esc(REPNAME[j.rep]||j.rep)}, PM ${j.pm}${j.estr?", estimator "+esc(j.estr):""}. Contract ${usd(j.value)}. Estimate: ${n0(j.est)} hrs, ${usd(j.matCost)} materials, ${pct(gpBid(j))} GP; now ${pct(gpNow(j))}.</div></div><button class="ghost" data-x aria-label="Close">Close</button></div>
+  <div class="db">
+    ${billPanel(j)}
+    ${jyPanel(j)}
+    ${woPanel(j)}
+    ${vb?"":`<div class="stat"><div>Actual to date<b class="num">${n0(act)}</b></div><div>Hours left<b class="num" ${hoursLeft(j)<0?'style="color:var(--red)"':""}>${n0(hoursLeft(j))}</b></div><div>On pace to finish at<b class="num" ${atRisk(j)?'style="color:var(--red)"':""}>${n0(e)}</b></div><div>vs. estimate<b class="num">${j.proj>=j.est?"+":"−"}${n0(Math.abs(j.proj-j.est))}</b></div></div>
+    <div class="note">Hours used ${pct(act/Math.max(1,j.proj))}</div><div class="meter"><i class="${used>el+0.1?"r":""}" style="width:${Math.min(100,used*100)}%"></i></div>
+    <div class="note">Schedule elapsed ${pct(el)}</div><div class="meter"><i style="width:${el*100}%;opacity:.5"></i></div>`}
+    <div class="fg" style="margin-top:14px">
+      <label class="field">Status<select id="fStatus" ${dis("status")}>${st.map(s=>`<option value="${s}" ${s===j.status?"selected":""}>${statusLabel(s)}</option>`).join("")}</select></label>
+      ${vb?"":`<label class="field">Date firmness<select id="fFirm" ${dis("firm")}>${FIRM.map(f=>`<option value="${f.k}" ${f.k===firmOf(j).k?"selected":""} title="${esc(f.d)}">${esc(f.l)}</option>`).join("")}</select></label>
+      <label class="field">Can’t start until this job finishes<select id="fAfter" ${dis("firm")}><option value="">None</option>${others.map(o=>`<option value="${o.id}" ${o.id===j.after?"selected":""}>${o.num} ${esc(o.customer)}</option>`).join("")}</select></label>
+      <label class="field">Reason for leaving Locked<input id="fFirmWhy" placeholder="Required only when moving off Locked" ${dis("firm")}></label>
+      <label class="field">On hold: reason<input id="fHoldWhy" value="${esc(j.holdWhy||"")}" placeholder="Required when on hold" ${dis("status")}></label>
+      <label class="field">On hold: expected restart<input id="fHoldUntil" type="date" value="${j.holdUntil||""}" ${dis("status")}></label>`}
+      <label class="field">Job leader<select id="fSupt" ${dis("supt")}>${leaders}</select></label>
+      <label class="field">Crew size<input id="fCrew" type="number" min="1" max="20" value="${j.crew}" ${dis("crew")}></label>
+      <label class="field">Projected hrs<input id="fProj" type="number" min="0" step="10" value="${j.proj}" ${dis("proj")}></label>
+      <label class="field">Start<input id="fStart" type="date" value="${j.start}" ${dis("start")}></label>
+      <label class="field">Must finish (shutdown or contract only)<input id="fMust" type="date" value="${j.must||""}" ${dis("must")}></label>
+      <label class="field">Deadline type<select id="fWhy" ${dis("must")}>${["","Shutdown","Contract obligation"].map(x=>`<option value="${x}" ${x===(j.mustWhy||"")?"selected":""}>${x||"None"}</option>`).join("")}</select></label>
+      <label class="field">Projected finish<input id="fFinish" type="date" value="${j.finish}" ${dis("finish")}></label>
+      <label class="field">Actual finish<input id="fActual" type="date" value="${j.actualFinish||""}" ${dis("actualFinish")}></label>
+    </div>
+    ${vb?"":`<div class="stat" style="margin-top:14px"><div>Materials complete<b class="num">${pct(j.matDone)}</b></div><div>Labor complete<b class="num" ${diverge(j)?'style="color:var(--red)"':""}>${pct(j.labDone)}</b></div><div>Recognized<b class="num">${usd(recog(j))}</b></div><div>Over (under) billed<b class="num">${signed(j.billed-recog(j))}</b></div></div><p class="note" style="margin-top:-6px">Hours suggest labor is ${pct(suggestLab(j))} complete. Update percentages on the Revenue tab.</p>`}
+    ${(()=>{const cn=(S.role==="admin"||S.role==="ceo")||S.role==="ops"||(S.role==="supt"&&own(j));const ns=(j.notes||[]).slice().reverse().sort((a,b)=>b.pinned-a.pinned);
+    return `<h2 style="font-size:15px;margin:18px 0 8px">Notes</h2>${ns.length?`<ul class="att">${ns.map(n=>`<li><span class="tag ${n.pinned?"yel":""}">${n.pinned?"Pinned":"Note"}</span><span>${esc(n.text)}<br><span class="q">${esc(n.who)}, ${esc(n.stamp)}.${n.crew?" Crew can see this.":""}</span>${(S.role==="admin"||S.role==="ceo")?` <button class="jl" data-pin="${n.id}">${n.pinned?"Unpin":"Pin"}</button>`:""}</span></li>`).join("")}</ul>`:`<p class="note">No notes yet.</p>`}
+    ${cn?`<div class="field" style="margin-top:8px"><textarea id="noteText" rows="2" placeholder="Gate codes, customer requests, safety issues, anything the next person needs to know" aria-label="New note"></textarea></div><div class="row" style="margin-top:6px"><label class="q"><input type="checkbox" id="notePin"> Pin as important</label><label class="q"><input type="checkbox" id="noteCrew"> Crew can see it</label><button class="btn sec" id="addNote">Add note</button></div>`:""}`;})()}
+    <h2 style="font-size:15px;margin:18px 0 8px">Site details for the crew</h2>
+    <div class="fg">${[["fAddr","Site address","address"],["fTime","Start time","time"],["fContact","Site contact","contact"],["fOrient","Orientation or badging","orient"],["fPPE","PPE and permits","ppe"]].map(([id,l,k])=>`<label class="field">${l}<input id="${id}" value="${esc((j.site||{})[k]||"")}" ${can.editSite()?"":"disabled"}></label>`).join("")}</div>
+    <h2 style="font-size:15px;margin:18px 0 8px">Crew</h2>${crewHTML}
+    <div class="grid2" style="margin-top:14px">
+      <div><h2 style="margin-top:0;font-size:15px">Actual hours by week</h2>${hist?`<div class="scroll"><table><tbody>${hist}</tbody></table></div>`:`<p class="note">Not started.</p>`}</div>
+      <div><h2 style="margin-top:0;font-size:15px">Changes</h2>${log?`<ul class="att">${log}</ul>`:`<p class="note">No changes yet.</p>`}</div>
+    </div>
+  </div>
+  <div class="df"><button class="btn sec" data-x>Cancel</button>${anyEdit?`<button class="btn" id="jsave" data-id="${j.id}">Save changes</button>`:""}</div>`;
+  dlg.dataset.job=j.id;
+  if(!dlg.open) dlg.showModal();
+}
+const REPS=["DM","JT","KW","LB","NH","RS","TP","VC","BF"], PMS=["JS","RL","TK"];
+function openNewJob(){
+  const dlg=document.getElementById("jobdlg"); dlg.dataset.job="";
+  const sel=(id,arr,v)=>`<select id="${id}">${arr.map(x=>`<option ${x===v?"selected":""}>${esc(x)}</option>`).join("")}</select>`;
+  const leaders=S.people.filter(p=>p.role==="Leader"&&p.active).map(p=>p.name);
+  dlg.innerHTML=`<div class="dh"><div><b style="font-size:19px">Add job from estimate</b><div class="note">In the full build these fields load from the estimate workbook’s summary. The job is booked on the schedule the moment you add it, and a work order opens alongside it for Lori to draft.</div></div><button class="ghost" data-x aria-label="Close">Close</button></div>
+  <div class="db" id="nj">
+    <h2 style="font-size:15px;margin:0 0 8px">Job</h2>
+    <div class="fg"><label class="field">Job number<input id="nNum"></label><label class="field">Customer<input id="nCust"></label><label class="field">Location<input id="nLoc"></label>
+    <label class="field">Type<input id="nType" placeholder="Floor system"></label><label class="field">Sales rep${sel("nRep",REPS,"DM")}</label><label class="field">PM${sel("nPm",PMS,"JS")}</label><label class="field">Estimator (required)<select id="nEst"><option value="">Select…</option>${ESTIMATORS.map(x=>`<option>${x}</option>`).join("")}</select></label></div>
+    <h2 style="font-size:15px;margin:16px 0 8px">From the estimate</h2>
+    <div class="fg"><label class="field">Contract value ($)<input id="nVal" type="number" min="0" step="100"></label><label class="field">Estimated labor hrs<input id="nHrs" type="number" min="0" step="10"></label><label class="field">Projected material cost ($)<input id="nMat" type="number" min="0" step="100"></label></div>
+    <p class="note" id="nPrev" style="margin:8px 0 0">Enter contract, hours and material cost to see the revenue split and bid margin.</p>
+    <h2 style="font-size:15px;margin:16px 0 8px">Schedule</h2>
+    <div class="fg"><label class="field">Status<select id="nStat"><option value="Scheduled">Scheduled</option><option value="Active">In progress</option></select></label><label class="field">Billing method<select id="nBill">${Object.keys(BMETH).map(k=>`<option value="${k}">${BMETH[k]}</option>`).join("")}</select></label><label class="field">Date firmness (required)<select id="nFirm"><option value="">Select…</option>${FIRM.map(f=>`<option value="${f.k}" title="${esc(f.d)}">${esc(f.l)}</option>`).join("")}</select></label><label class="field">Can’t start until this job finishes<select id="nAfter"><option value="">None</option>${S.jobs.filter(o=>!o.done&&!isVerbal(o)).sort((a,b)=>a.num.localeCompare(b.num)).map(o=>`<option value="${o.id}">${o.num} ${esc(o.customer)}</option>`).join("")}</select></label><label class="field">Job leader${sel("nLead",leaders,leaders[0])}</label><label class="field">Crew size<input id="nCrew" type="number" min="1" max="20" value="4"></label>
+    <label class="field">Start<input id="nStart" type="date" value="${mon(addDays(S.week,21))}"></label><label class="field">Projected finish<input id="nFin" type="date" value="${addDays(S.week,28)}"></label><label class="field">Must finish (shutdown or contract only)<input id="nMust" type="date" value=""></label><label class="field">Deadline type<select id="nWhy"><option value="">None</option><option>Shutdown</option><option>Contract obligation</option></select></label></div>
+    <h2 style="font-size:15px;margin:16px 0 8px">Requirements</h2>
+    <div class="row">${QUALS.map(qq=>`<label class="q"><input type="checkbox" data-nreq="${qq}"> ${qq}</label>`).join("")}<label class="q"><input type="checkbox" id="nExt"> Exterior work</label></div>
+    <h2 style="font-size:15px;margin:16px 0 8px">Site details for the crew</h2>
+    <div class="fg"><label class="field">Site address<input id="nAddr"></label><label class="field">Start time<input id="nTime" value="6:30 AM"></label><label class="field">Site contact<input id="nContact"></label><label class="field">Orientation or badging<input id="nOrient"></label><label class="field">PPE and permits<input id="nPPE"></label></div>
+    <label class="field" style="margin-top:10px">Note for the job file (optional)<textarea id="nNote" rows="2" placeholder="Anything from the estimate or sale the team needs to know"></textarea></label>
+  </div>
+  <div class="df"><button class="btn sec" id="sampleEst" style="margin-right:auto">Load sample estimate</button><button class="btn sec" data-x>Cancel</button><button class="btn" id="createJob">Add job</button></div>`;
+  if(!dlg.open) dlg.showModal();
+}
+function newJobPreview(){
+  const v=+document.getElementById("nVal").value, h=+document.getElementById("nHrs").value, m=+document.getElementById("nMat").value, el=document.getElementById("nPrev");
+  if(!(v>0&&h>0)){el.textContent="Enter contract, hours and material cost to see the revenue split and bid margin.";return;}
+  const mr=allocMat(v,m,h), cost=m+h*S.set.rate;
+  el.innerHTML=`Material revenue ${usd(mr)}, labor revenue ${usd(v-mr)} (split by estimated cost). Bid cost ${usd(cost)} at ${usd(S.set.rate)}/hr labor: <b>${pct(1-cost/v)} GP</b>.`;
+}
+function createJob(){
+  const g=id=>document.getElementById(id).value.trim();
+  const num=g("nNum").replace(/\D/g,""), value=+g("nVal"), est=+g("nHrs"), matCost=+g("nMat")||0, start=g("nStart"), finish=g("nFin");
+  if(!num||!g("nCust")||!(value>0)||!(est>0)||!start||!finish){alert("Job number, customer, contract value, hours and dates are required.");return;}
+  if(!g("nEst")){alert("Pick the estimator. They review the draft work order first.");return;}
+  if(finish<start){alert("The finish date has to be on or after the start date.");return;}
+  if(!/^\d{4}$/.test(num)){alert("Job numbers are four digits.");return;}
+  if(S.jobs.some(j=>j.num===num)){alert("Job "+num+" is already on the schedule.");return;}
+  if(!g("nFirm")){alert("Pick how firm the dates are. The rep knows what the customer agreed to.");return;}
+  if(g("nFirm")==="wait"&&!g("nAfter")){alert("Pick the job this one waits on.");return;}
+  const req=[...document.querySelectorAll("[data-nreq]")].filter(x=>x.checked).map(x=>x.dataset.nreq);
+  const j={id:"j"+uid(),num,customer:g("nCust"),type:g("nType")||"General",location:g("nLoc"),rep:g("nRep"),pm:g("nPm"),estr:g("nEst"),wo:newWO(),supt:g("nLead"),crew:Math.max(1,+g("nCrew")||1),est,proj:est,value,matCost,mat:allocMat(value,matCost,est),
+    start,finish,baseFinish:finish,status:g("nStat"),done:false,actual:{},plan:{},assign:{},ext:document.getElementById("nExt").checked,req,matDone:0,labDone:0,billed:0,rev:{},pctWeek:null,notes:g("nNote")?[{id:uid(),text:g("nNote"),who:ROLES[S.role].name,stamp:nowStamp(),pinned:true,crew:false}]:[],must:g("nMust")||null,mustWhy:g("nMust")?(g("nWhy")||"Contract obligation"):"",actualFinish:null,jy:{},billMethod:g("nBill")||"final",invoices:[],milestones:g("nBill")==="milestone"?MSTEMPLATE.map(([l,pc])=>({l,pct:pc})):[],firm:g("nFirm"),after:g("nFirm")==="wait"?g("nAfter"):null,holdWhy:"",holdUntil:null,
+    site:{address:g("nAddr"),time:g("nTime"),contact:g("nContact"),orient:g("nOrient")||"None",ppe:g("nPPE")||ppeFor(g("nType"))}};
+  S.jobs.push(j); PC=null;
+  if(sold(j)) weekList(30).filter(w=>inWindow(j,w)).forEach(w=>fillCrew(j,w));
+  logEvent("Job "+num,"Added from estimate","—",j.customer+", "+usd(value)+", "+n0(est)+" hrs, "+usd(matCost)+" materials ("+statusLabel(j.status)+", "+firmOf(j).l+")");
+  woBooked(j);
+  capacityCheck(); save(); document.getElementById("jobdlg").close(); render();
+}
+function crewChanged(j){PC=null;save();openJob(j.id,DLGWEEK);}
+function saveJob(id){
+  const j=jobById(id); const g=s=>document.getElementById(s).value;
+  const nv={status:g("fStatus"),supt:g("fSupt"),crew:Math.max(1,+g("fCrew")||j.crew),proj:Math.max(0,+g("fProj")||0),start:g("fStart")||j.start,finish:g("fFinish")||j.finish,must:g("fMust")||null,mustWhy:g("fMust")?g("fWhy"):"",actualFinish:g("fActual")||null};
+  if(nv.must&&!nv.mustWhy){alert("Pick a deadline type: shutdown or contract obligation.");return;}
+  const ex=id=>document.getElementById(id);
+  if(ex("fFirm")){nv.firm=g("fFirm");nv.after=nv.firm==="wait"?(g("fAfter")||null):null;nv.holdWhy=g("fHoldWhy").trim();nv.holdUntil=g("fHoldUntil")||null;
+    if(nv.firm==="wait"&&!nv.after){alert("Pick the job this one waits on.");return;}
+    if(nv.status==="On hold"&&(!nv.holdWhy||!nv.holdUntil)&&can.editJob(j,"status")){alert("Jobs on hold need a reason and an expected restart date.");return;}
+    if(nv.status!=="On hold"){nv.holdWhy=j.status==="On hold"?"":(j.holdWhy||"");nv.holdUntil=j.status==="On hold"?null:(j.holdUntil||null);}
+    if(firmOf(j).k==="lock"&&nv.firm!=="lock"&&can.editJob(j,"firm")&&!g("fFirmWhy").trim()){alert("Moving a job off Locked needs a reason. It goes in the job notes.");return;}}
+  if(nv.finish<nv.start){alert("The finish date has to be on or after the start date.");return;}
+  const labels={firm:"Date firmness",after:"Waits on",holdWhy:"Hold reason",holdUntil:"Expected restart",status:"Status",supt:"Job leader",crew:"Crew size",proj:"Projected hrs",start:"Start",finish:"Projected finish",must:"Must finish",mustWhy:"Deadline type",actualFinish:"Actual finish"};
+  const isDate=k=>k==="start"||k==="finish"||k==="must"||k==="actualFinish"||k==="holdUntil";
+  const changed=Object.keys(nv).filter(k=>String(nv[k]==null?"":nv[k])!==String(j[k]==null?"":j[k])&&can.editJob(j,k==="mustWhy"?"must":(k==="holdWhy"||k==="holdUntil"?"status":k)));
+  if(can.editSite()){j.site=j.site||{};[["fAddr","address","Site address"],["fTime","time","Start time"],["fContact","contact","Site contact"],["fOrient","orient","Orientation"],["fPPE","ppe","PPE"]].forEach(([id,k,l])=>{const v=g(id).trim();if(v!==(j.site[k]||"")){logEvent("Job "+j.num,l,j.site[k]||"blank",v||"blank");j.site[k]=v;}});save();}
+  if(!changed.length){document.getElementById("jobdlg").close();return;}
+  const old=Object.assign({},j);
+  const shown=(k,v)=>k==="firm"?(FIRMBY[v]||FIRMBY.guess).l:(k==="after"?(v&&jobById(v)?jobById(v).num:"none"):(k==="status"?statusLabel(v):(v==null||v===""?"blank":v)));
+  changed.forEach(k=>{logEvent("Job "+j.num,labels[k],isDate(k)?fmtN(old[k]):shown(k,old[k]),isDate(k)?fmtN(nv[k]):shown(k,nv[k]));j[k]=nv[k];});
+  if(changed.includes("firm")){const why=(document.getElementById("fFirmWhy")||{value:""}).value.trim();
+    if(why){j.notes=j.notes||[];j.notes.push({id:uid(),text:"Firmness "+FIRMBY[old.firm||"guess"].l+" → "+firmOf(j).l+": "+why,who:ROLES[S.role].name,stamp:nowStamp(),pinned:old.firm==="lock",crew:false});}
+    if(old.firm==="lock"||j.firm==="lock") notify("date","Firmness changed: "+j.num+" "+j.customer,FIRMBY[old.firm||"guess"].l+" → "+firmOf(j).l+(why?"\nReason: "+why:"")+"\nChanged by "+ROLES[S.role].name+".",jobTo(j),j.id);}
+  if(changed.includes("status")&&(old.status==="On hold"||j.status==="On hold")) notify("date",(j.status==="On hold"?"On hold: ":"Off hold: ")+j.num+" "+j.customer,(j.status==="On hold"?(j.holdWhy+". Expected restart "+fmt(j.holdUntil)+". Hours come out of capacity until then."):("Back in the capacity count from "+fmt(j.start)+"."))+"\nChanged by "+ROLES[S.role].name+".",jobTo(j),j.id);
+  if(j.actualFinish&&j.status!=="Complete"&&changed.includes("actualFinish")){j.status="Complete";j.done=true;j.completed=S.week;j.labDone=1;j.matDone=1;recordRev(j);logEvent("Job "+j.num,"Status",old.status,"Complete");}
+  if(changed.includes("status")){j.done=nv.status==="Complete";if(j.done){j.completed=S.week;if(!j.actualFinish)j.actualFinish=S.week;j.labDone=1;j.matDone=1;recordRev(j);}}
+  if(changed.includes("start")||changed.includes("finish")){Object.keys(j.plan).forEach(k=>{if(!inWindow(j,k))delete j.plan[k];});}
+  if(changed.includes("supt")){const oldL=S.people.find(p=>p.name===old.supt), newL=S.people.find(p=>p.name===nv.supt);Object.keys(j.assign).forEach(w=>{j.assign[w]=j.assign[w].filter(pid=>!oldL||pid!==oldL.id);if(newL&&!j.assign[w].includes(newL.id))j.assign[w].unshift(newL.id);});}
+  PC=null;
+  if(old.status==="Verbal"&&nv.status!=="Verbal"){weekList(30).filter(w=>inWindow(j,w)).forEach(w=>fillCrew(j,w));notify("crew","Verbal award now scheduled: "+j.num+" "+j.customer,"Counted in the forecast from "+fmt(j.start)+". Crew auto-filled for review.\nChanged by "+ROLES[S.role].name+".",jobTo(j),j.id);}
+  const dmv=changed.filter(k=>k==="start"||k==="finish"||k==="must");
+  if(dmv.length&&!isVerbal(j)) notify("date","Date moved: "+j.num+" "+j.customer,dmv.map(k=>labels[k]+" "+fmtN(old[k])+" → "+fmtN(nv[k])).join("\n")+(lateRisk(j)?"\nProjected finish is now after the must-finish date of "+fmt(j.must)+".":"")+"\nChanged by "+ROLES[S.role].name+".",jobTo(j),j.id);
+  const cc=changed.filter(k=>k==="crew"||k==="supt");
+  if(cc.length&&!isVerbal(j)) notify("crew","Crew change: "+j.num+" "+j.customer,cc.map(k=>labels[k]+" "+old[k]+" → "+nv[k]).join("\n")+"\nChanged by "+ROLES[S.role].name+".",jobTo(j),j.id);
+  capacityCheck(); save();
+  document.getElementById("jobdlg").close(); render();
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click",e=>{
+  const t=e.target.closest("button,[data-x]"); if(!t) return;
+  if(t.dataset.tab){CUR=t.dataset.tab;if(CUR!=="close")LASTCLOSE=null;SRC={};IMPORTNOTE="";render();window.scrollTo(0,0);return;}
+  if(t.dataset.lead){LEADOPEN=LEADOPEN===t.dataset.lead?null:t.dataset.lead;render();return;}
+  if(t.dataset.billact){const [a,id,x]=t.dataset.billact.split("|");billAction(a,id,x);return;}
+  if(t.dataset.jy){const [k,id]=t.dataset.jy.split("|");jyToggle(k,id);return;}
+  if(t.dataset.job){JYOPEN=CUR==="jy";BILLOPEN=!!t.dataset.billopen;openJob(t.dataset.job,S.week);return;}
+  if(t.hasAttribute("data-x")){document.getElementById("jobdlg").close();return;}
+  if(t.id==="jsave"){saveJob(t.dataset.id);return;}
+  if(t.dataset.woact){const [a,id]=t.dataset.woact.split("|");woAction(a,id);return;}
+  const dj=jobById(document.getElementById("jobdlg").dataset.job||"");
+  if(t.id==="addNote"&&dj){const tx=document.getElementById("noteText").value.trim();if(!tx)return;dj.notes=dj.notes||[];dj.notes.push({id:uid(),text:tx,who:ROLES[S.role].name,stamp:nowStamp(),pinned:document.getElementById("notePin").checked,crew:document.getElementById("noteCrew").checked});logEvent("Job "+dj.num,"Note added","—",tx.length>60?tx.slice(0,60)+"…":tx);crewChanged(dj);return;}
+  if(t.dataset.pin&&dj){const n=(dj.notes||[]).find(x=>x.id===t.dataset.pin);if(n){n.pinned=!n.pinned;logEvent("Job "+dj.num,"Note "+(n.pinned?"pinned":"unpinned"),"—",n.text.length>60?n.text.slice(0,60)+"…":n.text);crewChanged(dj);}return;}
+  if(t.dataset.unassign&&dj){const pid=+t.dataset.unassign;dj.assign[DLGWEEK]=(dj.assign[DLGWEEK]||[]).filter(x=>x!==pid);logEvent("Job "+dj.num,"Crew, week ending "+fmt(DLGWEEK),personById(pid).name,"removed");crewChanged(dj);return;}
+  if(t.id==="addCrew"&&dj){const pid=+document.getElementById("addP").value;if(!pid)return;dj.assign[DLGWEEK]=(dj.assign[DLGWEEK]||[]).concat(pid);logEvent("Job "+dj.num,"Crew, week ending "+fmt(DLGWEEK),"added",personById(pid).name);crewChanged(dj);return;}
+  if(t.id==="autoCrew"&&dj){const b=(dj.assign[DLGWEEK]||[]).length;fillCrew(dj,DLGWEEK);logEvent("Job "+dj.num,"Crew, week ending "+fmt(DLGWEEK),b+" assigned",dj.assign[DLGWEEK].length+" assigned");crewChanged(dj);return;}
+  if(t.dataset.ack){S.ack[t.dataset.ack]=nowStamp();const [pid,w]=t.dataset.ack.split("|");logEvent("Crew "+personById(+pid).name,"Schedule acknowledged, week ending "+fmt(w),"unread","got it");save();render();return;}
+  if(t.dataset.revview){REVVIEW=t.dataset.revview;render();return;}
+  if(t.id==="newJob"){openNewJob();return;}
+  if(t.id==="createJob"){createJob();return;}
+  if(t.id==="sampleEst"){const f={nNum:"4291",nCust:"Valley Malt House",nLoc:"Shakopee, MN",nType:"Floor system",nVal:96500,nHrs:610,nMat:21800,nCrew:6,nStart:mon(addDays(S.week,35)),nFin:addDays(S.week,49),nAddr:"1450 Malt House Rd, Shakopee, MN",nTime:"6:30 AM",nContact:"Tom Reiter, 952-555-0148",nOrient:"Food-safety orientation, 30 min, first morning",nPPE:"Half-face respirator, knee pads, hairnets in production",nFirm:"conf"};
+    Object.keys(f).forEach(k=>document.getElementById(k).value=f[k]);document.getElementById("nRep").value="LB";document.getElementById("nLead").value="Ben Schultz";document.getElementById("nEst").value="Greg Halvorsen";newJobPreview();return;}
+  if(t.id==="bell"){CUR="alerts";render();window.scrollTo(0,0);return;}
+  if(t.id==="reset"){if(confirm("Reset the demo to its starting data? Everything entered here is cleared.")){init(true);}return;}
+  if(t.id==="confirmWeek"){S.jobs.filter(j=>own(j)&&sold(j)&&inWindow(j,S.week)).forEach(j=>{S.confirm[j.id+"|"+S.week]=true;logEvent("Job "+j.num,"Crew confirmed, week ending "+fmt(S.week),"unconfirmed","confirmed");});save();render();return;}
+  if(t.id==="imp"){
+    const map={};
+    closeRows().forEach(j=>{if(/Granite Falls/.test(j.customer))return;const f=j.id==="j2"?1.35:(0.92+Math.random()*0.16);map[j.num]=Math.round(plannedNow(j)*f);});
+    map["4999"]=24; applyImport(map,"Time-system export",["4999 (24 hrs)"]); return;}
+  if(t.id==="doclose"){
+    const blank=closeRows().filter(j=>document.querySelector(`[data-act="${j.id}"]`).value.trim()==="").length;
+    if(blank&&!confirm(blank+" job"+(blank>1?"s have":" has")+" no hours. Close anyway? They’ll be named in Monday’s digest.")) return;
+    doClose();return;}
+  if(t.id==="toAdd"){
+    const pid=+document.getElementById("toP").value, s=document.getElementById("toS").value, en=document.getElementById("toE").value, ty=document.getElementById("toT").value;
+    if(!s||!en||en<s){alert("Pick a first day and a last day on or after it.");return;}
+    S.timeoff.push({id:uid(),pid,start:s,end:en,type:ty}); PC=null;
+    logEvent("Crew "+personById(pid).name,"Time off","none",fmt(s)+"–"+fmt(en)+" ("+ty+")");
+    capacityCheck(); save(); render(); return;}
+  if(t.dataset.delto){const to=S.timeoff.find(x=>x.id===t.dataset.delto);if(to){S.timeoff=S.timeoff.filter(x=>x!==to);logEvent("Crew "+personById(to.pid).name,"Time off removed",fmt(to.start)+"–"+fmt(to.end),"none");PC=null;capacityCheck();save();render();}return;}
+  if(t.id==="digest"){postDigest();save();render();return;}
+  if(t.dataset.uselab){const j=jobById(t.dataset.uselab);const nv=Math.round(suggestLab(j)*100)/100;logEvent("Job "+j.num,"Labor % complete",pct(j.labDone),pct(nv)+" (from hours)");j.labDone=nv;j.pctWeek=S.week;recordRev(j);save();render();return;}
+});
+document.getElementById("jobdlg").addEventListener("close",()=>{if(CUR!=="close")render();});
+document.addEventListener("input",e=>{
+  const t=e.target;
+  if(t.dataset.act!=null){delete SRC[t.dataset.act];refreshReview();}
+  if(t.closest&&t.closest("#nj")) newJobPreview();
+  if(t.id==="q"){const q=t.value.toLowerCase();document.querySelectorAll("#roster tbody tr").forEach(r=>{r.hidden=q&&!r.cells[0].textContent.toLowerCase().includes(q);});}
+});
+document.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.id==="role"){S.role=t.value;LASTCLOSE=null;if(["lori","est","pm","sched"].includes(S.role))CUR="wo";save();render();return;}
+  if(t.dataset.cause){const x=S.hist.find(h=>h.id===t.dataset.cause);if(x){const was=x.cause||"Untagged";x.cause=t.value||null;logEvent(x.num+" "+x.customer,"Overrun cause",was,t.value||"Untagged");save();render();}return;}
+  if(t.dataset.schf){SCHF[t.dataset.schf]=t.value;render();return;}
+  if(t.id==="cw"){const dj=jobById(document.getElementById("jobdlg").dataset.job);if(dj)openJob(dj.id,t.value);return;}
+  if(t.id==="csv"&&t.files&&t.files[0]){const rd=new FileReader();rd.onload=()=>{const map={},un=[];const nums=new Set(closeRows().map(j=>j.num));
+      String(rd.result).split(/\r?\n/).forEach(line=>{const c=line.split(",").map(x=>x.trim().replace(/^"|"$/g,""));if(c.length<2||isNaN(parseFloat(c[1])))return;const k=c[0].replace(/\D/g,"");if(!k)return;map[k]=(map[k]||0)+parseFloat(c[1]);});
+      Object.keys(map).forEach(k=>{if(!nums.has(k))un.push(k+" ("+n0(map[k])+" hrs)");});
+      applyImport(map,"CSV upload",un);};rd.readAsText(t.files[0]);t.value="";return;}
+  if(t.dataset.plan){const [id,w]=t.dataset.plan.split("|");const j=jobById(id);const old=plans()[id][w];
+    if(t.value===""){delete j.plan[w];} else j.plan[w]=Math.max(0,Math.round(+t.value));
+    logEvent("Job "+j.num,"Planned hrs, week ending "+fmt(w),old,t.value===""?"auto":j.plan[w]);
+    PC=null; capacityCheck(); save(); render(); return;}
+  if(t.dataset.mat||t.dataset.lab||t.dataset.billed){
+    const id=t.dataset.mat||t.dataset.lab||t.dataset.billed, j=jobById(id), v=Math.max(0,+t.value||0);
+    if(t.dataset.billed){logEvent("Job "+j.num,"Billed to date",usd(j.billed),usd(v));j.billed=Math.round(v);}
+    else {const k=t.dataset.mat?"matDone":"labDone", nv=Math.min(1,v/100);logEvent("Job "+j.num,(t.dataset.mat?"Materials":"Labor")+" % complete",pct(j[k]),pct(nv));j[k]=nv;j.pctWeek=S.week;recordRev(j);}
+    save();render();return;}
+  if(t.dataset.set==="matPolicy"){logEvent("Assumptions","Materials counted when",S.set.matPolicy,t.value);S.set.matPolicy=t.value;save();render();return;}
+  if(t.dataset.set){const k=t.dataset.set;let v=+t.value;if(isNaN(v))return;if(k==="absence"||k==="overrun")v=v/100;
+    if(k==="rate"){logEvent("Assumptions","Labor cost $/hr",S.set.rate,v);S.set.rate=v;S.jobs.forEach(j=>{j.mat=allocMat(j.value,j.matCost,j.est);if(Object.keys(j.rev).length)recordRev(j);});save();render();return;}
+    logEvent("Assumptions",k,S.set[k],v);S.set[k]=v;PC=null;capacityCheck();save();render();return;}
+  if(t.dataset.active){const p=personById(+t.dataset.active);p.active=t.checked;logEvent("Crew "+p.name,"Active",!t.checked?"yes":"no",t.checked?"yes":"no");PC=null;capacityCheck();save();render();return;}
+  if(t.dataset.driver){const p=personById(+t.dataset.driver);p.driver=t.checked;logEvent("Crew "+p.name,"Driver",t.checked?"no":"yes",t.checked?"yes":"no");PC=null;save();return;}
+  if(t.dataset.qual){const [pid,qq]=t.dataset.qual.split("|");const p=personById(+pid);if(t.checked){if(!p.quals.includes(qq))p.quals.push(qq);p.qexp=p.qexp||{};p.qexp[qq]=addDays(S.week,365);}else p.quals=p.quals.filter(x=>x!==qq);logEvent("Crew "+p.name,"Qualification "+qq,t.checked?"no":"yes",t.checked?"yes":"no");save();return;}
+  if(t.dataset.mute){S.muted[S.role]=S.muted[S.role]||{};S.muted[S.role][t.dataset.mute]=!t.checked;save();return;}
+});
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{if(CUR==="dash"||CUR==="board")render();});
+
+/* ---------- init ---------- */
+function init(fresh){
+  S=(!fresh&&load())||null;
+  if(!S){S=seed();PC=null;seedAssignments();seedFc4();
+    const j1=S.jobs[0], pid=(j1.assign[S.week]||[]).map(personById).find(p=>p&&p.role==="Field");
+    if(pid){S.crewDemo=pid.id;pid.driver=true;pid.med=addDays(S.week,26);if(!pid.quals.includes("Lift")){pid.quals.push("Lift");}pid.qexp["Lift"]=addDays(S.week,52);}
+    snapshot();postDigest();capacityCheck();certReminders();S.alerts.forEach(a=>{a.stamp="Mon 6:00 AM";});save();}
+  const cm=personById(S.crewDemo); if(cm) ROLES.crew={name:cm.name,label:"Crew: "+cm.name};
+  LASTCLOSE=null; SRC={}; IMPORTNOTE=""; CUR=TABS.find(t=>t.roles.includes(S.role)).id;
+  document.getElementById("role").innerHTML=Object.keys(ROLES).map(k=>`<option value="${k}" ${k===S.role?"selected":""}>${ROLES[k].label}</option>`).join("");
+  render();
+}
+init(false);
+})();
+</script>
+</body>
+</html>
