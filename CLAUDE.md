@@ -22,11 +22,12 @@ Crew scheduling, forecasting, WIP, work orders, job journey and billing for TMI 
 9. Work in small steps: show me a plan, build, run the tests, then commit with a plain-English message.
 
 ## Roles
-admin, ceo, scheduler, job setup (Lori), estimator, pm, superintendent, sales rep, field crew, accounting, board. Use the demo's permissions for each.
+admin, ceo, scheduler (Nicole), job setup (Lori), estimator, pm, superintendent, sales rep, field crew (leaders only in Phase 1), accounting, cfo (Jared). No board role: the board gets an exported PDF pack. Use the demo's permissions for each, except where docs/decisions.md says otherwise.
 
 ## Business rules to keep exactly
 - Forecast counts sold work only. On-hold hours come out of capacity.
 - Capacity = active roster less time off x hours per man-week x (1 - absence).
-- Materials revenue is recognized when shipped; labor by PM percent complete, entered Mondays.
+- Materials revenue is recognized by materials percent complete (PM or Jared); labor by PM percent complete. Both entered Mondays.
 - Job numbers are four digits.
 - Firmness, job journey checkpoints and billing methods work as in the demo.
+- docs/decisions.md records the answers to the kickoff questions. Where it differs from the demo, it wins.
