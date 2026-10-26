@@ -126,6 +126,13 @@ export function seedSql(week: string): string {
     ),
   );
   out.push(rows("retainage_receipts", ["id", "job_id", "amount_cents", "received_on", "recorded_by"], s.retainageReceipts.map((r) => [r.id, r.jobId, r.amountCents, r.receivedOn, "Accounting"])));
+  out.push(
+    rows(
+      "closeout_outcomes",
+      ["id", "job_id", "number", "customer", "job_type", "leader_id", "pm_code", "finished_on", "estimate_hrs", "actual_hrs", "contract_cents", "gp_bid", "gp_final", "on_time", "cause", "illustrative"],
+      s.outcomes.map((o) => [o.id, o.jobId, o.number, o.customer, o.jobType, o.leaderId, o.pmCode, o.finishedOn, o.estimateHrs, o.actualHrs, o.contractCents, Math.round(o.gpBid * 10000) / 10000, Math.round(o.gpFinal * 10000) / 10000, o.onTime, o.cause, o.illustrative]),
+    ),
+  );
   out.push("reset app.seeding;\nselect app.capacity_check();\nselect app.cert_reminders();\nselect app.wo_check();\nselect app.bill_check();\n");
   return out.join("\n");
 }

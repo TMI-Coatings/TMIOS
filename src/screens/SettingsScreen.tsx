@@ -1,7 +1,7 @@
 import type { Settings } from "../domain/types";
 import type { Ctx } from "../Workspace";
 
-const FIELDS: { k: keyof Settings; label: string; kind: "num" | "money" | "mmdd"; note?: string }[] = [
+const FIELDS: { k: keyof Settings; label: string; kind: "num" | "money" | "mmdd" | "list"; note?: string }[] = [
   { k: "absencePct", label: "Absence rate (%)", kind: "num", note: "Taken off capacity every week." },
   { k: "hoursPerManWeek", label: "Hours per man-week", kind: "num" },
   { k: "dedicatedLeaderHrs", label: "Job size that needs a dedicated leader (hrs)", kind: "num", note: "Smaller jobs share a leader." },
@@ -25,6 +25,8 @@ const FIELDS: { k: keyof Settings; label: string; kind: "num" | "money" | "mmdd"
   { k: "overBilledFlagPct", label: "Over or under billing shown red past this % of contract", kind: "num" },
   { k: "laborDivergencePts", label: "Flag labor % this many points from what hours suggest", kind: "num" },
   { k: "marginFadePts", label: "Flag margin down this many points from bid", kind: "num" },
+  { k: "scorecardMonths", label: "Leader scorecard looks back (months)", kind: "num" },
+  { k: "closeoutCauses", label: "Overrun causes the PM can tag at closeout", kind: "list", note: "Separate with commas." },
   { k: "winterStart", label: "Winter window starts (MM-DD)", kind: "mmdd" },
   { k: "winterEnd", label: "Winter window ends (MM-DD)", kind: "mmdd" },
 ];
@@ -34,8 +36,13 @@ export function SettingsScreen({ ctx }: { ctx: Ctx }) {
   const { data, repo, run } = ctx;
   const s = data.ds.settings;
   const commit = (k: keyof Settings, kind: string, raw: string) => {
-    let v: number | string;
-    if (kind === "mmdd") {
+    let v: number | string | string[];
+    if (kind === "list") {
+      const list = raw.split(",").map((x) => x.trim()).filter(Boolean);
+      if (!list.length) return void run(() => Promise.reject(new Error("Keep at least one cause.")));
+      if (JSON.stringify(list) === JSON.stringify(s[k])) return;
+      return void run(() => repo.updateSetting(k, list as never), "Setting saved.");
+    } else if (kind === "mmdd") {
       if (!/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(raw)) return void run(() => Promise.reject(new Error("Use MM-DD, for example 12-01.")));
       v = raw;
     } else {
@@ -57,7 +64,7 @@ export function SettingsScreen({ ctx }: { ctx: Ctx }) {
               {f.label}
               <input
                 key={String(s[f.k])}
-                defaultValue={f.kind === "money" ? Number(s[f.k]) / 100 : String(s[f.k])}
+                defaultValue={f.kind === "money" ? Number(s[f.k]) / 100 : f.kind === "list" ? (s[f.k] as string[]).join(", ") : String(s[f.k])}
                 inputMode={f.kind === "mmdd" ? "text" : "decimal"}
                 onBlur={(e) => commit(f.k, f.kind, e.target.value.trim())}
                 onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}

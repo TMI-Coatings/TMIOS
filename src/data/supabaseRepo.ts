@@ -127,6 +127,9 @@ export class SupabaseRepo implements Repo {
       money ? sb.from("invoices").select("*").eq("active", true).order("invoiced_on") : none,
       money ? sb.from("retainage_receipts").select("*").eq("active", true) : none,
     ]);
+    const outs = ["admin", "ceo", "cfo", "scheduler", "pm", "superintendent"].includes(viewer.role)
+      ? await sb.from("closeout_outcomes").select("*").order("finished_on", { ascending: false })
+      : { data: [], error: null };
     const signBy = new Map<string, Row[]>();
     for (const r of check(signoffs) as Row[]) signBy.set(r.job_id, [...(signBy.get(r.job_id) ?? []), r]);
     const evBy = new Map<string, Row[]>();
@@ -229,6 +232,24 @@ export class SupabaseRepo implements Repo {
         recordedBy: r.recorded_by,
       })),
       retainageReceipts: (check(rets) as Row[]).map((r) => ({ id: r.id, jobId: r.job_id, amountCents: Number(r.amount_cents), receivedOn: r.received_on })),
+      outcomes: (check(outs) as Row[]).map((r) => ({
+        id: r.id,
+        jobId: r.job_id,
+        number: r.number,
+        customer: r.customer,
+        jobType: r.job_type,
+        leaderId: r.leader_id,
+        pmCode: r.pm_code,
+        finishedOn: r.finished_on,
+        estimateHrs: Number(r.estimate_hrs),
+        actualHrs: Number(r.actual_hrs),
+        contractCents: Number(r.contract_cents),
+        gpBid: Number(r.gp_bid),
+        gpFinal: Number(r.gp_final),
+        onTime: r.on_time,
+        cause: r.cause,
+        illustrative: r.illustrative,
+      })),
     };
     const w = check(weeks) as { planningWeek: string; weekToClose: string | null };
 
@@ -452,6 +473,14 @@ export class SupabaseRepo implements Repo {
   async companyRevenueTotals() {
     return check(await this.sb.rpc("company_revenue_totals")) as { remainingCents: number; netBillingCents: number; reviewCount: number };
   }
+
+  async tagCause(outcomeId: string, cause: string | null) {
+    check(await this.sb.rpc("tag_closeout_cause", { p_outcome: outcomeId, p_cause: cause }));
+  }
+
+  async boardCounts() {
+    return check(await this.sb.rpc("board_counts")) as { changes: number; alerts: number; digests: number; closes: number; acknowledgments: number };
+  }
 }
 
 interface CompanyInputs {
@@ -497,6 +526,7 @@ export function totalsDataset(x: CompanyInputs, settings: Settings): Dataset {
     milestones: [],
     invoices: [],
     retainageReceipts: [],
+    outcomes: [],
   };
 }
 

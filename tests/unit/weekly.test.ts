@@ -97,3 +97,16 @@ describe("dashboard, digest and alerts on the sample", () => {
     expect(a.body).toBe("Start Oct 26 → Nov 2\nChanged by Nicole.");
   });
 });
+
+import { leaderRows, lostByCause } from "../../src/domain/scorecard";
+describe("leader scorecard", () => {
+  const s = buildSample(W);
+  it("ranks leaders by field-caused fade, worst first, and splits lost margin by cause", () => {
+    const leaders = s.people.filter((p) => p.kind === "leader");
+    const rows = leaderRows(leaders, s.outcomes, [], 15);
+    expect(rows.length).toBe(14);
+    for (let i = 1; i < rows.length; i++) expect(rows[i - 1].fieldCents <= rows[i].fieldCents).toBe(true);
+    const causes = lostByCause(s.outcomes).map(([k]) => k);
+    expect(causes).toEqual(expect.arrayContaining(["Field", "Estimate"]));
+  });
+});

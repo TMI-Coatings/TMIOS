@@ -83,6 +83,7 @@ export function dataset(over: Partial<Dataset> = {}): Dataset {
     milestones: [],
     invoices: [],
     retainageReceipts: [],
+    outcomes: [],
     ...over,
   };
 }

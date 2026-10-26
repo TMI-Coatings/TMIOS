@@ -112,6 +112,10 @@ export interface Repo {
   recordRetainageReceived(jobId: string): Promise<void>;
   /** Company revenue totals for reps and PMs, who only see their own jobs (decision 6). */
   companyRevenueTotals(): Promise<{ remainingCents: number; netBillingCents: number; reviewCount: number } | null>;
+  /** The PM tags why a finished job ran over (decision 10); null clears it. */
+  tagCause(outcomeId: string, cause: string | null): Promise<void>;
+  /** Counts for the board pack's communication record. */
+  boardCounts(): Promise<{ changes: number; alerts: number; digests: number; closes: number; acknowledgments: number }>;
 }
 
 /** Turns a database or rule error into one plain sentence for the screen. */

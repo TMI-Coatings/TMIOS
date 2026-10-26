@@ -2,7 +2,18 @@
 
 Crew scheduling and forecasting for TMI Coatings. It replaces the 2026 Schedule workbook. Project rules are in `CLAUDE.md`; decisions are in `docs/decisions.md`; the Phase 1 plan is in `docs/phase-1-plan.md`.
 
-**Phase 1 (Foundation):** Microsoft sign-in, the database with row-level security and a change log, the Schedule grid with the job window and Add job, Crew (availability, time off, roster), Access, Settings and the change log.
+**What's built** (every screen in the demo):
+
+| Area | Screens |
+| --- | --- |
+| Foundation | Microsoft sign-in, Access, Settings, Change log; row-level security and a change log on every table |
+| Schedule | Schedule grid with the job window, Add job from estimate, Crew (availability, time off, roster, auto-fill with preview) |
+| The week | Weekly close (PM hours, CSV import, review, close in the database), Dashboard, Alerts with per-person mutes and the Monday digest, My week, Confirm my crews |
+| Jobs | Work orders (draft upload, four sign-offs in order, send-back, filed in Procore), Job journey (admin-editable checkpoints) |
+| Money | Revenue and WIP (Monday percent complete, recognized revenue, margin), Billing (final, monthly, milestone; retainage held per invoice), change orders |
+| Reporting | Leader scorecard (PM tags overrun causes), Board view with the PDF board pack |
+
+**Still to come (needs outside approvals):** Teams and email delivery of alerts, the Monday 6 AM digest as a scheduled Netlify function, Procore read-only sync, and the time-system import. Until then alerts show in the app and hours come in by CSV.
 
 ## Try it on sample data
 

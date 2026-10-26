@@ -9,7 +9,7 @@ import type { Job, Role, Viewer } from "./types";
 /** Full rights: admin, the CEO (decision 7) and the CFO. */
 const OFFICE_ALL: Role[] = ["admin", "ceo", "cfo"];
 
-export type Tab = "me" | "dashboard" | "schedule" | "wo" | "journey" | "billing" | "close" | "revenue" | "crew" | "alerts" | "access" | "settings" | "log";
+export type Tab = "me" | "dashboard" | "schedule" | "wo" | "journey" | "billing" | "close" | "revenue" | "crew" | "scorecard" | "board" | "alerts" | "access" | "settings" | "log";
 
 export const TABS: { id: Tab; label: string; roles: Role[] }[] = [
   { id: "me", label: "My week", roles: ["superintendent", "field_crew"] },
@@ -27,6 +27,9 @@ export const TABS: { id: Tab; label: string; roles: Role[] }[] = [
   // PMs enter percent complete for their own jobs (decision 16).
   { id: "revenue", label: "Revenue", roles: [...OFFICE_ALL, "scheduler", "pm", "sales_rep", "accounting"] },
   { id: "crew", label: "Crew", roles: [...OFFICE_ALL, "scheduler"] },
+  { id: "scorecard", label: "Leader scorecard", roles: [...OFFICE_ALL, "scheduler", "pm", "superintendent"] },
+  // The board gets the exported pack; no board login (decision 12).
+  { id: "board", label: "Board view", roles: OFFICE_ALL },
   { id: "alerts", label: "Alerts", roles: ["admin", "ceo", "cfo", "scheduler", "job_setup", "estimator", "pm", "superintendent", "sales_rep", "field_crew", "accounting"] },
   { id: "log", label: "Change log", roles: [...OFFICE_ALL, "scheduler"] },
   { id: "access", label: "Access", roles: OFFICE_ALL },

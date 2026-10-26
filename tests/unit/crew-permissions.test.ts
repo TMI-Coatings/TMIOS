@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { crewIssues } from "../../src/domain/crew";
 import { canEditJob, canSeeJob, seesCompanyTotals, tabsFor } from "../../src/domain/permissions";
 import { buildIndex } from "../../src/domain/schedule";
-import type { Role, Viewer } from "../../src/domain/types";
+import { ROLES, type Role, type Viewer } from "../../src/domain/types";
 import { buildSample } from "../../src/sample/seed";
 import { isFriday } from "../../src/domain/weeks";
 import { W, dataset, job, person } from "./fixtures";
@@ -70,8 +70,9 @@ describe("permissions", () => {
     expect(seesCompanyTotals("superintendent")).toBe(false);
     expect(seesCompanyTotals("field_crew")).toBe(false);
   });
-  it("has no board tab or role", () => {
-    expect(tabsFor("admin").map((t) => t.id)).not.toContain("board");
+  it("has no board role; the board view (for the PDF pack) is admin, CEO and CFO only (decision 12)", () => {
+    expect(ROLES as readonly string[]).not.toContain("board");
+    for (const r of ROLES) expect(tabsFor(r).some((t) => t.id === "board"), r).toBe(["admin", "ceo", "cfo"].includes(r));
   });
 });
 

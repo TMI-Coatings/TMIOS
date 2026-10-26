@@ -163,6 +163,35 @@ export class SampleRepo implements Repo {
       ]);
     }
   }
+  /** When a job completes, record how it went against the bid (the database's record_outcome). */
+  private recordOutcome(j: Job) {
+    const d = this.s.data;
+    const m = this.money();
+    const rate = d.settings.burdenedRateCents;
+    const act = d.actuals.filter((a) => a.jobId === j.id).reduce((a, x) => a + x.hours, 0);
+    const finished = j.actualFinish ?? todayIn(new Date());
+    const o = {
+      id: uid(),
+      jobId: j.id,
+      number: j.number,
+      customer: j.customer,
+      jobType: j.jobType,
+      leaderId: j.leaderId,
+      pmCode: j.pmCode,
+      finishedOn: finished,
+      estimateHrs: j.estimateHrs,
+      actualHrs: act,
+      contractCents: m.contract(j),
+      gpBid: 1 - (j.materialCostCents + j.estimateHrs * rate) / Math.max(1, j.contractCents),
+      gpFinal: 1 - (m.materialCost(j) + act * rate) / Math.max(1, m.contract(j)),
+      onTime: finished <= (j.mustFinish ?? j.baselineFinish),
+      cause: null,
+      illustrative: false,
+    };
+    const i = d.outcomes.findIndex((x) => x.jobId === j.id);
+    if (i >= 0) d.outcomes[i] = { ...o, id: d.outcomes[i].id, cause: d.outcomes[i].cause };
+    else d.outcomes.unshift(o);
+  }
   private woEvent(w: WorkOrder, action: string, note = "") {
     w.history.unshift({ at: new Date().toISOString(), who: this.me().name, action, note });
   }
@@ -247,6 +276,13 @@ export class SampleRepo implements Repo {
     ds.milestones = money ? d.milestones.filter((x) => visible.has(x.jobId)) : [];
     ds.invoices = money ? d.invoices.filter((x) => visible.has(x.jobId)) : [];
     ds.retainageReceipts = money ? d.retainageReceipts.filter((x) => visible.has(x.jobId)) : [];
+    ds.outcomes = ["admin", "ceo", "cfo", "scheduler"].includes(viewer.role)
+      ? d.outcomes
+      : viewer.role === "pm"
+        ? d.outcomes.filter((o) => o.pmCode === viewer.pmCode)
+        : viewer.role === "superintendent"
+          ? d.outcomes.filter((o) => o.leaderId === viewer.personId)
+          : [];
     if (viewer.role === "field_crew") ds.closes = [];
     const sawAll = visible.size === d.jobs.length;
     const totals = seesCompanyTotals(viewer.role) && !sawAll ? { ...d, jobs: d.jobs.filter((j) => j.status !== "complete") } : null;
@@ -295,6 +331,7 @@ export class SampleRepo implements Repo {
     const before = { ...j };
     Object.assign(j, next);
     this.push(jobChangeAlerts(this.d, before, j, v.name));
+    if (before.status !== "complete" && j.status === "complete") this.recordOutcome(j);
     this.save();
   }
 
@@ -505,6 +542,7 @@ export class SampleRepo implements Repo {
       this.log("jobs", j.id, "Job " + j.number, "status", j.status, "complete");
       Object.assign(j, { status: "complete", actualFinish: j.actualFinish ?? w, holdReason: null, holdUntil: null });
     }
+    for (const j of done) this.recordOutcome(j);
     d.hourEntries = d.hourEntries.filter((e) => e.week !== w);
     const snap = this.d.snapshots.filter((x) => x.targetWeek === w && x.madeWeek === addDays(w, -28));
     const accuracy = forecastAccuracy(snap, total, missing);
@@ -883,6 +921,30 @@ export class SampleRepo implements Repo {
       remainingCents: Math.round(jobs.filter((j) => j.status !== "complete").reduce((a, j) => a + m.remaining(j), 0)),
       netBillingCents: Math.round(jobs.filter((j) => m.billed(j) > 0 || m.recognized(j) > 0).reduce((a, j) => a + m.overUnder(j), 0)),
       reviewCount: jobs.filter((j) => m.forReview(j)).length,
+    };
+  }
+
+  async tagCause(outcomeId: string, cause: string | null) {
+    const v = this.me();
+    const o = this.d.outcomes.find((x) => x.id === outcomeId);
+    if (!o) throw new Error("Outcome not found.");
+    if (!(["admin", "ceo", "cfo", "scheduler"].includes(v.role) || (v.role === "pm" && o.pmCode === v.pmCode))) throw new Error("The job's PM tags the cause.");
+    if (cause !== null && !this.d.settings.closeoutCauses.includes(cause)) throw new Error("Pick one of the listed causes.");
+    this.log("closeout_outcomes", o.id, `${o.number} ${o.customer}`, "cause", o.cause ?? "Untagged", cause ?? "Untagged");
+    o.cause = cause;
+    if (o.jobId && cause && !this.d.jobCheckpoints.some((c) => c.jobId === o.jobId && c.key === "cause"))
+      this.d.jobCheckpoints.push({ jobId: o.jobId, key: "cause", by: v.name, at: new Date().toISOString() });
+    this.save();
+  }
+
+  async boardCounts() {
+    if (!["admin", "ceo", "cfo"].includes(this.me().role)) throw denied();
+    return {
+      changes: this.s.log.length,
+      alerts: this.s.alerts.length,
+      digests: this.s.alerts.filter((a) => a.rule === "digest").length,
+      closes: this.d.closes.length,
+      acknowledgments: Object.keys(this.s.acks).length,
     };
   }
 }

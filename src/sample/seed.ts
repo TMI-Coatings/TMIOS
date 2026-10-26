@@ -25,6 +25,7 @@ import { DEFAULT_SETTINGS } from "../domain/types";
 import { allPlans, buildIndex, materialRevenueCents } from "../domain/schedule";
 import { DEFAULT_CHECKPOINTS, DEFAULT_STAGES, type JobCheckpoint } from "../domain/journey";
 import { WO_STEPS, type WorkOrder } from "../domain/workOrders";
+import type { Outcome } from "../domain/scorecard";
 import { MILESTONE_TEMPLATE, type Invoice, type Milestone, type PercentEntry, type RetainageReceipt } from "../domain/money";
 import { addDays, mondayOf, weekEnding as weekEndingOf } from "../domain/weeks";
 
@@ -363,7 +364,7 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
   const snapshots: ForecastSnapshot[] = [];
   {
     const r7 = rng(7);
-    const ds0 = { jobs, people, timeOff, overrides: [], actuals, assignments, notes, settings: { ...DEFAULT_SETTINGS }, qualifications: QUALIFICATIONS, reps: REPS, pms: PMS, closes, hourEntries: [], confirmations: [], metrics, workOrders: [], stages: [], checkpointDefs: [], jobCheckpoints: [], staff: { schedulers: [], jobSetup: [] }, percents: [], changeOrders: [], milestones: [], invoices: [], retainageReceipts: [] };
+    const ds0 = { jobs, people, timeOff, overrides: [], actuals, assignments, notes, settings: { ...DEFAULT_SETTINGS }, qualifications: QUALIFICATIONS, reps: REPS, pms: PMS, closes, hourEntries: [], confirmations: [], metrics, workOrders: [], stages: [], checkpointDefs: [], jobCheckpoints: [], staff: { schedulers: [], jobSetup: [] }, percents: [], changeOrders: [], milestones: [], invoices: [], retainageReceipts: [], outcomes: [] };
     const plans = allPlans(ds0, buildIndex(ds0), START);
     for (let i = 0; i < 4; i++) {
       const w = addDays(START, 7 * i);
@@ -630,6 +631,78 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
     }
   });
 
+  // Closeout outcomes: the finished jobs above, plus the demo's illustrative 12 months per leader.
+  const rate = DEFAULT_SETTINGS.burdenedRateCents;
+  const outcomes: Outcome[] = jobs
+    .filter((j) => j.status === "complete")
+    .map((j, k) => {
+      const act = actuals.filter((a) => a.jobId === j.id).reduce((a, x) => a + x.hours, 0);
+      return {
+        id: sampleId(9, k + 1),
+        jobId: j.id,
+        number: j.number,
+        customer: j.customer,
+        jobType: j.jobType,
+        leaderId: j.leaderId,
+        pmCode: j.pmCode,
+        finishedOn: j.actualFinish!,
+        estimateHrs: j.estimateHrs,
+        actualHrs: act,
+        contractCents: j.contractCents,
+        gpBid: 1 - (j.materialCostCents + j.estimateHrs * rate) / j.contractCents,
+        gpFinal: 1 - (j.materialCostCents + act * rate) / j.contractCents,
+        onTime: true,
+        cause: null,
+        illustrative: false,
+      };
+    });
+  {
+    const r7 = rng(7);
+    const types = ["Floor system", "Tank lining", "Water tower", "Structural steel", "Secondary containment", "Interior painting", "Stack coating"];
+    const custs = ["Prairie Gold Dairy", "Northstar Ethanol", "City of Mankato", "Bluff Valley Foods", "Midwest Grain Co-op", "Lakeshore Paper", "River City Water", "Heartland Malting", "Summit Agri", "Crown Creamery"];
+    const skill: Record<string, number> = { "Mike Ramirez": 0.96, "Tony Becker": 1.17, "Jake Lund": 1.02, "Dave Olson": 1.05, "Luis Ortega": 0.98, "Brandon Kurth": 1.12, "Sam Nguyen": 1.0, "Ray Thompson": 1.07, "Kevin Jensen": 0.99, "Marco Silva": 1.03, "Pete Larson": 1.09, "Darnell Hayes": 1.01, "Ben Schultz": 0.97, "Travis Moe": 1.04 };
+    let n = 3100;
+    let on = 100;
+    for (const L of LEADERS) {
+      const k = 2 + Math.floor(r7() * 5);
+      for (let i = 0; i < k; i++) {
+        const est = Math.round((200 + r7() * 1400) / 10) * 10;
+        const value = Math.round((est * (115 + r7() * 40)) / 500) * 500;
+        const gpBid = 0.38 + r7() * 0.12;
+        const matCost = Math.round(value * (1 - gpBid) - est * 55);
+        const ratio = (skill[L] || 1) * (0.92 + r7() * 0.16);
+        let cause: string | null = null;
+        if (ratio > 1.08) {
+          const x = r7();
+          cause =
+            (skill[L] || 1) > 1.06
+              ? x < 0.6 ? "Field" : x < 0.75 ? "Estimate" : x < 0.9 ? "Change order not captured" : "Customer delay"
+              : x < 0.25 ? "Field" : x < 0.55 ? "Estimate" : x < 0.8 ? "Change order not captured" : x < 0.9 ? "Customer delay" : "Weather";
+        }
+        const actual = Math.round(est * ratio);
+        const cost = matCost * (0.97 + r7() * 0.06) + actual * 55;
+        outcomes.push({
+          id: sampleId(9, on++),
+          jobId: null,
+          number: String((n += 11)),
+          customer: custs[Math.floor(r7() * custs.length)],
+          jobType: types[Math.floor(r7() * types.length)],
+          leaderId: leaderId(L),
+          pmCode: PMS[on % 3].code,
+          finishedOn: addDays(START, -7 * (1 + Math.floor(r7() * 50))),
+          estimateHrs: est,
+          actualHrs: actual,
+          contractCents: value * 100,
+          gpBid,
+          gpFinal: 1 - cost / value,
+          onTime: r7() < (ratio > 1.1 ? 0.55 : 0.9),
+          cause,
+          illustrative: true,
+        });
+      }
+    }
+  }
+
   return {
     jobs,
     people,
@@ -658,5 +731,6 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
     milestones,
     invoices,
     retainageReceipts,
+    outcomes,
   };
 }

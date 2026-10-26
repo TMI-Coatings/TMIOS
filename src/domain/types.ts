@@ -1,6 +1,7 @@
 import type { CheckpointDef, JobCheckpoint, JourneyStage } from "./journey";
 import type { WorkOrder } from "./workOrders";
 import type { ChangeOrder, Invoice, Milestone, PercentEntry, RetainageReceipt } from "./money";
+import type { Outcome } from "./scorecard";
 
 export const ROLES = [
   "admin",
@@ -167,6 +168,8 @@ export interface Settings {
   overBilledFlagPct: number;
   laborDivergencePts: number;
   marginFadePts: number;
+  closeoutCauses: string[];
+  scorecardMonths: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -195,6 +198,8 @@ export const DEFAULT_SETTINGS: Settings = {
   overBilledFlagPct: 10,
   laborDivergencePts: 15,
   marginFadePts: 3,
+  closeoutCauses: ["Field", "Estimate", "Change order not captured", "Customer delay", "Weather"],
+  scorecardMonths: 12,
 };
 
 export interface Lookup {
@@ -325,6 +330,7 @@ export interface Dataset {
   milestones: Milestone[];
   invoices: Invoice[];
   retainageReceipts: RetainageReceipt[];
+  outcomes: Outcome[];
   /** Names only, so screens can say who a step waits on. */
   staff: { schedulers: string[]; jobSetup: string[] };
 }
