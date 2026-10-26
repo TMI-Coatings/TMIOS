@@ -105,7 +105,7 @@ describe("the weekly close", () => {
 
 describe("alerts", () => {
   it("a date move alerts the job's PM and leader, not other PMs or accounting", async () => {
-    const j = sample.jobs.find((x) => x.pmCode === "JS" && x.status === "scheduled")!;
+    const j = sample.jobs.find((x) => x.pmCode === "JM" && x.status === "scheduled")!;
     const r = await as(user("admin"), async (q) => {
       await q("update public.jobs set start = start + 7, projected_finish = projected_finish + 7 where id = $1", [j.id]);
       return q("select id from public.alerts where rule = 'date' and job_id = $1", [j.id]);

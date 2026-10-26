@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { sample, viewAs } from "./helpers";
 
-const mva = sample.jobs[13]; // Minnesota Valley Ag: waiting on estimator Greg Halvorsen
-const owatonna = sample.jobs[11]; // City of Owatonna: waiting on rep Kelly Wright
+const mva = sample.jobs[13]; // Minnesota Valley Ag: waiting on estimator Stephen Bazant
+const owatonna = sample.jobs[11]; // City of Owatonna: waiting on rep Eric Rich
 const awaiting = sample.jobs[18]; // Riverbend Ethanol phase 2: awaiting a draft
 
 test("the estimator's queue shows their draft; signing off moves it to the rep", async ({ page }) => {
@@ -64,5 +64,5 @@ test("the job window shows the journey and the work order", async ({ page }) => 
   await page.getByRole("button", { name: `${owatonna.number} ${owatonna.customer}` }).click();
   const dlg = page.getByRole("dialog");
   await expect(dlg.getByText(/^Job journey:/)).toBeVisible();
-  await expect(dlg.getByLabel("Work order", { exact: true })).toContainText("Acting for Kelly Wright");
+  await expect(dlg.getByLabel("Work order", { exact: true })).toContainText("Acting for Eric Rich");
 });

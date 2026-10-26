@@ -25,7 +25,7 @@ describe("leader scorecard", () => {
     const r = await as(supt, (q) => q("select distinct leader_id from public.closeout_outcomes"));
     expect(r.ok && r.rows.map((x) => x.leader_id)).toEqual([supt.personId]);
     const pm = await as(user("pm"), (q) => q("select distinct pm_code from public.closeout_outcomes"));
-    expect(pm.ok && pm.rows.map((x) => x.pm_code)).toEqual(["JS"]);
+    expect(pm.ok && pm.rows.map((x) => x.pm_code)).toEqual(["JM"]);
     const rep = await as(user("sales_rep"), (q) => q("select count(*)::int n from public.closeout_outcomes"));
     expect(rep.ok && rep.rows[0].n).toBe(0);
   });
@@ -41,13 +41,13 @@ describe("leader scorecard", () => {
   });
 
   it("the PM tags the cause on their own jobs, which ticks the journey checkpoint; another PM can't", async () => {
-    const own = sample.outcomes.find((o) => o.jobId && o.pmCode === "JS")!;
+    const own = sample.outcomes.find((o) => o.jobId && o.pmCode === "JM")!;
     const r = await as(user("pm"), async (q) => {
       await q("select public.tag_closeout_cause($1, 'Estimate')", [own.id]);
       return q("select (select cause from public.closeout_outcomes where id = $1) c, (select count(*)::int from public.job_checkpoints where job_id = $2 and checkpoint_key = 'cause' and active) k", [own.id, own.jobId]);
     });
     expect(r.ok && r.rows[0]).toEqual({ c: "Estimate", k: 1 });
-    const other = sample.outcomes.find((o) => o.pmCode !== "JS")!;
+    const other = sample.outcomes.find((o) => o.pmCode !== "JM")!;
     const denied = await as(user("pm"), (q) => q("select public.tag_closeout_cause($1, 'Field')", [other.id]));
     expect(denied.ok).toBe(false);
     const bad = await as(user("admin"), (q) => q("select public.tag_closeout_cause($1, 'Bad luck')", [own.id]));

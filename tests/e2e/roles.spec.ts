@@ -76,10 +76,10 @@ test("the scheduler can move dates on any job but not change the leader", async 
 
 test("a PM can move their own job and not someone else's", async ({ page }) => {
   await viewAs(page, "pm", "#schedule");
-  const own = sample.jobs.find((j) => j.pmCode === "JS" && isSold(j))!;
+  const own = sample.jobs.find((j) => j.pmCode === "JM" && isSold(j))!;
   await page.getByRole("button", { name: `${own.number} ${own.customer}` }).click();
   await expect(page.getByRole("dialog").getByLabel("Start", { exact: true })).toBeEnabled();
-  const others = sample.jobs.filter((j) => j.pmCode !== "JS");
+  const others = sample.jobs.filter((j) => j.pmCode !== "JM");
   for (const o of others) await expect(page.getByRole("button", { name: `${o.number} ${o.customer}` })).toHaveCount(0);
 });
 
@@ -104,7 +104,7 @@ test("job setup adds a job from the estimate and it lands on the schedule", asyn
   const dlg = page.getByRole("dialog");
   await dlg.getByLabel("Job number").fill("4291");
   await dlg.getByLabel("Customer", { exact: true }).fill("Valley Malt House");
-  await dlg.getByLabel("Estimator (required)").fill("Greg Halvorsen");
+  await dlg.getByLabel("Estimator (required)").fill("Stephen Bazant");
   await dlg.getByLabel("Contract value ($)").fill("96500");
   await dlg.getByLabel("Estimated labor hrs").fill("610");
   await dlg.getByLabel("Projected material cost ($)").fill("21800");
@@ -122,7 +122,7 @@ test("a four-digit job number is required", async ({ page }) => {
   const dlg = page.getByRole("dialog");
   await dlg.getByLabel("Job number").fill("429");
   await dlg.getByLabel("Customer", { exact: true }).fill("Short Number Co");
-  await dlg.getByLabel("Estimator (required)").fill("Paula Kern");
+  await dlg.getByLabel("Estimator (required)").fill("Juac Angoi");
   await dlg.getByLabel("Contract value ($)").fill("1000");
   await dlg.getByLabel("Estimated labor hrs").fill("10");
   await dlg.getByLabel("Date firmness (required)").selectOption("confirmed");

@@ -31,7 +31,7 @@ beforeAll(async () => {
 });
 afterAll(async () => close?.());
 
-const owatonna = sample.jobs[11]; // waiting on the rep, Kelly Wright
+const owatonna = sample.jobs[11]; // waiting on the rep, Eric Rich
 const wo = (q: (s: string, p?: unknown[]) => Promise<pg.QueryResult>, id: string) =>
   q("select current_step, final, filed, file_name, returned_comment, version from public.work_orders where job_id = $1", [id]).then((r) => r.rows[0]);
 
@@ -58,7 +58,7 @@ describe("work orders", () => {
       await q("select public.wo_approve($1)", [owatonna.id]);
       return q("select action from public.work_order_events where job_id = $1 order by at desc limit 1", [owatonna.id]);
     });
-    expect(admin.ok && admin.rows[0].action).toMatch(/^Sales rep sign-off: contract terms approved, for Kelly Wright\.$/);
+    expect(admin.ok && admin.rows[0].action).toMatch(/^Sales rep sign-off: contract terms approved, for Eric Rich\.$/);
   });
 
   it("the full chain: upload, four sign-offs in order, final, filed; each step alerts the next person", async () => {
@@ -114,7 +114,7 @@ describe("work orders", () => {
     const r = await as(user("scheduler"), async (q) => {
       const id = (
         await q("select public.create_job($1) id", [
-          { number: "4300", customer: "Test Malt", repCode: "KW", pmCode: "JS", estimator: "Paula Kern", estimateHrs: 100, contractCents: 1_000_000, start: "2026-12-07", projectedFinish: "2026-12-11", firmness: "confirmed" },
+          { number: "4300", customer: "Test Malt", repCode: "ER", pmCode: "JM", estimator: "Juac Angoi", estimateHrs: 100, contractCents: 1_000_000, start: "2026-12-07", projectedFinish: "2026-12-11", firmness: "confirmed" },
         ])
       ).rows[0].id;
       const w = await wo(q, id);

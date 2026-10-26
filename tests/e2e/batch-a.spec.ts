@@ -15,7 +15,7 @@ test("the dashboard shows KPIs, both charts and what needs attention", async ({ 
 test("a PM enters hours for their own jobs only; the scheduler sees them at the close", async ({ page }) => {
   await viewAs(page, "pm", "#close");
   const pmRows = page.locator("tr[data-close-row]");
-  const own = sample.jobs.filter((j) => j.pmCode === "JS");
+  const own = sample.jobs.filter((j) => j.pmCode === "JM");
   await expect(page.getByRole("heading", { name: /Hours for week ending/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "Close week and roll forward" })).toHaveCount(0);
   const first = pmRows.first();

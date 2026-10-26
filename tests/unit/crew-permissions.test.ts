@@ -45,11 +45,11 @@ describe("crew checks", () => {
 });
 
 describe("permissions", () => {
-  const j = job({ leaderId: "p9", repCode: "KW", pmCode: "JS" });
+  const j = job({ leaderId: "p9", repCode: "ER", pmCode: "JM" });
   it("limits reps, PMs and leaders to their own jobs", () => {
-    expect(canSeeJob(viewer("sales_rep", { repCode: "KW" }), j)).toBe(true);
+    expect(canSeeJob(viewer("sales_rep", { repCode: "ER" }), j)).toBe(true);
     expect(canSeeJob(viewer("sales_rep", { repCode: "DM" }), j)).toBe(false);
-    expect(canSeeJob(viewer("pm", { pmCode: "RL" }), j)).toBe(false);
+    expect(canSeeJob(viewer("pm", { pmCode: "SS" }), j)).toBe(false);
     expect(canSeeJob(viewer("superintendent", { personId: "p9" }), j)).toBe(true);
     expect(canSeeJob(viewer("field_crew"), j)).toBe(false);
     expect(canSeeJob(viewer("cfo"), j)).toBe(true);
@@ -57,9 +57,9 @@ describe("permissions", () => {
   it("lets the scheduler and the job's own PM move dates and plan cells (decision 8)", () => {
     expect(canEditJob(viewer("scheduler"), j, "start")).toBe(true);
     expect(canEditJob(viewer("scheduler"), j, "plan")).toBe(true);
-    expect(canEditJob(viewer("pm", { pmCode: "JS" }), j, "plan")).toBe(true);
-    expect(canEditJob(viewer("pm", { pmCode: "RL" }), j, "plan")).toBe(false);
-    expect(canEditJob(viewer("sales_rep", { repCode: "KW" }), j, "start")).toBe(false);
+    expect(canEditJob(viewer("pm", { pmCode: "JM" }), j, "plan")).toBe(true);
+    expect(canEditJob(viewer("pm", { pmCode: "SS" }), j, "plan")).toBe(false);
+    expect(canEditJob(viewer("sales_rep", { repCode: "ER" }), j, "start")).toBe(false);
   });
   it("gives the CEO full admin edit rights (decision 7)", () => {
     for (const f of ["plan", "leaderId", "projectedHrs", "intake", "crew", "pinNotes"] as const) expect(canEditJob(viewer("ceo"), j, f)).toBe(true);

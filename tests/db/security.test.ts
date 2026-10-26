@@ -20,7 +20,7 @@ beforeAll(async () => {
     ('00000000-0000-4000-8fff-000000000002', 'otherpm@example.com')`);
   await db.query(`insert into public.app_users (id, auth_user_id, email, name, role, pm_code) values
     ('00000000-0000-4000-8fff-000000000001', '00000000-0000-4000-8fff-000000000001', 'crew@example.com', 'Crew', 'field_crew', null),
-    ('00000000-0000-4000-8fff-000000000002', '00000000-0000-4000-8fff-000000000002', 'otherpm@example.com', 'Other PM', 'pm', 'RL')`);
+    ('00000000-0000-4000-8fff-000000000002', '00000000-0000-4000-8fff-000000000002', 'otherpm@example.com', 'Other PM', 'pm', 'SS')`);
 });
 afterAll(async () => close?.());
 
@@ -105,7 +105,7 @@ describe("editing jobs: the database allows exactly what permissions.ts allows",
     owned((j) => j.leaderId === supt.personId),
     owned((j) => j.repCode !== rep.repCode && j.pmCode !== pm.pmCode && j.leaderId !== supt.personId && !j.waitsOnJobId),
   ];
-  const otherPm: Viewer = { userId: "00000000-0000-4000-8fff-000000000002", email: "otherpm@example.com", name: "Other PM", role: "pm", personId: null, repCode: null, pmCode: "RL" };
+  const otherPm: Viewer = { userId: "00000000-0000-4000-8fff-000000000002", email: "otherpm@example.com", name: "Other PM", role: "pm", personId: null, repCode: null, pmCode: "SS" };
 
   beforeAll(async () => {
     for (const j of new Set(targets)) {
@@ -222,9 +222,9 @@ describe("functions", () => {
     customer: "Valley Malt House",
     jobType: "Floor system",
     location: "Shakopee, MN",
-    repCode: "LB",
-    pmCode: "JS",
-    estimator: "Greg Halvorsen",
+    repCode: "GD",
+    pmCode: "JM",
+    estimator: "Stephen Bazant",
     crewSize: 6,
     estimateHrs: 610,
     contractCents: 9_650_000,
@@ -276,7 +276,7 @@ describe("functions", () => {
   });
   it("first sign-in links a Microsoft account to the access an admin set up, by email", async () => {
     await db.query("insert into auth.users (id, email) values ('00000000-0000-4000-8fff-0000000000aa', 'new.pm@example.com')");
-    await db.query("insert into public.app_users (email, name, role, pm_code) values ('new.pm@example.com', 'New PM', 'pm', 'TK')");
+    await db.query("insert into public.app_users (email, name, role, pm_code) values ('new.pm@example.com', 'New PM', 'pm', 'LK')");
     const r = await asUser(db, "00000000-0000-4000-8fff-0000000000aa", "New.PM@example.com", (q) => q("select name, role from public.claim_app_user()"));
     expect(r.ok && r.rows).toEqual([{ name: "New PM", role: "pm" }]);
     const stranger = await asUser(db, "00000000-0000-4000-8fff-0000000000bb", "stranger@example.com", (q) => q("select * from public.claim_app_user()"));

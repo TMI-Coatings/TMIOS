@@ -8,7 +8,7 @@ const openBilling = (dlg: Locator) => dlg.locator("details.wobox").first().evalu
 test("a PM enters this week's percent complete on the WIP schedule", async ({ page }) => {
   await viewAs(page, "pm", "#revenue");
   await expect(page.getByText("Your jobs below; the totals in the strip are company-wide.")).toBeVisible();
-  const j = sample.jobs.find((x) => x.pmCode === "JS" && x.status === "active")!;
+  const j = sample.jobs.find((x) => x.pmCode === "JM" && x.status === "active")!;
   const box = page.getByLabel(`Labor percent complete ${j.customer}`);
   await box.fill("55");
   await box.press("Enter");
@@ -56,7 +56,7 @@ test("a PM marks a milestone reached and adds a change order; reps can't record 
   await expect(page.getByText("Change order added.")).toBeVisible();
   await expect(dlg.getByRole("cell", { name: "Extra coat on tank 2" })).toBeVisible();
   await viewAs(page, "sales_rep", "#schedule");
-  const own = sample.jobs.find((j) => j.repCode === "KW")!;
+  const own = sample.jobs.find((j) => j.repCode === "ER")!;
   await page.getByRole("button", { name: `${own.number} ${own.customer}` }).click();
   await openBilling(page.getByRole("dialog"));
   await expect(page.getByRole("dialog").getByRole("button", { name: /Record/ })).toHaveCount(0);

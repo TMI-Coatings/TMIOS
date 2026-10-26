@@ -19,6 +19,7 @@ Answers to the open questions in `kickoff-analysis.md` section 3, decided by Aus
 9. **Entering actuals.** Admin, ceo, scheduler, and a PM on their own jobs. The scheduler closes the week.
 10. **Closeout cause tags.** The PM tags. Admin, ceo and scheduler can correct.
 11. **Finance.** A new `cfo` role for Jared, with full rights: the same powers as admin and CEO. Billing alerts go to the role, not to a hard-coded name.
+11a. **People and roles (Austin, Oct 26).** Full rights: Austin Lewis (admin), Derrick Gordon (ceo), Jared Wiese (cfo), Jason Jelinek, Director of Ops (admin), and Al Trenary (admin, Austin's backup). Project manager rights: Jake Moen (PM); Scott Salmon (estimator) and Lucas Kemmerer (purchaser), who work with PM rights, so each sees only the jobs where they are the PM. Estimators: Stephen Bazant, Juac Angoi, Sarah Louvar, Colicia Barnes, Jordan Strand. Sales reps: Ethan Miller, Keith Kubitschek, Phil Kick, Eric Rich, Gretchen Davies, Brent Elwood, Chris Monyhan. Scheduler: Nicole. Accounting: Patrick Leaon. Job setup stays Lori. Field leaders and crew in the sample are still invented. The sample site uses these names with @example.com addresses; live access is added on the Access screen with real TMI emails.
 12. **Board.** No board login and no board role. The board gets an exported PDF board pack, which admin, ceo or cfo can generate.
 
 ## Business rules

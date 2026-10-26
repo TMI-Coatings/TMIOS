@@ -50,25 +50,25 @@ const K = { person: 1, job: 2, timeoff: 3, assign: 4, note: 5, user: 6 };
 export const QUALIFICATIONS = ["Confined space", "Lift", "Fiberglass"];
 
 export const REPS: Lookup[] = [
-  { code: "DM", name: "Dana Mills" },
-  { code: "JT", name: "Jordan Tate" },
-  { code: "KW", name: "Kelly Wright" },
-  { code: "LB", name: "Lena Brooks" },
-  { code: "NH", name: "Nate Holloway" },
-  { code: "RS", name: "Rosa Santos" },
-  { code: "TP", name: "Tom Pruitt" },
-  { code: "VC", name: "Vic Castillo" },
-  { code: "BF", name: "Ben Fischer" },
+  { code: "ER", name: "Eric Rich" },
+  { code: "EM", name: "Ethan Miller" },
+  { code: "KK", name: "Keith Kubitschek" },
+  { code: "PK", name: "Phil Kick" },
+  { code: "GD", name: "Gretchen Davies" },
+  { code: "BE", name: "Brent Elwood" },
+  { code: "CM", name: "Chris Monyhan" },
 ];
-const RMAP: Record<string, string> = { AL: "DM", PK: "JT", ER: "KW", GD: "LB", CM: "NH", BE: "RS", EM: "TP", KK: "VC", SCS: "BF" };
+// The demo's jobs for AL and SCS go to reps on the current list.
+const RMAP: Record<string, string> = { AL: "KK", SCS: "EM" };
 
 export const PMS: Lookup[] = [
-  { code: "JS", name: "Jenna Stahl" },
-  { code: "RL", name: "Rob Lindqvist" },
-  { code: "TK", name: "Tara Kline" },
+  { code: "JM", name: "Jake Moen" },
+  // Scott Salmon is an estimator and Lucas Kemmerer is the purchaser; both work with PM rights (Austin, Oct 26).
+  { code: "SS", name: "Scott Salmon" },
+  { code: "LK", name: "Lucas Kemmerer" },
 ];
 
-const ESTIMATORS = ["Greg Halvorsen", "Paula Kern"];
+const ESTIMATORS = ["Stephen Bazant", "Juac Angoi", "Sarah Louvar", "Colicia Barnes", "Jordan Strand"];
 
 const LEADERS = ["Mike Ramirez", "Tony Becker", "Jake Lund", "Dave Olson", "Luis Ortega", "Brandon Kurth", "Sam Nguyen", "Ray Thompson", "Kevin Jensen", "Marco Silva", "Pete Larson", "Darnell Hayes", "Ben Schultz", "Travis Moe"];
 const FIRST = ["Alex", "Jordan", "Tyler", "Cody", "Eric", "Nate", "Logan", "Dylan", "Josh", "Matt", "Ryan", "Zach", "Adam", "Carlos", "Jesse", "Derek", "Shane", "Trent", "Hector", "Andre", "Wes", "Colton", "Isaac", "Mason", "Owen", "Garrett", "Juan", "Victor", "Seth", "Caleb", "Riley"];
@@ -78,26 +78,26 @@ const CS = ["Confined space"];
 const LF = ["Lift"];
 type Spec = { c: string; t: string; l: string; o: number; w: number; cr: number; rep: string; pm: string; s: string; f?: number; x?: 1; q?: string[] };
 const SPEC: Spec[] = [
-  { c: "North Prairie Dairy", t: "Floor system", l: "Lake Norden, SD", o: -2, w: 4, cr: 6, rep: "GD", pm: "JS", s: "Mike Ramirez" },
-  { c: "Riverbend Ethanol", t: "Tank lining", l: "Bingham Lake, MN", o: -1, w: 5, cr: 8, rep: "PK", pm: "JS", s: "Tony Becker", f: 1.32, q: CS },
-  { c: "Twin Cities Metro Water", t: "Water tower", l: "Woodbury, MN", o: -3, w: 6, cr: 5, rep: "ER", pm: "RL", s: "Jake Lund", x: 1, q: LF },
-  { c: "Granite Falls Grain", t: "Structural steel", l: "Granite Falls, MN", o: 0, w: 3, cr: 4, rep: "CM", pm: "RL", s: "Dave Olson", x: 1, q: LF },
-  { c: "Lakeside Foods", t: "Floor system", l: "Owatonna, MN", o: 0, w: 2, cr: 6, rep: "BE", pm: "JS", s: "Luis Ortega" },
-  { c: "Cedar Valley Power", t: "Stack coating", l: "Waterloo, IA", o: -1, w: 6, cr: 4, rep: "AL", pm: "TK", s: "Brandon Kurth", f: 1.24, x: 1, q: LF },
-  { c: "St. Croix Paper", t: "Secondary containment", l: "Hudson, WI", o: 1, w: 3, cr: 5, rep: "KK", pm: "TK", s: "Sam Nguyen", q: CS },
-  { c: "Red Wing Malting", t: "Interior painting", l: "Red Wing, MN", o: 1, w: 2, cr: 3, rep: "EM", pm: "RL", s: "Ray Thompson" },
-  { c: "Mesabi Aggregates", t: "Structural steel", l: "Virginia, MN", o: 2, w: 5, cr: 6, rep: "SCS", pm: "TK", s: "Kevin Jensen", x: 1, q: LF },
-  { c: "Prairie Pork Processing", t: "Floor system", l: "Worthington, MN", o: 2, w: 3, cr: 8, rep: "GD", pm: "JS", s: "Marco Silva" },
-  { c: "Heartland Fiberglass", t: "Tank lining", l: "Mankato, MN", o: 3, w: 4, cr: 5, rep: "PK", pm: "RL", s: "Pete Larson", q: ["Confined space", "Fiberglass"] },
-  { c: "City of Owatonna", t: "Water tower", l: "Owatonna, MN", o: 3, w: 4, cr: 4, rep: "ER", pm: "TK", s: "Darnell Hayes", x: 1, q: LF },
-  { c: "Bluff Country Creamery", t: "Floor system", l: "Rochester, MN", o: 3, w: 2, cr: 6, rep: "CM", pm: "JS", s: "Mike Ramirez" },
-  { c: "Minnesota Valley Ag", t: "Secondary containment", l: "New Ulm, MN", o: 4, w: 3, cr: 6, rep: "BE", pm: "RL", s: "Ben Schultz", q: CS },
-  { c: "Iron Range Mining", t: "Structural steel", l: "Hibbing, MN", o: 4, w: 6, cr: 8, rep: "AL", pm: "TK", s: "Travis Moe", x: 1, q: LF },
-  { c: "Two Rivers Hospital", t: "Interior painting", l: "Mankato, MN", o: 4, w: 3, cr: 4, rep: "KK", pm: "JS", s: "Jake Lund" },
-  { c: "Kasota Stone", t: "Concrete repair", l: "Kasota, MN", o: 4, w: 2, cr: 3, rep: "EM", pm: "RL", s: "Darnell Hayes" },
-  { c: "Northern Plains Wind", t: "Structural steel", l: "Lake Benton, MN", o: 4, w: 3, cr: 5, rep: "SCS", pm: "TK", s: "Luis Ortega", x: 1, q: LF },
-  { c: "Riverbend Ethanol", t: "Tank lining, phase 2", l: "Bingham Lake, MN", o: 9, w: 4, cr: 6, rep: "PK", pm: "JS", s: "Tony Becker", q: CS },
-  { c: "Lakeside Foods", t: "Floor system", l: "Cokato, MN", o: 10, w: 2, cr: 5, rep: "BE", pm: "JS", s: "Sam Nguyen" },
+  { c: "North Prairie Dairy", t: "Floor system", l: "Lake Norden, SD", o: -2, w: 4, cr: 6, rep: "GD", pm: "JM", s: "Mike Ramirez" },
+  { c: "Riverbend Ethanol", t: "Tank lining", l: "Bingham Lake, MN", o: -1, w: 5, cr: 8, rep: "PK", pm: "JM", s: "Tony Becker", f: 1.32, q: CS },
+  { c: "Twin Cities Metro Water", t: "Water tower", l: "Woodbury, MN", o: -3, w: 6, cr: 5, rep: "ER", pm: "SS", s: "Jake Lund", x: 1, q: LF },
+  { c: "Granite Falls Grain", t: "Structural steel", l: "Granite Falls, MN", o: 0, w: 3, cr: 4, rep: "CM", pm: "SS", s: "Dave Olson", x: 1, q: LF },
+  { c: "Lakeside Foods", t: "Floor system", l: "Owatonna, MN", o: 0, w: 2, cr: 6, rep: "BE", pm: "JM", s: "Luis Ortega" },
+  { c: "Cedar Valley Power", t: "Stack coating", l: "Waterloo, IA", o: -1, w: 6, cr: 4, rep: "AL", pm: "LK", s: "Brandon Kurth", f: 1.24, x: 1, q: LF },
+  { c: "St. Croix Paper", t: "Secondary containment", l: "Hudson, WI", o: 1, w: 3, cr: 5, rep: "KK", pm: "LK", s: "Sam Nguyen", q: CS },
+  { c: "Red Wing Malting", t: "Interior painting", l: "Red Wing, MN", o: 1, w: 2, cr: 3, rep: "EM", pm: "SS", s: "Ray Thompson" },
+  { c: "Mesabi Aggregates", t: "Structural steel", l: "Virginia, MN", o: 2, w: 5, cr: 6, rep: "SCS", pm: "LK", s: "Kevin Jensen", x: 1, q: LF },
+  { c: "Prairie Pork Processing", t: "Floor system", l: "Worthington, MN", o: 2, w: 3, cr: 8, rep: "GD", pm: "JM", s: "Marco Silva" },
+  { c: "Heartland Fiberglass", t: "Tank lining", l: "Mankato, MN", o: 3, w: 4, cr: 5, rep: "PK", pm: "SS", s: "Pete Larson", q: ["Confined space", "Fiberglass"] },
+  { c: "City of Owatonna", t: "Water tower", l: "Owatonna, MN", o: 3, w: 4, cr: 4, rep: "ER", pm: "LK", s: "Darnell Hayes", x: 1, q: LF },
+  { c: "Bluff Country Creamery", t: "Floor system", l: "Rochester, MN", o: 3, w: 2, cr: 6, rep: "CM", pm: "JM", s: "Mike Ramirez" },
+  { c: "Minnesota Valley Ag", t: "Secondary containment", l: "New Ulm, MN", o: 4, w: 3, cr: 6, rep: "BE", pm: "SS", s: "Ben Schultz", q: CS },
+  { c: "Iron Range Mining", t: "Structural steel", l: "Hibbing, MN", o: 4, w: 6, cr: 8, rep: "AL", pm: "LK", s: "Travis Moe", x: 1, q: LF },
+  { c: "Two Rivers Hospital", t: "Interior painting", l: "Mankato, MN", o: 4, w: 3, cr: 4, rep: "KK", pm: "JM", s: "Jake Lund" },
+  { c: "Kasota Stone", t: "Concrete repair", l: "Kasota, MN", o: 4, w: 2, cr: 3, rep: "EM", pm: "SS", s: "Darnell Hayes" },
+  { c: "Northern Plains Wind", t: "Structural steel", l: "Lake Benton, MN", o: 4, w: 3, cr: 5, rep: "SCS", pm: "LK", s: "Luis Ortega", x: 1, q: LF },
+  { c: "Riverbend Ethanol", t: "Tank lining, phase 2", l: "Bingham Lake, MN", o: 9, w: 4, cr: 6, rep: "PK", pm: "JM", s: "Tony Becker", q: CS },
+  { c: "Lakeside Foods", t: "Floor system", l: "Cokato, MN", o: 10, w: 2, cr: 5, rep: "BE", pm: "JM", s: "Sam Nguyen" },
 ];
 const FIRM = ["confirmed", "locked", "confirmed", "confirmed", "flexible", "confirmed", "confirmed", "fill_in", "confirmed", "locked", "best_guess", "locked", "confirmed", "best_guess", "flexible", "flexible", "fill_in", "confirmed", "waiting", "best_guess"] as const;
 
@@ -226,7 +226,7 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
       location: s.l,
       repCode: RMAP[s.rep] ?? s.rep,
       pmCode: s.pm,
-      estimator: ESTIMATORS[i % 2],
+      estimator: ESTIMATORS[i % ESTIMATORS.length],
       leaderId: leaderId(s.s),
       crewSize: s.cr,
       estimateHrs: est,
@@ -324,16 +324,20 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
       active: true,
       ...extra,
     });
+  // Full rights: Austin, Derrick, Jared, Jason, and Al as Austin's backup.
   U("Austin Lewis", "admin");
-  U("Derrick", "ceo");
+  U("Derrick Gordon", "ceo");
+  U("Jared Wiese", "cfo");
+  U("Jason Jelinek", "admin");
+  U("Al Trenary", "admin");
   U("Nicole", "scheduler");
   U("Lori", "job_setup");
-  U("Greg Halvorsen", "estimator");
-  U("Jenna Stahl", "pm", { pmCode: "JS" });
+  ESTIMATORS.forEach((n) => U(n, "estimator"));
+  PMS.forEach((p) => U(p.name, "pm", { pmCode: p.code }));
+  // Leaders are still invented until the crew list comes in.
   U("Mike Ramirez", "superintendent", { personId: leaderId("Mike Ramirez") });
-  U("Kelly Wright", "sales_rep", { repCode: "KW" });
-  U("Jared", "cfo");
-  U("Accounting", "accounting");
+  REPS.forEach((r) => U(r.name, "sales_rep", { repCode: r.code }));
+  U("Patrick Leaon", "accounting");
 
   // Ten closed weeks before this one, with the demo's illustrative board-metric history.
   const ILLUS = {
@@ -428,9 +432,9 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
   mid(9, 3, 1); // Prairie Pork: waiting on the scheduler
   mid(11, 1, 1); // City of Owatonna: waiting on the rep
   mid(12, 2, 2); // Bluff Country: waiting on the PM
-  mid(13, 0, 4, "Greg Halvorsen"); // Minnesota Valley Ag: estimator, late
-  mid(15, 0, 0, "Greg Halvorsen"); // Two Rivers Hospital: draft just uploaded
-  mid(16, 0, 1, "Paula Kern"); // Kasota Stone
+  mid(13, 0, 4, "Stephen Bazant"); // Minnesota Valley Ag: estimator, late
+  mid(15, 0, 0, "Stephen Bazant"); // Two Rivers Hospital: draft just uploaded
+  mid(16, 0, 1, "Juac Angoi"); // Kasota Stone
   {
     const j = jobs[14]; // Iron Range: sent back by the PM
     const comment = "Access plan doesn’t match the estimate. Scope calls for three boom lifts and the estimate carries two. Add the third lift and the extra mobilization before I sign.";
@@ -476,7 +480,7 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
   workOrders[8].history.shift();
 
   // Journey checkpoints ticked off, as the demo seeds them.
-  const ownerWho = (j: Job, o: string) => ({ sales_rep: repName(j.repCode), job_setup: "Lori", pm: pmName(j.pmCode), scheduler: "Nicole", accounting: "Accounting" })[o] ?? o;
+  const ownerWho = (j: Job, o: string) => ({ sales_rep: repName(j.repCode), job_setup: "Lori", pm: pmName(j.pmCode), scheduler: "Nicole", accounting: "Patrick Leaon" })[o] ?? o;
   const jobCheckpoints: JobCheckpoint[] = [];
   jobs.forEach((j, i) => {
     for (const c of DEFAULT_CHECKPOINTS) {
@@ -527,7 +531,7 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
   let iv = 1;
   let invNo = 1150;
   const inv = (jobId: string, kind: Invoice["kind"], amountCents: number, on: IsoDate, extra: Partial<Invoice> = {}) =>
-    invoices.push({ id: sampleId(7, iv++), jobId, kind, period: null, milestoneId: null, number: kind === "skip" ? null : `26-${invNo++}`, amountCents, invoicedOn: on, recordedBy: "Accounting", ...extra });
+    invoices.push({ id: sampleId(7, iv++), jobId, kind, period: null, milestoneId: null, number: kind === "skip" ? null : `26-${invNo++}`, amountCents, invoicedOn: on, recordedBy: "Patrick Leaon", ...extra });
   {
     const j0 = jobs[0];
     const amt = Math.round((recognizedNow(j0) * (0.85 + r11() * 0.1)) / 10000) * 10000;
@@ -544,11 +548,11 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
 
   // Five finished jobs for the billing board: ready, monthly with a balance, waiting on sign-off, retainage out, closed.
   const DONE = [
-    { num: "4051", c: "Dakota Ridge Ethanol", t: "Tank lining", l: "Marshall, MN", rep: "JT", pm: "JS", s: "Tony Becker", st: -45, fin: -7, val: 148500, method: "final", signed: true },
-    { num: "4058", c: "Wabasha County Highway Dept", t: "Structural steel", l: "Wabasha, MN", rep: "NH", pm: "TK", s: "Kevin Jensen", st: -38, fin: -7, val: 212000, method: "monthly", signed: true, prog: 159000, muni: true },
-    { num: "4065", c: "Sunrise Cheese", t: "Floor system", l: "Melrose, MN", rep: "RS", pm: "RL", s: "Luis Ortega", st: -31, fin: -9, val: 86500, method: "final", signed: false },
-    { num: "4072", c: "Mankato Water Treatment", t: "Secondary containment", l: "Mankato, MN", rep: "KW", pm: "RL", s: "Pete Larson", st: -73, fin: -35, val: 174000, method: "final", signed: true, final: true, muni: true },
-    { num: "4079", c: "Ag Partners Co-op", t: "Interior painting", l: "Redwood Falls, MN", rep: "TP", pm: "JS", s: "Ray Thompson", st: -66, fin: -42, val: 58000, method: "final", signed: true, final: true, warranty: true },
+    { num: "4051", c: "Dakota Ridge Ethanol", t: "Tank lining", l: "Marshall, MN", rep: "PK", pm: "JM", s: "Tony Becker", st: -45, fin: -7, val: 148500, method: "final", signed: true },
+    { num: "4058", c: "Wabasha County Highway Dept", t: "Structural steel", l: "Wabasha, MN", rep: "CM", pm: "LK", s: "Kevin Jensen", st: -38, fin: -7, val: 212000, method: "monthly", signed: true, prog: 159000, muni: true },
+    { num: "4065", c: "Sunrise Cheese", t: "Floor system", l: "Melrose, MN", rep: "BE", pm: "SS", s: "Luis Ortega", st: -31, fin: -9, val: 86500, method: "final", signed: false },
+    { num: "4072", c: "Mankato Water Treatment", t: "Secondary containment", l: "Mankato, MN", rep: "ER", pm: "SS", s: "Pete Larson", st: -73, fin: -35, val: 174000, method: "final", signed: true, final: true, muni: true },
+    { num: "4079", c: "Ag Partners Co-op", t: "Interior painting", l: "Redwood Falls, MN", rep: "EM", pm: "JM", s: "Ray Thompson", st: -66, fin: -42, val: 58000, method: "final", signed: true, final: true, warranty: true },
   ];
   DONE.forEach((x, k) => {
     const id = sampleId(K.job, 100 + k);
@@ -564,7 +568,7 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
       location: x.l,
       repCode: RMAP[x.rep] ?? x.rep,
       pmCode: x.pm,
-      estimator: ESTIMATORS[k % 2],
+      estimator: ESTIMATORS[k % ESTIMATORS.length],
       leaderId: leaderId(x.s),
       crewSize: 5,
       estimateHrs: proj,
