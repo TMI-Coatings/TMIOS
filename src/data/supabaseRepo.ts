@@ -1,0 +1,303 @@
+/**
+ * Live mode: reads and writes the Supabase database. Row-level security decides what each
+ * request may see or change; this file only maps between the database and the screens.
+ */
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { can, seesCompanyTotals } from "../domain/permissions";
+import type { ChangeLogEntry, Dataset, IsoDate, Job, Person, Settings, TimeOff, Viewer } from "../domain/types";
+import { DEFAULT_SETTINGS } from "../domain/types";
+import type { AccessUser, LoadResult, NewJobInput, Repo } from "./repo";
+
+type Row = Record<string, any>;
+
+const JOB_MAP: Record<keyof Omit<Job, "requirements">, string> = {
+  id: "id",
+  number: "number",
+  customer: "customer",
+  jobType: "job_type",
+  location: "location",
+  repCode: "rep_code",
+  pmCode: "pm_code",
+  estimator: "estimator",
+  leaderId: "leader_id",
+  crewSize: "crew_size",
+  estimateHrs: "estimate_hrs",
+  projectedHrs: "projected_hrs",
+  contractCents: "contract_cents",
+  materialCostCents: "material_cost_cents",
+  materialRevenueCents: "material_revenue_cents",
+  start: "start",
+  projectedFinish: "projected_finish",
+  baselineFinish: "baseline_finish",
+  mustFinish: "must_finish",
+  mustFinishReason: "must_finish_reason",
+  actualFinish: "actual_finish",
+  status: "status",
+  firmness: "firmness",
+  waitsOnJobId: "waits_on_job_id",
+  firmnessReason: "firmness_reason",
+  holdReason: "hold_reason",
+  holdUntil: "hold_until",
+  exterior: "exterior",
+  billingMethod: "billing_method",
+  retainagePct: "retainage_pct",
+  retainageRelease: "retainage_release",
+  retainageReleaseNote: "retainage_release_note",
+  siteAddress: "site_address",
+  siteStartTime: "site_start_time",
+  siteContact: "site_contact",
+  siteOrientation: "site_orientation",
+  sitePpe: "site_ppe",
+  active: "active",
+};
+const NUMERIC: (keyof Job)[] = ["contractCents", "materialCostCents", "materialRevenueCents", "retainagePct"];
+
+function rowToJob(r: Row, reqs: string[]): Job {
+  const j = Object.fromEntries(Object.entries(JOB_MAP).map(([k, col]) => [k, r[col]])) as unknown as Job;
+  for (const k of NUMERIC) (j as unknown as Record<string, number>)[k] = Number(r[JOB_MAP[k as keyof typeof JOB_MAP]]);
+  j.requirements = reqs;
+  return j;
+}
+
+function check<T>(res: { data: T; error: unknown }): T {
+  if (res.error) throw res.error;
+  return res.data;
+}
+
+export class SupabaseRepo implements Repo {
+  readonly mode = "live" as const;
+  private viewerName = "";
+  constructor(private sb: SupabaseClient) {}
+
+  async load(viewer: Viewer): Promise<LoadResult> {
+    const sb = this.sb;
+    this.viewerName = viewer.name;
+    const office = can.editCrewRecords(viewer.role);
+    const [jobs, reqs, people, priv, quals, timeOff, overrides, actuals, assignments, notes, settings, reps, pms, qualList] = await Promise.all([
+      sb.from("jobs").select("*").eq("active", true),
+      sb.from("job_requirements").select("job_id, qualification").eq("active", true),
+      sb.from("people").select("id, name, kind, state, driver, active").order("name"),
+      office ? sb.from("people_private").select("person_id, phone, dot_expires") : Promise.resolve({ data: [], error: null }),
+      sb.from("person_qualifications").select("person_id, qualification, expires").eq("active", true),
+      office ? sb.from("time_off").select("id, person_id, first_day, last_day, type, active").eq("active", true) : Promise.resolve({ data: [], error: null }),
+      sb.from("plan_overrides").select("job_id, week, hours").eq("active", true),
+      sb.from("actual_hours").select("job_id, week, hours").eq("active", true),
+      sb.from("assignments").select("id, job_id, person_id, week").eq("active", true),
+      sb.from("job_notes").select("id, job_id, body, pinned, crew_visible, author_name, created_at").eq("active", true).order("created_at"),
+      sb.from("settings").select("key, value"),
+      sb.from("sales_reps").select("code, name").eq("active", true).order("name"),
+      sb.from("project_managers").select("code, name").eq("active", true).order("name"),
+      sb.from("qualifications").select("name").eq("active", true).order("name"),
+    ]);
+    const reqsBy = new Map<string, string[]>();
+    for (const r of check(reqs) as Row[]) reqsBy.set(r.job_id, [...(reqsBy.get(r.job_id) ?? []), r.qualification]);
+    const privBy = new Map((check(priv) as Row[]).map((r) => [r.person_id, r]));
+    const qualsBy = new Map<string, Record<string, string | null>>();
+    for (const r of check(quals) as Row[]) qualsBy.set(r.person_id, { ...(qualsBy.get(r.person_id) ?? {}), [r.qualification]: r.expires });
+    const s: Settings = { ...DEFAULT_SETTINGS };
+    for (const r of check(settings) as Row[]) if (r.key in s) (s as unknown as Record<string, unknown>)[r.key] = r.value;
+
+    const ds: Dataset = {
+      jobs: (check(jobs) as Row[]).map((r) => rowToJob(r, reqsBy.get(r.id) ?? [])),
+      people: (check(people) as Row[]).map(
+        (r): Person => ({
+          id: r.id,
+          name: r.name,
+          kind: r.kind,
+          state: r.state,
+          driver: r.driver,
+          active: r.active,
+          phone: privBy.get(r.id)?.phone ?? "",
+          dotExpires: privBy.get(r.id)?.dot_expires ?? null,
+          quals: qualsBy.get(r.id) ?? {},
+        }),
+      ),
+      timeOff: (check(timeOff) as Row[]).map((r): TimeOff => ({ id: r.id, personId: r.person_id, firstDay: r.first_day, lastDay: r.last_day, type: r.type, active: r.active })),
+      overrides: (check(overrides) as Row[]).map((r) => ({ jobId: r.job_id, week: r.week, hours: r.hours })),
+      actuals: (check(actuals) as Row[]).map((r) => ({ jobId: r.job_id, week: r.week, hours: Number(r.hours) })),
+      assignments: (check(assignments) as Row[]).map((r) => ({ id: r.id, jobId: r.job_id, personId: r.person_id, week: r.week })),
+      notes: (check(notes) as Row[]).map((r) => ({ id: r.id, jobId: r.job_id, text: r.body, pinned: r.pinned, crewVisible: r.crew_visible, author: r.author_name, createdAt: r.created_at })),
+      settings: s,
+      qualifications: (check(qualList) as Row[]).map((r) => r.name),
+      reps: (check(reps) as Row[]).map((r) => ({ code: r.code, name: r.name })),
+      pms: (check(pms) as Row[]).map((r) => ({ code: r.code, name: r.name })),
+    };
+
+    let totals: Dataset | null = null;
+    if (seesCompanyTotals(viewer.role) && !office && ["pm", "sales_rep"].includes(viewer.role)) {
+      totals = totalsDataset(check(await sb.rpc("company_load_inputs")) as CompanyInputs, s);
+    }
+    return { ds, totals };
+  }
+
+  async setPlanCell(jobId: string, week: IsoDate, hours: number | null) {
+    if (hours === null) check(await this.sb.from("plan_overrides").update({ active: false }).eq("job_id", jobId).eq("week", week));
+    else check(await this.sb.from("plan_overrides").upsert({ job_id: jobId, week, hours, active: true }));
+  }
+
+  async updateJob(jobId: string, patch: Partial<Job>) {
+    const row: Row = {};
+    for (const [k, v] of Object.entries(patch)) {
+      if (k === "requirements" || k === "id" || k === "baselineFinish") continue;
+      row[JOB_MAP[k as keyof typeof JOB_MAP]] = v;
+    }
+    const res = check(await this.sb.from("jobs").update(row).eq("id", jobId).select("id"));
+    if (!res?.length) throw new Error("You don't have permission to make that change.");
+    if (patch.requirements) {
+      const cur = check(await this.sb.from("job_requirements").select("qualification, active").eq("job_id", jobId)) as Row[];
+      for (const q of new Set([...patch.requirements, ...cur.map((r) => r.qualification)])) {
+        const want = patch.requirements.includes(q);
+        const have = cur.find((r) => r.qualification === q);
+        if (want && !have) check(await this.sb.from("job_requirements").insert({ job_id: jobId, qualification: q }));
+        else if (have && have.active !== want) check(await this.sb.from("job_requirements").update({ active: want }).eq("job_id", jobId).eq("qualification", q));
+      }
+    }
+  }
+
+  async createJob(input: NewJobInput): Promise<string> {
+    return check(await this.sb.rpc("create_job", { p: input })) as string;
+  }
+
+  async assign(jobId: string, personId: string, week: IsoDate) {
+    check(await this.sb.from("assignments").upsert({ job_id: jobId, person_id: personId, week, active: true }, { onConflict: "job_id,person_id,week" }));
+  }
+
+  async unassign(jobId: string, personId: string, week: IsoDate) {
+    check(await this.sb.from("assignments").update({ active: false }).eq("job_id", jobId).eq("person_id", personId).eq("week", week));
+  }
+
+  async addNote(jobId: string, text: string, pinned: boolean, crewVisible: boolean) {
+    check(await this.sb.from("job_notes").insert({ job_id: jobId, body: text, pinned, crew_visible: crewVisible, author_name: this.viewerName }));
+  }
+
+  async setNotePinned(noteId: string, pinned: boolean) {
+    check(await this.sb.from("job_notes").update({ pinned }).eq("id", noteId));
+  }
+
+  async addTimeOff(personId: string, firstDay: IsoDate, lastDay: IsoDate, type: TimeOff["type"]) {
+    check(await this.sb.from("time_off").insert({ person_id: personId, first_day: firstDay, last_day: lastDay, type }));
+  }
+
+  async removeTimeOff(id: string) {
+    check(await this.sb.from("time_off").update({ active: false }).eq("id", id));
+  }
+
+  async addPerson(p: Parameters<Repo["addPerson"]>[0]) {
+    const row = check(await this.sb.from("people").insert({ name: p.name, kind: p.kind, state: p.state, driver: p.driver }).select("id").single()) as Row;
+    check(await this.sb.from("people_private").insert({ person_id: row.id, phone: p.phone, dot_expires: p.dotExpires }));
+  }
+
+  async updatePerson(id: string, patch: Parameters<Repo["updatePerson"]>[1]) {
+    const { phone, dotExpires, ...rest } = patch;
+    if (Object.keys(rest).length) check(await this.sb.from("people").update(rest).eq("id", id));
+    if (phone !== undefined || dotExpires !== undefined) {
+      const priv: Row = { person_id: id };
+      if (phone !== undefined) priv.phone = phone;
+      if (dotExpires !== undefined) priv.dot_expires = dotExpires;
+      check(await this.sb.from("people_private").upsert(priv));
+    }
+  }
+
+  async setQualification(personId: string, qualification: string, has: boolean, expires: IsoDate | null) {
+    check(await this.sb.from("person_qualifications").upsert({ person_id: personId, qualification, expires, active: has }));
+  }
+
+  async updateSetting<K extends keyof Settings>(key: K, value: Settings[K]) {
+    const res = check(await this.sb.from("settings").update({ value }).eq("key", key).select("key"));
+    if (!res?.length) throw new Error("You don't have permission to make that change.");
+  }
+
+  async listUsers(): Promise<AccessUser[]> {
+    const rows = check(await this.sb.from("app_users").select("*").order("name")) as Row[];
+    return rows.map((r) => ({ id: r.id, email: r.email, name: r.name, role: r.role, personId: r.person_id, repCode: r.rep_code, pmCode: r.pm_code, active: r.active, linked: !!r.auth_user_id }));
+  }
+
+  async saveUser(u: Parameters<Repo["saveUser"]>[0]) {
+    const row = { email: u.email.trim().toLowerCase(), name: u.name, role: u.role, person_id: u.personId, rep_code: u.repCode, pm_code: u.pmCode, active: u.active };
+    if (u.id) check(await this.sb.from("app_users").update(row).eq("id", u.id));
+    else check(await this.sb.from("app_users").insert(row));
+  }
+
+  async changeLog(jobId?: string): Promise<ChangeLogEntry[]> {
+    let q = this.sb.from("change_log").select("*").order("at", { ascending: false }).limit(jobId ? 50 : 300);
+    if (jobId) q = q.eq("job_id", jobId);
+    return (check(await q) as Row[]).map((r) => ({
+      id: String(r.id),
+      at: r.at,
+      who: r.user_name,
+      table: r.table_name,
+      recordId: r.record_id,
+      recordLabel: r.record_label,
+      field: r.field,
+      oldValue: r.old_value,
+      newValue: r.new_value,
+    }));
+  }
+}
+
+interface CompanyInputs {
+  jobs: { projectedHrs: number; start: string; projectedFinish: string; status: Job["status"]; actuals: { week: string; hours: number }[]; overrides: { week: string; hours: number }[] }[];
+  people: { kind: Person["kind"]; timeOff: [string, string][] }[];
+}
+
+/** Rebuild just enough of a dataset from the anonymous company inputs to run the totals math. */
+export function totalsDataset(x: CompanyInputs, settings: Settings): Dataset {
+  const jobs: Job[] = x.jobs.map((j, i) => ({
+    ...blankJob,
+    id: "t" + i,
+    number: "0000",
+    projectedHrs: j.projectedHrs,
+    start: j.start,
+    projectedFinish: j.projectedFinish,
+    baselineFinish: j.projectedFinish,
+    status: j.status,
+  }));
+  return {
+    jobs,
+    actuals: x.jobs.flatMap((j, i) => j.actuals.map((a) => ({ jobId: "t" + i, week: a.week, hours: Number(a.hours) }))),
+    overrides: x.jobs.flatMap((j, i) => j.overrides.map((o) => ({ jobId: "t" + i, week: o.week, hours: o.hours }))),
+    people: x.people.map((p, i) => ({ id: "p" + i, name: "", kind: p.kind, state: "", phone: "", driver: false, dotExpires: null, active: true, quals: {} })),
+    timeOff: x.people.flatMap((p, i) => p.timeOff.map(([a, b], k) => ({ id: `t${i}-${k}`, personId: "p" + i, firstDay: a, lastDay: b, type: "Other" as const, active: true }))),
+    assignments: [],
+    notes: [],
+    settings,
+    qualifications: [],
+    reps: [],
+    pms: [],
+  };
+}
+
+const blankJob: Omit<Job, "id" | "number" | "projectedHrs" | "start" | "projectedFinish" | "baselineFinish" | "status"> = {
+  customer: "",
+  jobType: "",
+  location: "",
+  repCode: "",
+  pmCode: "",
+  estimator: "",
+  leaderId: null,
+  crewSize: 1,
+  estimateHrs: 0,
+  contractCents: 0,
+  materialCostCents: 0,
+  materialRevenueCents: 0,
+  mustFinish: null,
+  mustFinishReason: null,
+  actualFinish: null,
+  firmness: "confirmed",
+  waitsOnJobId: null,
+  firmnessReason: null,
+  holdReason: null,
+  holdUntil: null,
+  exterior: false,
+  billingMethod: "final",
+  retainagePct: 0,
+  retainageRelease: null,
+  retainageReleaseNote: null,
+  requirements: [],
+  siteAddress: "",
+  siteStartTime: "",
+  siteContact: "",
+  siteOrientation: "",
+  sitePpe: "",
+  active: true,
+};

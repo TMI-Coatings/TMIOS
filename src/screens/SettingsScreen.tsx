@@ -1,0 +1,57 @@
+import type { Settings } from "../domain/types";
+import type { Ctx } from "../Workspace";
+
+const FIELDS: { k: keyof Settings; label: string; kind: "num" | "money" | "mmdd"; note?: string }[] = [
+  { k: "absencePct", label: "Absence rate (%)", kind: "num", note: "Taken off capacity every week." },
+  { k: "hoursPerManWeek", label: "Hours per man-week", kind: "num" },
+  { k: "dedicatedLeaderHrs", label: "Job size that needs a dedicated leader (hrs)", kind: "num", note: "Smaller jobs share a leader." },
+  { k: "smallJobLeaderWeight", label: "Leaders counted for a smaller job", kind: "num" },
+  { k: "overrunPct", label: "Overrun warning (%)", kind: "num", note: "Flags a job on pace to beat its projected hours by this much." },
+  { k: "burdenedRateCents", label: "Burdened labor cost per hour ($)", kind: "money", note: "Used to split new contracts at intake. Existing jobs keep their split." },
+  { k: "targetHeadcount", label: "Target working headcount", kind: "num" },
+  { k: "confirmDatesDays", label: "Ask to confirm best-guess dates this many days out", kind: "num" },
+  { k: "winterStart", label: "Winter window starts (MM-DD)", kind: "mmdd" },
+  { k: "winterEnd", label: "Winter window ends (MM-DD)", kind: "mmdd" },
+];
+
+/** Thresholds an admin can change (hard rule 8). Every change is logged. */
+export function SettingsScreen({ ctx }: { ctx: Ctx }) {
+  const { data, repo, run } = ctx;
+  const s = data.ds.settings;
+  const commit = (k: keyof Settings, kind: string, raw: string) => {
+    let v: number | string;
+    if (kind === "mmdd") {
+      if (!/^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(raw)) return void run(() => Promise.reject(new Error("Use MM-DD, for example 12-01.")));
+      v = raw;
+    } else {
+      const n = Number(raw);
+      if (!Number.isFinite(n) || n < 0) return void run(() => Promise.reject(new Error("Enter a number zero or above.")));
+      v = kind === "money" ? Math.round(n * 100) : n;
+    }
+    if (v === s[k]) return;
+    void run(() => repo.updateSetting(k, v as never), "Setting saved.");
+  };
+  return (
+    <>
+      <h1>Settings</h1>
+      <p className="lead">The numbers behind capacity and the alerts. Change them as actuals come in; each change is logged with your name.</p>
+      <div className="panel">
+        <div className="fg">
+          {FIELDS.map((f) => (
+            <label className="field" key={f.k}>
+              {f.label}
+              <input
+                key={String(s[f.k])}
+                defaultValue={f.kind === "money" ? Number(s[f.k]) / 100 : String(s[f.k])}
+                inputMode={f.kind === "mmdd" ? "text" : "decimal"}
+                onBlur={(e) => commit(f.k, f.kind, e.target.value.trim())}
+                onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+              />
+              {f.note && <span className="q">{f.note}</span>}
+            </label>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}

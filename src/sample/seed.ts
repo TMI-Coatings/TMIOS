@@ -110,6 +110,12 @@ export interface SampleData extends Dataset {
 export function buildSample(baseWeek: IsoDate): SampleData {
   const shift = (s: IsoDate) => addDays(s, Math.round((Date.parse(baseWeek) - Date.parse(DEMO_WEEK)) / 86_400_000));
   const START = baseWeek;
+  /** Calendar-bound sample dates (deer season, holidays) stay on their dates, in the coming year. */
+  const cal = (demoDate: IsoDate) => {
+    let d = baseWeek.slice(0, 4) + demoDate.slice(4);
+    if (d < addDays(baseWeek, -30)) d = String(Number(d.slice(0, 4)) + 1) + d.slice(4);
+    return d;
+  };
   const r = rng(42);
   const rd = () => shift(addDays("2026-10-20", Math.floor(r() * 430)));
 
@@ -174,9 +180,12 @@ export function buildSample(baseWeek: IsoDate): SampleData {
     timeOff.push({ id: sampleId(K.timeoff, tn++), personId: p.id, firstDay: a, lastDay: b, type, active: true });
   pick(L.slice(1), 5)
     .concat(pick(F, 11))
-    .forEach((p) => off(p, shift("2026-11-09"), shift("2026-11-13"), "Hunting"));
-  pick(F, 10).forEach((p) => off(p, shift("2026-11-25"), shift("2026-11-27"), "Holiday"));
-  pick(people.slice(1), 30).forEach((p) => off(p, shift("2026-12-21"), shift("2027-01-01"), "Holiday"));
+    .forEach((p) => off(p, cal("2026-11-09"), cal("2026-11-13"), "Hunting"));
+  pick(F, 10).forEach((p) => off(p, cal("2026-11-25"), cal("2026-11-27"), "Holiday"));
+  pick(people.slice(1), 30).forEach((p) => {
+    const a = cal("2026-12-21");
+    off(p, a, addDays(a, 11), "Holiday");
+  });
   pick(F, 6).forEach((p) => {
     const s = shift(addDays("2026-10-19", 7 * Math.floor(r() * 6)));
     off(p, s, addDays(s, 2), "PTO");

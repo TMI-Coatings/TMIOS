@@ -151,3 +151,16 @@ describe("contract split at intake", () => {
     expect(bidMargin(10_000_000, 2_000_000, 600, 5500)).toBeCloseTo(0.47);
   });
 });
+
+import { jobProblem } from "../../src/domain/jobRules";
+describe("job checks before saving", () => {
+  it("matches the database rules", () => {
+    expect(jobProblem(null, job({ number: "412" }))).toMatch(/four digits/);
+    expect(jobProblem(null, job({ projectedFinish: "2026-10-01" }))).toMatch(/finish date/);
+    expect(jobProblem(null, job({ status: "on_hold" }))).toMatch(/on hold/);
+    expect(jobProblem(null, job({ firmness: "waiting" }))).toMatch(/waits on/);
+    expect(jobProblem(null, job({ retainagePct: 5 }))).toMatch(/release terms/);
+    expect(jobProblem(job({ firmness: "locked" }), job({ firmness: "confirmed" }))).toMatch(/Locked/);
+    expect(jobProblem(job({ firmness: "locked" }), job({ firmness: "confirmed", firmnessReason: "Moved" }))).toBeNull();
+  });
+});
