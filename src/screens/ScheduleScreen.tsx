@@ -20,6 +20,7 @@ import {
 import type { Firmness, IsoDate, Job } from "../domain/types";
 import { fmtShort, weekList } from "../domain/weeks";
 import { n0, n1 } from "../format";
+import { WO_TAG, woStatus } from "../domain/workOrders";
 import type { Ctx } from "../Workspace";
 import { AddJobDialog } from "./AddJobDialog";
 import { JobDialog } from "./JobDialog";
@@ -107,6 +108,15 @@ export function ScheduleScreen({ ctx }: { ctx: Ctx }) {
       );
     if (issues.some((i) => i.job.id === j.id)) t.push(<span key="i" className="tag yel">Crew issue</span>);
     if (j.exterior) t.push(<span key="x" className="tag blue">Exterior</span>);
+    const wo = ds.workOrders.find((w) => w.jobId === j.id);
+    if (wo && !wo.final) {
+      const st = woStatus(wo);
+      t.push(
+        <span key="wo" className={"tag " + WO_TAG[st]}>
+          Work order: {st.toLowerCase()}
+        </span>,
+      );
+    }
     if (ds.confirmations.some((c) => c.jobId === j.id && c.week === week))
       t.push(
         <span key="cf" className="tag grn">

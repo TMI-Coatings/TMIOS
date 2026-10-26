@@ -4,6 +4,7 @@ import { digestLines, digestTitle } from "../domain/insights";
 import { can } from "../domain/permissions";
 import { allPlans, buildIndex } from "../domain/schedule";
 import { ALERT_RULES, type Alert, type AlertRule } from "../domain/types";
+import { todayIn } from "../domain/weeks";
 import { stamp } from "../format";
 import type { Ctx } from "../Workspace";
 import { JobDialog } from "./JobDialog";
@@ -33,7 +34,7 @@ export function AlertsScreen({ ctx }: { ctx: Ctx }) {
   const sendDigest = () => {
     const ds = data.ds;
     const idx = buildIndex(ds);
-    void run(() => repo.postDigest(digestTitle(week), digestLines(ds, idx, allPlans(ds, idx, week), week).join("\n")), "Digest posted.");
+    void run(() => repo.postDigest(digestTitle(week), digestLines(ds, idx, allPlans(ds, idx, week), week, todayIn(new Date())).join("\n")), "Digest posted.");
   };
 
   return (

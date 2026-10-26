@@ -1,4 +1,5 @@
 import type { CloseInput, CloseResult } from "../domain/close";
+import type { CheckpointDef } from "../domain/journey";
 import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Person, Role, Settings, TimeOffType, Viewer } from "../domain/types";
 
 export interface NewJobInput {
@@ -87,6 +88,15 @@ export interface Repo {
   confirmMyCrews(): Promise<number>;
   myWeek(): Promise<MyWeek | null>;
   acknowledgeWeek(week: IsoDate): Promise<void>;
+  /** Upload a work order draft. In sample mode only the file name is kept. */
+  woUpload(jobId: string, file: File | null, fileName: string): Promise<void>;
+  woApprove(jobId: string): Promise<void>;
+  woReturn(jobId: string, comment: string): Promise<void>;
+  woMarkFiled(jobId: string): Promise<void>;
+  /** A short-lived link to the current draft, or null when there is no file to open. */
+  woFileUrl(jobId: string): Promise<string | null>;
+  setCheckpoint(jobId: string, key: string, done: boolean): Promise<void>;
+  saveCheckpointDef(def: CheckpointDef, isNew: boolean): Promise<void>;
 }
 
 /** Turns a database or rule error into one plain sentence for the screen. */

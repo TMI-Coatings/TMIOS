@@ -4,7 +4,7 @@ import { closeRows, parseHoursCsv, plannedFor, reviewFlag } from "../domain/clos
 import { digestLines, digestTitle } from "../domain/insights";
 import { can, canEditJob } from "../domain/permissions";
 import { allPlans, buildIndex, hoursLeft } from "../domain/schedule";
-import { fmtLong, fmtShort } from "../domain/weeks";
+import { fmtLong, fmtShort, todayIn } from "../domain/weeks";
 import { n0 } from "../format";
 import type { Ctx } from "../Workspace";
 import { JobDialog } from "./JobDialog";
@@ -106,7 +106,7 @@ export function CloseScreen({ ctx }: { ctx: Ctx }) {
       });
       const fresh = await repo.load(viewer);
       const fi = buildIndex(fresh.ds);
-      await repo.postDigest(digestTitle(fresh.week), digestLines(fresh.ds, fi, allPlans(fresh.ds, fi, fresh.week), fresh.week).join("\n"));
+      await repo.postDigest(digestTitle(fresh.week), digestLines(fresh.ds, fi, allPlans(fresh.ds, fi, fresh.week), fresh.week, todayIn(new Date())).join("\n"));
     });
     if (ok && res) {
       setResult(res);

@@ -5,6 +5,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { can, seesCompanyTotals } from "../domain/permissions";
 import type { CloseInput, CloseResult } from "../domain/close";
+import type { CheckpointDef } from "../domain/journey";
+import type { WorkOrder } from "../domain/workOrders";
 import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Person, Settings, TimeOff, Viewer } from "../domain/types";
 import { DEFAULT_SETTINGS } from "../domain/types";
 import type { AccessUser, LoadResult, NewJobInput, Repo } from "./repo";
@@ -102,6 +104,19 @@ export class SupabaseRepo implements Repo {
       office ? sb.from("weekly_metrics").select("*").order("week") : Promise.resolve({ data: [], error: null }),
       sb.rpc("schedule_weeks"),
     ]);
+    const [wos, signoffs, woEvents, stages, defs, marks, staff] = await Promise.all([
+      sb.from("work_orders").select("*").eq("active", true),
+      sb.from("work_order_signoffs").select("job_id, version, step, by_name, at"),
+      sb.from("work_order_events").select("job_id, at, who, action, note").order("at", { ascending: false }),
+      sb.from("journey_stages").select("*").order("sort"),
+      sb.from("journey_checkpoints").select("*").order("sort"),
+      sb.from("job_checkpoints").select("job_id, checkpoint_key, done_by, done_at").eq("active", true),
+      sb.rpc("staff_names"),
+    ]);
+    const signBy = new Map<string, Row[]>();
+    for (const r of check(signoffs) as Row[]) signBy.set(r.job_id, [...(signBy.get(r.job_id) ?? []), r]);
+    const evBy = new Map<string, Row[]>();
+    for (const r of check(woEvents) as Row[]) evBy.set(r.job_id, [...(evBy.get(r.job_id) ?? []), r]);
     const reqsBy = new Map<string, string[]>();
     for (const r of check(reqs) as Row[]) reqsBy.set(r.job_id, [...(reqsBy.get(r.job_id) ?? []), r.qualification]);
     const privBy = new Map((check(priv) as Row[]).map((r) => [r.person_id, r]));
@@ -147,6 +162,35 @@ export class SupabaseRepo implements Repo {
         onTime: num(r.on_time),
         illustrative: r.illustrative,
       })),
+      workOrders: (check(wos) as Row[]).map(
+        (r): WorkOrder => ({
+          jobId: r.job_id,
+          version: r.version,
+          currentStep: r.current_step,
+          since: r.since,
+          final: r.final,
+          filed: r.filed,
+          fileName: r.file_name,
+          filePath: r.file_path,
+          returned: r.returned_comment ? { by: r.returned_by, role: r.returned_role, comment: r.returned_comment, at: r.returned_at } : null,
+          signoffs: (signBy.get(r.job_id) ?? []).filter((x) => x.version === r.version).map((x) => ({ step: x.step, by: x.by_name, at: x.at })),
+          history: (evBy.get(r.job_id) ?? []).map((x) => ({ at: x.at, who: x.who, action: x.action, note: x.note })),
+        }),
+      ),
+      stages: (check(stages) as Row[]).map((r) => ({ key: r.key, label: r.label, sort: r.sort, startup: r.startup, active: r.active })),
+      checkpointDefs: (check(defs) as Row[]).map((r) => ({
+        key: r.key,
+        stageKey: r.stage_key,
+        label: r.label,
+        owner: r.owner,
+        offsetDays: r.offset_days,
+        anchor: r.anchor,
+        autoSource: r.auto_source,
+        sort: r.sort,
+        active: r.active,
+      })),
+      jobCheckpoints: (check(marks) as Row[]).map((r) => ({ jobId: r.job_id, key: r.checkpoint_key, by: r.done_by, at: r.done_at })),
+      staff: (check(staff) as { schedulers: string[]; jobSetup: string[] } | null) ?? { schedulers: [], jobSetup: [] },
     };
     const w = check(weeks) as { planningWeek: string; weekToClose: string | null };
 
@@ -298,6 +342,46 @@ export class SupabaseRepo implements Repo {
   async acknowledgeWeek(week: IsoDate) {
     check(await this.sb.rpc("acknowledge_week", { p_week: week }));
   }
+
+  async woUpload(jobId: string, file: File | null, fileName: string) {
+    let path: string | null = null;
+    if (file) {
+      path = `${jobId}/${Date.now()}-${fileName.replace(/[^\w.\- ]+/g, "_")}`;
+      const up = await this.sb.storage.from("work-orders").upload(path, file, { upsert: false, contentType: file.type || undefined });
+      if (up.error) throw up.error;
+    }
+    check(await this.sb.rpc("wo_upload", { p_job: jobId, p_file_name: fileName, p_file_path: path }));
+  }
+
+  async woApprove(jobId: string) {
+    check(await this.sb.rpc("wo_approve", { p_job: jobId }));
+  }
+
+  async woReturn(jobId: string, comment: string) {
+    check(await this.sb.rpc("wo_return", { p_job: jobId, p_comment: comment }));
+  }
+
+  async woMarkFiled(jobId: string) {
+    check(await this.sb.rpc("wo_mark_filed", { p_job: jobId }));
+  }
+
+  async woFileUrl(jobId: string): Promise<string | null> {
+    const row = check(await this.sb.from("work_orders").select("file_path").eq("job_id", jobId).maybeSingle()) as Row | null;
+    if (!row?.file_path) return null;
+    const { data, error } = await this.sb.storage.from("work-orders").createSignedUrl(row.file_path, 300);
+    if (error) throw error;
+    return data.signedUrl;
+  }
+
+  async setCheckpoint(jobId: string, key: string, done: boolean) {
+    check(await this.sb.rpc("set_checkpoint", { p_job: jobId, p_key: key, p_done: done }));
+  }
+
+  async saveCheckpointDef(d: CheckpointDef, isNew: boolean) {
+    const row = { key: d.key, stage_key: d.stageKey, label: d.label, owner: d.owner, offset_days: d.offsetDays, anchor: d.anchor, sort: d.sort, active: d.active };
+    if (isNew) check(await this.sb.from("journey_checkpoints").insert(row));
+    else check(await this.sb.from("journey_checkpoints").update(row).eq("key", d.key));
+  }
 }
 
 interface CompanyInputs {
@@ -333,6 +417,11 @@ export function totalsDataset(x: CompanyInputs, settings: Settings): Dataset {
     hourEntries: [],
     confirmations: [],
     metrics: [],
+    workOrders: [],
+    stages: [],
+    checkpointDefs: [],
+    jobCheckpoints: [],
+    staff: { schedulers: [], jobSetup: [] },
   };
 }
 

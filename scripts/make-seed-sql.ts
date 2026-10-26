@@ -85,6 +85,29 @@ export function seedSql(week: string): string {
     ),
   );
   out.push(rows("forecast_snapshots", ["made_week", "target_week", "job_id", "hours"], s.snapshots.map((x) => [x.madeWeek, x.targetWeek, x.jobId, x.hours])));
+  // Work orders were opened by the job trigger; set them to the sample's states.
+  for (const w of s.workOrders) {
+    out.push(
+      `update public.work_orders set version = ${w.version}, current_step = ${w.currentStep}, since = ${q(w.since)}, final = ${w.final}, filed = ${w.filed}, ` +
+        `file_name = ${q(w.fileName)}, returned_by = ${q(w.returned?.by)}, returned_role = ${q(w.returned?.role)}, returned_comment = ${q(w.returned?.comment)}, ` +
+        `returned_at = ${q(w.returned?.at)} where job_id = ${q(w.jobId)};`,
+    );
+  }
+  out.push(
+    rows(
+      "work_order_signoffs",
+      ["job_id", "version", "step", "by_name", "at"],
+      s.workOrders.flatMap((w) => w.signoffs.map((x) => [w.jobId, w.version, x.step, x.by, x.at])),
+    ),
+  );
+  out.push(
+    rows(
+      "work_order_events",
+      ["job_id", "at", "who", "action", "note"],
+      s.workOrders.flatMap((w) => w.history.map((h) => [w.jobId, h.at, h.who, h.action, h.note])),
+    ),
+  );
+  out.push(rows("job_checkpoints", ["job_id", "checkpoint_key", "done_by", "done_at"], s.jobCheckpoints.map((c) => [c.jobId, c.key, c.by, c.at])));
   out.push("reset app.seeding;\nselect app.capacity_check();\nselect app.cert_reminders();\n");
   return out.join("\n");
 }

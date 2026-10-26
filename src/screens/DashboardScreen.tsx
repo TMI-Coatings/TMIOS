@@ -5,7 +5,7 @@ import { can } from "../domain/permissions";
 import { firmnessMix, kpis, needsAttention } from "../domain/insights";
 import { FIRMNESS, allPlans, availableMen, buildIndex, capacity, leadersNeeded, loadForWeek } from "../domain/schedule";
 import type { Firmness } from "../domain/types";
-import { fmtLong, fmtShort, weekList } from "../domain/weeks";
+import { fmtLong, fmtShort, todayIn, weekList } from "../domain/weeks";
 import { n0, n1, pct, usd } from "../format";
 import type { Ctx } from "../Workspace";
 import { JobDialog } from "./JobDialog";
@@ -27,7 +27,7 @@ export function DashboardScreen({ ctx }: { ctx: Ctx }) {
   const idx = useMemo(() => buildIndex(ds), [ds]);
   const plans = useMemo(() => allPlans(ds, idx, week), [ds, idx, week]);
   const k = kpis(ds, idx, plans, week);
-  const att = useMemo(() => needsAttention(ds, idx, plans, week), [ds, idx, plans, week]);
+  const att = useMemo(() => needsAttention(ds, idx, plans, week, todayIn(new Date())), [ds, idx, plans, week]);
   const weeks = weekList(week, 13);
   const labels = weeks.map(fmtShort);
   const mix = firmnessMix(ds, plans, week);

@@ -69,6 +69,11 @@ export function dataset(over: Partial<Dataset> = {}): Dataset {
     hourEntries: [],
     confirmations: [],
     metrics: [],
+    workOrders: [],
+    stages: [],
+    checkpointDefs: [],
+    jobCheckpoints: [],
+    staff: { schedulers: [], jobSetup: [] },
     ...over,
   };
 }

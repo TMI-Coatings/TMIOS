@@ -9,8 +9,10 @@ import { canSeeAlert, capacityAlerts, certAlerts, jobChangeAlerts, overrunAlert,
 import { closeRows, forecastAccuracy, type CloseInput, type CloseResult } from "../domain/close";
 import { allPlans, buildIndex, capacity, hoursLeft, inWindow, isSold, materialRevenueCents } from "../domain/schedule";
 import { backlogCents, digestLines, digestTitle } from "../domain/insights";
+import { canCheck, type CheckpointDef } from "../domain/journey";
+import { WO_STEPS, stepWho, woCanFile, woCanSign, woCanUpload, woIsMine, woStatus, type Names, type WorkOrder } from "../domain/workOrders";
 import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Settings, Viewer } from "../domain/types";
-import { addDays, currentWeek, mondayOf, planningWeek, todayIn, weekList, weekToClose } from "../domain/weeks";
+import { addDays, currentWeek, fmtShort, mondayOf, planningWeek, todayIn, weekList, weekToClose } from "../domain/weeks";
 import { buildSample, type SampleData } from "../sample/seed";
 import type { AccessUser, LoadResult, NewJobInput, Repo } from "./repo";
 
@@ -53,7 +55,7 @@ export class SampleRepo implements Repo {
 
   private fresh(): Stored {
     const week = currentWeek();
-    const s: Stored = { week, data: buildSample(week), log: [], alerts: [], alertState: {}, mutes: {}, acks: {} };
+    const s: Stored = { week, data: buildSample(week, todayIn(new Date())), log: [], alerts: [], alertState: {}, mutes: {}, acks: {} };
     this.s = s;
     this.checks();
     this.push(certAlerts(s.data, this.week(), s.alertState));
@@ -76,6 +78,54 @@ export class SampleRepo implements Repo {
     const ds = this.s.data;
     const idx = buildIndex(ds);
     this.push(capacityAlerts(ds, idx, allPlans(ds, idx, this.week()), this.week(), this.s.alertState));
+    this.woCheck();
+  }
+  private names(): Names {
+    const d = this.s.data;
+    return {
+      rep: (c) => d.reps.find((r) => r.code === c)?.name ?? c,
+      pm: (c) => d.pms.find((r) => r.code === c)?.name ?? c,
+      schedulers: d.staff.schedulers,
+      jobSetup: d.staff.jobSetup,
+    };
+  }
+  /** A work order step past its deadline pings the PM, once per step (the database's wo_check). */
+  private woCheck() {
+    const d = this.s.data;
+    const today = todayIn(new Date());
+    const n = this.names();
+    for (const w of d.workOrders) {
+      const j = d.jobs.find((x) => x.id === w.jobId);
+      if (!j || j.status === "complete" || w.final) continue;
+      const days = Math.round((Date.parse(today) - Date.parse(w.since)) / 864e5);
+      if (days <= d.settings.woReviewDays) continue;
+      const st = woStatus(w);
+      const key = `wo|${j.id}|${w.since}|${st}|${w.currentStep}`;
+      if (this.s.alertState[key]) continue;
+      this.s.alertState[key] = "sent";
+      const lori = st === "Awaiting draft" || st === "Returned";
+      const who = lori ? n.jobSetup.join(", ") : stepWho(j, w.currentStep, n);
+      const what = st === "Awaiting draft" ? "the draft" : st === "Returned" ? "the revised draft" : WO_STEPS[w.currentStep].what.toLowerCase();
+      this.push([
+        {
+          rule: "wo",
+          title: `Work order review late: ${j.number} ${j.customer}`,
+          body: `Waiting ${days} days on ${who} for ${what}. The review deadline is ${d.settings.woReviewDays} days.\nJob starts ${fmtShort(j.start)}. PM ${n.pm(j.pmCode)} pinged.`,
+          recipients: [n.pm(j.pmCode), ...(lori ? n.jobSetup : [who])],
+          jobId: j.id,
+          personId: null,
+        },
+      ]);
+    }
+  }
+  private woEvent(w: WorkOrder, action: string, note = "") {
+    w.history.unshift({ at: new Date().toISOString(), who: this.me().name, action, note });
+  }
+  private wo(jobId: string): { j: Job; w: WorkOrder } {
+    const j = this.job(jobId);
+    const w = this.d.workOrders.find((x) => x.jobId === jobId);
+    if (!w) throw new Error("This job has no work order.");
+    return { j, w };
   }
   private read(): Stored | null {
     try {
@@ -144,6 +194,8 @@ export class SampleRepo implements Repo {
     ds.hourEntries = d.hourEntries.filter((e) => visible.has(e.jobId));
     ds.confirmations = d.confirmations.filter((c) => visible.has(c.jobId));
     ds.metrics = office2 ? d.metrics : [];
+    ds.workOrders = d.workOrders.filter((w) => visible.has(w.jobId));
+    ds.jobCheckpoints = d.jobCheckpoints.filter((c) => visible.has(c.jobId));
     if (viewer.role === "field_crew") ds.closes = [];
     const sawAll = visible.size === d.jobs.length;
     const totals = seesCompanyTotals(viewer.role) && !sawAll ? { ...d, jobs: d.jobs.filter((j) => j.status !== "complete") } : null;
@@ -216,6 +268,19 @@ export class SampleRepo implements Repo {
     if (problem) throw new Error(problem);
     this.d.jobs.push(job);
     this.log("jobs", job.id, "Job " + job.number, "added", null, `${job.customer}, ${job.estimateHrs} hrs`);
+    const today = todayIn(new Date());
+    this.d.workOrders.push({ jobId: job.id, version: 0, currentStep: 0, since: today, final: false, filed: false, fileName: null, filePath: null, returned: null, signoffs: [], history: [] });
+    this.woEvent(this.d.workOrders.at(-1)!, "Job booked on the schedule. Work order opened, awaiting a draft.");
+    this.push([
+      {
+        rule: "wo",
+        title: `New job booked, draft the work order: ${job.number} ${job.customer}`,
+        body: `Booked on the schedule now for ${fmtShort(job.start)} to ${fmtShort(job.projectedFinish)}. The work order runs alongside it.\nDraft it in Claude from the estimate and the proposal or contract, using the TMI work order template, then upload it to the job. Estimator: ${job.estimator}.`,
+        recipients: this.d.staff.jobSetup,
+        jobId: job.id,
+        personId: null,
+      },
+    ]);
     if (input.note.trim()) {
       this.d.notes.push({ id: uid(), jobId: job.id, text: input.note.trim(), pinned: true, crewVisible: false, author: v.name, createdAt: new Date().toISOString() });
     }
@@ -510,6 +575,132 @@ export class SampleRepo implements Repo {
     if (!v.personId) throw new Error("This sign-in isn't linked to a person on the roster.");
     const k = v.personId + "|" + week;
     if (!this.s.acks[k]) this.s.acks[k] = new Date().toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/Chicago" });
+    this.save();
+  }
+
+  async woUpload(jobId: string, _file: File | null, fileName: string) {
+    const { j, w } = this.wo(jobId);
+    if (!woCanUpload(this.me(), w)) throw new Error("Only job setup, the scheduler or an admin uploads work order drafts, and only when one is due.");
+    if (!fileName.trim()) throw new Error("Choose the draft file.");
+    const wasReturned = !!w.returned;
+    Object.assign(w, { fileName, filePath: null, version: w.version + 1, currentStep: 0, returned: null, signoffs: [], since: todayIn(new Date()) });
+    this.woEvent(w, `${wasReturned ? "Uploaded revised draft " : "Uploaded draft "}${fileName}.`);
+    this.log("work_orders", jobId, "Job " + j.number, "file_name", null, fileName);
+    this.push([
+      {
+        rule: "wo",
+        title: `${wasReturned ? "Revised draft" : "Draft work order"} ready for review: ${j.number} ${j.customer}`,
+        body: `${this.me().name} uploaded ${fileName}. Your step: check hours and scope against the estimate. Due in ${this.d.settings.woReviewDays} days.\nThe job is already booked on the schedule for ${fmtShort(j.start)}.`,
+        recipients: [j.estimator],
+        jobId,
+        personId: null,
+      },
+    ]);
+    this.save();
+  }
+
+  async woApprove(jobId: string) {
+    const v = this.me();
+    const { j, w } = this.wo(jobId);
+    const n = this.names();
+    const st = w.currentStep;
+    if (!woCanSign(v, j, w)) throw new Error(`This step is waiting on ${stepWho(j, st, n)}.`);
+    w.signoffs.push({ step: st, by: v.name, at: new Date().toISOString() });
+    this.woEvent(w, `${WO_STEPS[st].role} sign-off: ${WO_STEPS[st].what.toLowerCase()} approved${woIsMine(v, j, st) ? "" : ", for " + stepWho(j, st, n)}.`);
+    this.log("work_order_signoffs", jobId, "Job " + j.number, WO_STEPS[st].role.toLowerCase() + " sign-off", "pending", "approved");
+    w.since = todayIn(new Date());
+    if (st === 3) {
+      w.currentStep = 4;
+      w.final = true;
+      this.woEvent(w, "Work order final. All four sign-offs complete.");
+      this.push([
+        {
+          rule: "wo",
+          title: `Work order final: ${j.number} ${j.customer}`,
+          body: "Estimator, rep, PM and scheduler have all signed off.\nLori files the final in Procore as the work order of record. TMI Ops shows it from there.",
+          recipients: [...n.jobSetup, stepWho(j, 2, n), stepWho(j, 1, n), stepWho(j, 3, n)],
+          jobId,
+          personId: null,
+        },
+      ]);
+    } else {
+      w.currentStep = st + 1;
+      this.push([
+        {
+          rule: "wo",
+          title: `Work order ready for your sign-off: ${j.number} ${j.customer}`,
+          body: `${WO_STEPS[st].role} signed off on ${WO_STEPS[st].what.toLowerCase()}. Your step: ${WO_STEPS[st + 1].what.toLowerCase()}. Due in ${this.d.settings.woReviewDays} days.`,
+          recipients: [stepWho(j, st + 1, n)],
+          jobId,
+          personId: null,
+        },
+      ]);
+    }
+    this.save();
+  }
+
+  async woReturn(jobId: string, comment: string) {
+    const v = this.me();
+    const { j, w } = this.wo(jobId);
+    const n = this.names();
+    const st = w.currentStep;
+    if (!woCanSign(v, j, w)) throw new Error(`This step is waiting on ${stepWho(j, st, n)}.`);
+    if (!comment.trim()) throw new Error("Add a comment so Lori knows what to fix.");
+    Object.assign(w, { returned: { by: v.name, role: WO_STEPS[st].role, comment: comment.trim(), at: new Date().toISOString() }, currentStep: 0, signoffs: [], since: todayIn(new Date()) });
+    this.woEvent(w, `Sent back by the ${WO_STEPS[st].role.toLowerCase()}.`, comment.trim());
+    this.log("work_orders", jobId, "Job " + j.number, "returned_comment", null, comment.trim());
+    this.push([
+      {
+        rule: "wo",
+        title: `Work order sent back: ${j.number} ${j.customer}`,
+        body: `${v.name}, at the ${st === 2 ? "PM" : WO_STEPS[st].role.toLowerCase()} step: ${comment.trim()}\nLori revises the draft and re-uploads it. Sign-offs restart with the estimator.`,
+        recipients: [...n.jobSetup, stepWho(j, 2, n)],
+        jobId,
+        personId: null,
+      },
+    ]);
+    this.save();
+  }
+
+  async woMarkFiled(jobId: string) {
+    const { j, w } = this.wo(jobId);
+    if (!woCanFile(this.me(), w)) throw new Error("Only a final work order can be marked filed, by job setup, the scheduler or an admin.");
+    w.filed = true;
+    this.woEvent(w, "Final filed in Procore as the work order of record.");
+    this.log("work_orders", jobId, "Job " + j.number, "filed", false, true);
+    this.save();
+  }
+
+  async woFileUrl(): Promise<string | null> {
+    return null;
+  }
+
+  async setCheckpoint(jobId: string, key: string, done: boolean) {
+    const v = this.me();
+    const j = this.job(jobId);
+    const c = this.d.checkpointDefs.find((x) => x.key === key);
+    if (!c || !canCheck(v, c, true)) throw new Error("That checkpoint belongs to someone else.");
+    const i = this.d.jobCheckpoints.findIndex((x) => x.jobId === jobId && x.key === key);
+    if (done && i < 0) this.d.jobCheckpoints.push({ jobId, key, by: v.name, at: new Date().toISOString() });
+    if (!done && i >= 0) this.d.jobCheckpoints.splice(i, 1);
+    this.log("job_checkpoints", jobId + "|" + key, `Job ${j.number} · ${c.label}`, "done", done ? "open" : "done", done ? "done" : "reopened");
+    this.save();
+  }
+
+  async saveCheckpointDef(def: CheckpointDef, isNew: boolean) {
+    if (!["admin", "ceo", "cfo"].includes(this.me().role)) throw denied();
+    if (!def.label.trim()) throw new Error("Give the checkpoint a name.");
+    const i = this.d.checkpointDefs.findIndex((x) => x.key === def.key);
+    if (isNew) {
+      if (i >= 0) throw new Error("That checkpoint already exists.");
+      this.d.checkpointDefs.push({ ...def, autoSource: null });
+      this.log("journey_checkpoints", def.key, "Journey " + def.label, "added", null, def.label);
+    } else {
+      const before = this.d.checkpointDefs[i];
+      for (const k of ["label", "owner", "offsetDays", "anchor", "stageKey", "active"] as const)
+        if (before[k] !== def[k]) this.log("journey_checkpoints", def.key, "Journey " + def.label, k, before[k], def[k]);
+      this.d.checkpointDefs[i] = { ...def, autoSource: before.autoSource };
+    }
     this.save();
   }
 }

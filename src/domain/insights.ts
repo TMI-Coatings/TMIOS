@@ -26,7 +26,9 @@ import {
   predecessorIssue,
 } from "./schedule";
 import type { Dataset, Firmness, IsoDate, Job, Settings } from "./types";
-import { addDays, fmtShort, weekList } from "./weeks";
+import { addDays, daysBetween, fmtShort, weekList } from "./weeks";
+import { journeyOf, namesOf } from "./views";
+import { woDaysWaiting, woLate, woOpen, woStatus, woWaiting } from "./workOrders";
 
 const n0 = (v: number) => Math.round(v).toLocaleString("en-US");
 const n1 = (v: number) => (Math.round(v * 10) / 10).toLocaleString("en-US");
@@ -98,7 +100,7 @@ const jl = (j: Job) => `{job:${j.id}}`;
 const leaderFirst = (ds: Dataset, j: Job) => (ds.people.find((p) => p.id === j.leaderId)?.name ?? "No leader").split(" ")[0];
 
 /** The Dashboard's Needs attention list, in the demo's order. */
-export function needsAttention(ds: Dataset, idx: Index, plans: Plans, week: IsoDate): AttentionItem[] {
+export function needsAttention(ds: Dataset, idx: Index, plans: Plans, week: IsoDate, today: IsoDate = addDays(week, -4)): AttentionItem[] {
   const s = ds.settings;
   const out: AttentionItem[] = [];
   const repName = (c: string) => ds.reps.find((r) => r.code === c)?.name ?? c;
@@ -173,6 +175,38 @@ export function needsAttention(ds: Dataset, idx: Index, plans: Plans, week: IsoD
     const j = ds.jobs.find((x) => x.id === id);
     if (j) out.push({ tag: "Missing", tone: "yel", text: `${jl(j)} had no hours at the last close (PM ${pmName(j.pmCode)}).` });
   }
+  // Work orders late or not final close to the start.
+  const n = namesOf(ds);
+  const due = s.woReviewDays;
+  for (const j of [...ds.jobs].sort((a, b) => a.start.localeCompare(b.start))) {
+    const w = ds.workOrders.find((x) => x.jobId === j.id);
+    if (!w || !woOpen(j, w)) continue;
+    const late = woLate(j, w, today, due);
+    const soon = daysBetween(today, j.start) <= s.woStartSoonDays;
+    if (!late && !soon) continue;
+    out.push({
+      tag: "Work order",
+      tone: late ? "red" : "yel",
+      text:
+        `${jl(j)} ` +
+        (late ? `waiting ${woDaysWaiting(w, today)} days on ${woWaiting(j, w, n)}, past the ${due}-day review deadline. PM ${n.pm(j.pmCode)} pinged.` : `is ${woStatus(w).toLowerCase()}, waiting on ${woWaiting(j, w, n)}.`) +
+        (soon ? ` Starts ${fmtShort(j.start)} without a final work order.` : ""),
+    });
+  }
+  // Startup checkpoints overdue on jobs starting soon; a count for the rest.
+  const jy = journeyOf(ds, today);
+  const soonJobs = ds.jobs.filter((j) => isSold(j) && j.start <= addDays(today, s.journeyLookaheadDays) && jy.inStartup(j));
+  for (const j of soonJobs) {
+    const lt = jy.startupDefs().filter((c) => jy.isLate(j, c));
+    if (lt.length)
+      out.push({
+        tag: "Not ready",
+        tone: "red",
+        text: `${jl(j)} starts ${fmtShort(j.start)} with ${lt.map((c) => c.label.charAt(0).toLowerCase() + c.label.slice(1)).join(", ")} overdue.`,
+      });
+  }
+  const other = ds.jobs.filter((j) => isSold(j) && !soonJobs.includes(j)).reduce((a, j) => a + jy.lateList(j).length, 0);
+  if (other) out.push({ tag: "Journey", tone: "yel", text: `${other} more overdue checkpoint${other > 1 ? "s" : ""} on other jobs. See the Job journey tab.` });
   return out;
 }
 
@@ -200,7 +234,7 @@ export function groupedCrewIssues(ds: Dataset, idx: Index, weeks: IsoDate[]): At
 }
 
 /** The Monday digest lines (the demo's postDigest), from what is built so far. */
-export function digestLines(ds: Dataset, idx: Index, plans: Plans, week: IsoDate): string[] {
+export function digestLines(ds: Dataset, idx: Index, plans: Plans, week: IsoDate, today: IsoDate = addDays(week, -4)): string[] {
   const s = ds.settings;
   const jobsNow = ds.jobs.filter((j) => isSold(j) && !isOnHold(j) && (plans.get(j.id)?.get(week) ?? 0) > 0);
   const gaps = gapWeeks(ds, idx, plans, week);
@@ -221,6 +255,13 @@ export function digestLines(ds: Dataset, idx: Index, plans: Plans, week: IsoDate
     lateRisk.length ? `Projected past must-finish: ${lateRisk.map((j) => `${j.customer} (${fmtShort(j.projectedFinish)} vs ${fmtShort(j.mustFinish!)})`).join(", ")}.` : "",
     open.length ? `Open to sell, ${s.openWindowStartWeeks} to ${s.openWindowEndWeeks} weeks out: ${open.map((x) => `${fmtShort(x.week)} (${n0(x.open)} hrs)`).join(", ")}.` : "",
     gaps.length ? `Gaps ahead: ${gaps.map(fmtShort).join(", ")}.` : "No capacity gaps in the next 8 weeks.",
+    (() => {
+      const open = ds.jobs.filter((j) => woOpen(j, ds.workOrders.find((w) => w.jobId === j.id)));
+      if (!open.length) return "Every booked job has a final work order.";
+      const late = open.filter((j) => woLate(j, ds.workOrders.find((w) => w.jobId === j.id), today, s.woReviewDays)).length;
+      const soon = open.filter((j) => daysBetween(today, j.start) <= s.woStartSoonDays).length;
+      return `Work orders: ${open.length} not final${late ? `, ${late} past the review deadline` : ""}${soon ? `, ${soon} starting within ${s.woStartSoonDays} days` : ""}.`;
+    })(),
     missing.length ? `Missing hours from last close: ${missing.map((j) => `${j.number} ${j.customer} (PM ${pmName(j.pmCode)})`).join(", ")}.` : last ? "All hours entered at last close." : "",
     acc != null ? `Forecast accuracy, 4 weeks out: ${Math.round(acc * 100)}%.` : "Forecast accuracy starts after the first close.",
   ].filter(Boolean);

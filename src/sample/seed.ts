@@ -23,6 +23,8 @@ import type {
 } from "../domain/types";
 import { DEFAULT_SETTINGS } from "../domain/types";
 import { allPlans, buildIndex, materialRevenueCents } from "../domain/schedule";
+import { DEFAULT_CHECKPOINTS, DEFAULT_STAGES, type JobCheckpoint } from "../domain/journey";
+import { WO_STEPS, type WorkOrder } from "../domain/workOrders";
 import { addDays, mondayOf } from "../domain/weeks";
 
 /** The demo was built around this week. Sample dates shift so this week lines up with the base week. */
@@ -111,7 +113,7 @@ export interface SampleData extends Dataset {
 }
 
 /** Build the sample dataset with the demo's week lined up to `baseWeek` (a Friday). */
-export function buildSample(baseWeek: IsoDate): SampleData {
+export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWeek)): SampleData {
   const shift = (s: IsoDate) => addDays(s, Math.round((Date.parse(baseWeek) - Date.parse(DEMO_WEEK)) / 86_400_000));
   const START = baseWeek;
   /** Calendar-bound sample dates (deer season, holidays) stay on their dates, in the coming year. */
@@ -356,7 +358,7 @@ export function buildSample(baseWeek: IsoDate): SampleData {
   const snapshots: ForecastSnapshot[] = [];
   {
     const r7 = rng(7);
-    const ds0 = { jobs, people, timeOff, overrides: [], actuals, assignments, notes, settings: { ...DEFAULT_SETTINGS }, qualifications: QUALIFICATIONS, reps: REPS, pms: PMS, closes, hourEntries: [], confirmations: [], metrics };
+    const ds0 = { jobs, people, timeOff, overrides: [], actuals, assignments, notes, settings: { ...DEFAULT_SETTINGS }, qualifications: QUALIFICATIONS, reps: REPS, pms: PMS, closes, hourEntries: [], confirmations: [], metrics, workOrders: [], stages: [], checkpointDefs: [], jobCheckpoints: [], staff: { schedulers: [], jobSetup: [] } };
     const plans = allPlans(ds0, buildIndex(ds0), START);
     for (let i = 0; i < 4; i++) {
       const w = addDays(START, 7 * i);
@@ -367,6 +369,128 @@ export function buildSample(baseWeek: IsoDate): SampleData {
       }
     }
   }
+
+  // Work orders as the demo seeds them: most final and filed, a few mid-review, one sent back, three awaiting drafts.
+  const stamp = (d: IsoDate) => d + "T15:00:00Z";
+  const ago = (n: number) => addDays(today, -n);
+  const repName = (c: string) => REPS.find((r) => r.code === c)?.name ?? c;
+  const pmName = (c: string) => PMS.find((r) => r.code === c)?.name ?? c;
+  const who = (j: Job, k: number) => (k === 0 ? j.estimator : k === 1 ? repName(j.repCode) : k === 2 ? pmName(j.pmCode) : "Nicole");
+  const workOrders: WorkOrder[] = jobs.map((j) => {
+    const s0 = addDays(j.start, -12);
+    return {
+      jobId: j.id,
+      version: 1,
+      currentStep: 4,
+      since: s0,
+      final: true,
+      filed: true,
+      fileName: `WO-${j.number}-draft-v1.pdf`,
+      filePath: null,
+      returned: null,
+      signoffs: WO_STEPS.map((_, k) => ({ step: k, by: who(j, k), at: stamp(s0) })),
+      history: [
+        { at: stamp(s0), who: "Lori", action: "Final filed in Procore as the work order of record.", note: "" },
+        { at: stamp(s0), who: "Nicole", action: "Scheduler sign-off: crew and dates approved.", note: "" },
+        { at: stamp(addDays(s0, -3)), who: "Lori", action: `Uploaded draft WO-${j.number}-draft-v1.pdf.`, note: "" },
+      ],
+    };
+  });
+  const mid = (i: number, cur: number, days: number, estimator?: string) => {
+    const j = jobs[i];
+    if (estimator) j.estimator = estimator;
+    const at = (k: number) => stamp(ago(days + cur - 1 - k));
+    workOrders[i] = {
+      jobId: j.id,
+      version: 1,
+      currentStep: cur,
+      since: ago(days),
+      final: false,
+      filed: false,
+      fileName: `WO-${j.number}-draft-v1.pdf`,
+      filePath: null,
+      returned: null,
+      signoffs: WO_STEPS.slice(0, cur).map((_, k) => ({ step: k, by: who(j, k), at: at(k) })),
+      history: [
+        ...WO_STEPS.slice(0, cur)
+          .map((d, k) => ({ at: at(k), who: who(j, k), action: `${d.role} sign-off: ${d.what.toLowerCase()} approved.`, note: "" }))
+          .reverse(),
+        { at: stamp(ago(days + cur)), who: "Lori", action: `Uploaded draft WO-${j.number}-draft-v1.pdf.`, note: "" },
+      ],
+    };
+  };
+  mid(9, 3, 1); // Prairie Pork: waiting on the scheduler
+  mid(11, 1, 1); // City of Owatonna: waiting on the rep
+  mid(12, 2, 2); // Bluff Country: waiting on the PM
+  mid(13, 0, 4, "Greg Halvorsen"); // Minnesota Valley Ag: estimator, late
+  mid(15, 0, 0, "Greg Halvorsen"); // Two Rivers Hospital: draft just uploaded
+  mid(16, 0, 1, "Paula Kern"); // Kasota Stone
+  {
+    const j = jobs[14]; // Iron Range: sent back by the PM
+    const comment = "Access plan doesn’t match the estimate. Scope calls for three boom lifts and the estimate carries two. Add the third lift and the extra mobilization before I sign.";
+    workOrders[14] = {
+      jobId: j.id,
+      version: 1,
+      currentStep: 0,
+      since: ago(1),
+      final: false,
+      filed: false,
+      fileName: `WO-${j.number}-draft-v1.pdf`,
+      filePath: null,
+      returned: { by: pmName(j.pmCode), role: "PM", comment, at: stamp(ago(1)) },
+      signoffs: [],
+      history: [
+        { at: stamp(ago(1)), who: pmName(j.pmCode), action: "Sent back by the PM.", note: comment },
+        { at: stamp(ago(2)), who: who(j, 1), action: "Sales rep sign-off: contract terms approved.", note: "" },
+        { at: stamp(ago(3)), who: j.estimator, action: "Estimator sign-off: hours and scope approved.", note: "" },
+        { at: stamp(ago(4)), who: "Lori", action: `Uploaded draft WO-${j.number}-draft-v1.pdf.`, note: "" },
+      ],
+    };
+  }
+  for (const [i, d] of [
+    [17, 1],
+    [18, 0],
+    [19, 0],
+  ]) {
+    workOrders[i] = {
+      jobId: jobs[i].id,
+      version: 0,
+      currentStep: 0,
+      since: ago(d),
+      final: false,
+      filed: false,
+      fileName: null,
+      filePath: null,
+      returned: null,
+      signoffs: [],
+      history: [{ at: stamp(ago(d)), who: "Lori", action: "Job booked on the schedule. Work order opened, awaiting a draft.", note: "" }],
+    };
+  }
+  workOrders[8].filed = false; // Mesabi: final, not yet filed in Procore
+  workOrders[8].history.shift();
+
+  // Journey checkpoints ticked off, as the demo seeds them.
+  const ownerWho = (j: Job, o: string) => ({ sales_rep: repName(j.repCode), job_setup: "Lori", pm: pmName(j.pmCode), scheduler: "Nicole", accounting: "Accounting" })[o] ?? o;
+  const jobCheckpoints: JobCheckpoint[] = [];
+  jobs.forEach((j, i) => {
+    for (const c of DEFAULT_CHECKPOINTS) {
+      if (c.autoSource || c.anchor === "finish") continue;
+      const due = addDays(j.start, c.offsetDays);
+      if (due <= addDays(START, 7) || (i * 5 + c.key.length) % 3 === 0)
+        jobCheckpoints.push({ jobId: j.id, key: c.key, by: ownerWho(j, c.owner), at: stamp(due < START ? due : addDays(START, -3)) });
+    }
+  });
+  const unset = (i: number, keys: string[]) => {
+    for (const k of keys) {
+      const n = jobCheckpoints.findIndex((c) => c.jobId === jobs[i].id && c.key === k);
+      if (n >= 0) jobCheckpoints.splice(n, 1);
+    }
+  };
+  unset(10, ["ord", "sub"]);
+  unset(3, ["prejob"]);
+  unset(11, ["coi"]);
+  unset(9, ["safety"]);
+  unset(13, ["po"]);
 
   return {
     jobs,
@@ -386,5 +510,10 @@ export function buildSample(baseWeek: IsoDate): SampleData {
     confirmations: [],
     metrics,
     snapshots,
+    workOrders,
+    stages: DEFAULT_STAGES.map((x) => ({ ...x })),
+    checkpointDefs: DEFAULT_CHECKPOINTS.map((x) => ({ ...x })),
+    jobCheckpoints,
+    staff: { schedulers: ["Nicole"], jobSetup: ["Lori"] },
   };
 }

@@ -8,6 +8,8 @@ import type { ChangeLogEntry, Job } from "../domain/types";
 import { fmtLong, fmtShort, weekList } from "../domain/weeks";
 import { n0, pct, stamp, usd } from "../format";
 import type { Ctx } from "../Workspace";
+import { JourneyPanel } from "./JourneyPanel";
+import { WorkOrderPanel } from "./WorkOrderPanel";
 
 /** One line for a change-log entry. */
 export const describeChange = (c: ChangeLogEntry) =>
@@ -20,7 +22,7 @@ const STATUS: { k: Job["status"]; l: string }[] = [
   { k: "complete", l: "Complete" },
 ];
 
-export function JobDialog({ ctx, jobId, onClose }: { ctx: Ctx; jobId: string; onClose: () => void }) {
+export function JobDialog({ ctx, jobId, onClose, journeyOpen }: { ctx: Ctx; jobId: string; onClose: () => void; journeyOpen?: boolean }) {
   const { viewer, week, data, repo, run } = ctx;
   const ds = data.ds;
   const job = ds.jobs.find((j) => j.id === jobId);
@@ -125,6 +127,8 @@ export function JobDialog({ ctx, jobId, onClose }: { ctx: Ctx; jobId: string; on
         </>
       }
     >
+      <JourneyPanel ctx={ctx} job={job} open={journeyOpen} />
+      <WorkOrderPanel ctx={ctx} job={job} />
       <div className="stat">
         <div>
           Actual to date<b className="num">{n0(act)}</b>

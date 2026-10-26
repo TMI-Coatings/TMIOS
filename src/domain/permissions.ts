@@ -9,7 +9,7 @@ import type { Job, Role, Viewer } from "./types";
 /** Full rights: admin, the CEO (decision 7) and the CFO. */
 const OFFICE_ALL: Role[] = ["admin", "ceo", "cfo"];
 
-export type Tab = "me" | "dashboard" | "schedule" | "close" | "crew" | "alerts" | "access" | "settings" | "log";
+export type Tab = "me" | "dashboard" | "schedule" | "wo" | "journey" | "close" | "crew" | "alerts" | "access" | "settings" | "log";
 
 export const TABS: { id: Tab; label: string; roles: Role[] }[] = [
   { id: "me", label: "My week", roles: ["superintendent", "field_crew"] },
@@ -19,6 +19,8 @@ export const TABS: { id: Tab; label: string; roles: Role[] }[] = [
     label: "Schedule",
     roles: ["admin", "ceo", "scheduler", "job_setup", "estimator", "pm", "superintendent", "sales_rep", "accounting", "cfo"],
   },
+  { id: "wo", label: "Work orders", roles: [...OFFICE_ALL, "scheduler", "job_setup", "estimator", "pm", "sales_rep"] },
+  { id: "journey", label: "Job journey", roles: [...OFFICE_ALL, "scheduler", "job_setup", "estimator", "pm", "sales_rep", "accounting"] },
   // PMs enter hours for their own jobs; the scheduler closes the week (decision 9).
   { id: "close", label: "Weekly close", roles: [...OFFICE_ALL, "scheduler", "pm"] },
   { id: "crew", label: "Crew", roles: [...OFFICE_ALL, "scheduler"] },
@@ -147,4 +149,5 @@ export const can = {
   readChangeLog: (r: Role) => ([...OFFICE_ALL, "scheduler"] as Role[]).includes(r),
   closeWeek: (r: Role) => ([...OFFICE_ALL, "scheduler"] as Role[]).includes(r),
   sendDigest: (r: Role) => ([...OFFICE_ALL, "scheduler"] as Role[]).includes(r),
+  editJourney: (r: Role) => OFFICE_ALL.includes(r),
 };

@@ -1,3 +1,6 @@
+import type { CheckpointDef, JobCheckpoint, JourneyStage } from "./journey";
+import type { WorkOrder } from "./workOrders";
+
 export const ROLES = [
   "admin",
   "ceo",
@@ -150,6 +153,9 @@ export interface Settings {
   certFirstDays: number;
   certSecondDays: number;
   autoFillWeeksOut: number;
+  woReviewDays: number;
+  woStartSoonDays: number;
+  journeyLookaheadDays: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -169,6 +175,9 @@ export const DEFAULT_SETTINGS: Settings = {
   certFirstDays: 60,
   certSecondDays: 30,
   autoFillWeeksOut: 3,
+  woReviewDays: 2,
+  woStartSoonDays: 14,
+  journeyLookaheadDays: 21,
 };
 
 export interface Lookup {
@@ -290,6 +299,12 @@ export interface Dataset {
   hourEntries: HourEntry[];
   confirmations: { jobId: string; week: IsoDate }[];
   metrics: WeeklyMetric[];
+  workOrders: WorkOrder[];
+  stages: JourneyStage[];
+  checkpointDefs: CheckpointDef[];
+  jobCheckpoints: JobCheckpoint[];
+  /** Names only, so screens can say who a step waits on. */
+  staff: { schedulers: string[]; jobSetup: string[] };
 }
 
 /** The signed-in person as the app sees them. */
