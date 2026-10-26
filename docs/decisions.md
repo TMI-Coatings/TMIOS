@@ -26,7 +26,7 @@ Answers to the open questions in `kickoff-analysis.md` section 3, decided by Aus
 14. **On-time completion.** Measured against the must-finish date if there is one, otherwise the finish date when the job first went on the board.
 15. **Closing with blanks.** Allowed after a confirm. Jobs with missing actuals are named in the Monday digest.
 16. **Materials revenue.** Recognized by a materials % complete, entered on Mondays by the PM or Jared, the same way as labor. (This replaces "recognized when shipped".)
-17. **Retainage.** Retainage % is a job field set at intake. How it is billed is **open: ask Jared**.
+17. **Retainage.** We invoice the gross amount and the customer holds back retainage; there is no separate retainage invoice. When retainage is released, the customer pays the held balance against the invoices already sent. The app tracks retainage held per invoice and the total outstanding per job. Both the retainage % and the release trigger (substantial completion, final completion, or other, with a note) vary by contract, so they are job fields set at intake from the contract. Assumed: Lori enters them.
 18. **Pay apps.** The demo method: suggested amount = recognized − billed. No schedule of values or AIA G702/703.
 19. **Change orders.** Entered by hand (amount, hours, date, approved by). Contract value and hours = original + approved COs. The Procore sync fills the same table in Phase 4.
 20. **Source of actual hours.** Procore timecards are the record once Phase 4 connects. Until then, weekly close imports a time-system CSV, built so Procore can replace it with nothing downstream changing.
@@ -39,14 +39,19 @@ Answers to the open questions in `kickoff-analysis.md` section 3, decided by Aus
 
 25. Time-system name and a sample export (fake data): **still needed**.
 26. Timezone: America/Chicago, with daylight saving handled for the Netlify cron jobs (which run in UTC).
-27. Starting settings, all editable by an admin: absence 10%, 40 hours per man-week, a dedicated leader on any job over 400 projected hours, 15% overrun, $55 burdened labor rate. The scheduler is **Nicole**. Teams channel, go-live date and first board meeting: **still open**.
+27. Starting settings, all editable by an admin: absence 10%, 40 hours per man-week, a dedicated leader on any job over 400 projected hours, 15% overrun, $55 burdened labor rate. The scheduler is **Nicole**. Teams channel: **pending (recommendation below)**. Go-live: Austin wants it within 2–3 weeks; see the go-live note below. First board meeting: not yet set.
 28. Crew auto-fill. Runs only when the scheduler presses a button, and shows a preview to accept or edit. Never runs silently at close.
 29. Digest engagement. Count signed-in clicks on digest links instead of opens. No tracking pixels.
 30. Leader scorecard history. Starts empty at go-live.
 
 ## Still open
 
-- Retainage billing mechanics (Jared).
-- Exact rights of the `cfo` role.
-- Time-system name and a sample export layout.
-- Teams channel for alerts, go-live date, first board meeting.
+- Exact rights of the `cfo` role (deferred).
+- Time-system name and a sample export layout (deferred).
+- Teams channel: recommended a new private channel, "TMI Ops Alerts". Awaiting OK.
+- What "go-live" means and its date: see below.
+- First board meeting date.
+
+## Go-live note
+
+The spec's plan is four two-week phases plus a one-month parallel run, and Veracity approves security before the build starts. A 2–3 week target fits Phase 1 (Foundation): sign-in, schedule grid and crew screens on sample data, matching the workbook layout. Real TMI data cannot go in until Veracity signs off (hard rule 1).
