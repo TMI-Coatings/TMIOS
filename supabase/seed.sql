@@ -356,27 +356,32 @@ insert into public.time_off (id, person_id, first_day, last_day, type) values
   ('00000000-0000-4000-8003-00000000003d', '00000000-0000-4000-8001-00000000002b', '2026-12-07', '2026-12-09', 'PTO'),
   ('00000000-0000-4000-8003-00000000003e', '00000000-0000-4000-8001-000000000041', '2026-12-07', '2026-12-09', 'PTO');
 
-insert into public.jobs (id, number, customer, job_type, location, rep_code, pm_code, estimator, leader_id, crew_size, estimate_hrs, projected_hrs, contract_cents, material_cost_cents, material_revenue_cents, start, projected_finish, baseline_finish, must_finish, must_finish_reason, status, firmness, waits_on_job_id, hold_reason, hold_until, exterior, billing_method, retainage_pct, retainage_release, site_address, site_start_time, site_contact, site_orientation, site_ppe) values
-  ('00000000-0000-4000-8002-000000000001', '4112', 'North Prairie Dairy', 'Floor system', 'Lake Norden, SD', 'LB', 'JS', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000001', 6, 860, 860, 11800000, 2600000, 4185539, '2026-10-12', '2026-11-06', '2026-11-06', null, null, 'active', 'confirmed', null, null, null, false, 'monthly', 0, null, '100 Industrial Dr, Lake Norden, SD', '6:30 AM', 'Gary Holm, 507-555-0110', 'Site orientation, 1 hr, first morning', 'Half-face respirator, knee pads, steel toes'),
-  ('00000000-0000-4000-8002-000000000002', '4119', 'Riverbend Ethanol', 'Tank lining', 'Bingham Lake, MN', 'JT', 'JS', 'Paula Kern', '00000000-0000-4000-8001-000000000002', 8, 1440, 1440, 20250000, 4460000, 7295234, '2026-10-19', '2026-11-20', '2026-11-20', '2026-11-20', 'shutdown', 'active', 'locked', null, null, null, false, 'milestone', 0, null, '137 Commerce Rd, Bingham Lake, MN', '6:30 AM', 'Lisa Ortiz, 507-555-0111', 'Badge pickup at the guard shack', 'Supplied-air respirator, Tyvek, confined-space permit'),
-  ('00000000-0000-4000-8002-000000000003', '4126', 'Twin Cities Metro Water', 'Water tower', 'Woodbury, MN', 'KW', 'RL', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000003', 5, 890, 1080, 12750000, 2100000, 3827734, '2026-10-05', '2026-11-13', '2026-11-13', null, null, 'active', 'confirmed', null, null, null, true, 'monthly', 5, 'final_completion', '174 Mill St, Woodbury, MN', '7:00 AM', 'Dan Berg, 507-555-0112', 'None', 'Full harness and lanyard, hard hat, safety glasses'),
-  ('00000000-0000-4000-8002-000000000004', '4133', 'Granite Falls Grain', 'Structural steel', 'Granite Falls, MN', 'NH', 'RL', 'Paula Kern', '00000000-0000-4000-8001-000000000004', 4, 430, 430, 6300000, 1040000, 1924229, '2026-10-26', '2026-11-13', '2026-11-13', null, null, 'active', 'confirmed', null, null, null, true, 'final', 0, null, '211 Plant Ave, Granite Falls, MN', '6:30 AM', 'Rachel Kim, 507-555-0113', 'Site orientation, 1 hr, first morning', 'Full harness and lanyard, hard hat, safety glasses'),
-  ('00000000-0000-4000-8002-000000000005', '4140', 'Lakeside Foods', 'Floor system', 'Owatonna, MN', 'RS', 'JS', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000005', 6, 430, 430, 5750000, 1270000, 2008941, '2026-10-26', '2026-11-06', '2026-11-06', null, null, 'active', 'flexible', null, null, null, false, 'final', 0, null, '248 Elevator Dr, Owatonna, MN', '6:30 AM', 'Gary Holm, 507-555-0114', 'Badge pickup at the guard shack', 'Half-face respirator, knee pads, steel toes'),
-  ('00000000-0000-4000-8002-000000000006', '4147', 'Cedar Valley Power', 'Stack coating', 'Waterloo, IA', 'DM', 'TK', 'Paula Kern', '00000000-0000-4000-8001-000000000006', 4, 860, 860, 9750000, 1610000, 2475946, '2026-10-19', '2026-11-27', '2026-11-27', null, null, 'active', 'confirmed', null, null, null, true, 'final', 0, null, '285 Water Rd, Waterloo, IA', '7:00 AM', 'Lisa Ortiz, 507-555-0115', 'None', 'Full harness and lanyard, hard hat, safety glasses'),
-  ('00000000-0000-4000-8002-000000000007', '4154', 'St. Croix Paper', 'Secondary containment', 'Hudson, WI', 'VC', 'TK', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000007', 5, 540, 540, 7800000, 1720000, 2860554, '2026-11-02', '2026-11-20', '2026-11-20', null, null, 'scheduled', 'confirmed', null, null, null, false, 'final', 0, null, '322 Industrial St, Hudson, WI', '6:30 AM', 'Dan Berg, 507-555-0116', 'Site orientation, 1 hr, first morning', 'Respirator, chemical gloves, Tyvek'),
-  ('00000000-0000-4000-8002-000000000008', '4161', 'Red Wing Malting', 'Interior painting', 'Red Wing, MN', 'TP', 'RL', 'Paula Kern', '00000000-0000-4000-8001-000000000008', 3, 220, 220, 2550000, 280000, 479195, '2026-11-02', '2026-11-13', '2026-11-13', null, null, 'scheduled', 'fill_in', null, null, null, false, 'final', 0, null, '359 Commerce Ave, Red Wing, MN', '6:30 AM', 'Rachel Kim, 507-555-0117', 'Badge pickup at the guard shack', 'Hard hat, safety glasses, steel toes'),
-  ('00000000-0000-4000-8002-000000000009', '4168', 'Mesabi Aggregates', 'Structural steel', 'Virginia, MN', 'BF', 'TK', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000009', 6, 1080, 1080, 14300000, 2360000, 4066024, '2026-11-09', '2026-12-11', '2026-12-11', null, null, 'scheduled', 'confirmed', null, null, null, true, 'final', 0, null, '396 Mill Dr, Virginia, MN', '7:00 AM', 'Gary Holm, 507-555-0118', 'None', 'Full harness and lanyard, hard hat, safety glasses'),
-  ('00000000-0000-4000-8002-00000000000a', '4175', 'Prairie Pork Processing', 'Floor system', 'Worthington, MN', 'LB', 'JS', 'Paula Kern', '00000000-0000-4000-8001-00000000000a', 8, 900, 860, 11350000, 2500000, 3808725, '2026-11-09', '2026-11-27', '2026-11-27', '2026-11-27', 'shutdown', 'scheduled', 'locked', null, null, null, false, 'final', 0, null, '433 Plant Rd, Worthington, MN', '6:30 AM', 'Lisa Ortiz, 507-555-0119', 'Site orientation, 1 hr, first morning', 'Half-face respirator, knee pads, steel toes'),
-  ('00000000-0000-4000-8002-00000000000b', '4182', 'Heartland Fiberglass', 'Tank lining', 'Mankato, MN', 'JT', 'RL', 'Greg Halvorsen', '00000000-0000-4000-8001-00000000000b', 5, 720, 720, 9700000, 2130000, 3392611, '2026-11-16', '2026-12-11', '2026-12-11', null, null, 'scheduled', 'best_guess', null, null, null, false, 'final', 0, null, '470 Elevator St, Mankato, MN', '6:30 AM', 'Dan Berg, 507-555-0120', 'Badge pickup at the guard shack', 'Supplied-air respirator, Tyvek, confined-space permit'),
-  ('00000000-0000-4000-8002-00000000000c', '4189', 'City of Owatonna', 'Water tower', 'Owatonna, MN', 'KW', 'TK', 'Paula Kern', '00000000-0000-4000-8001-00000000000c', 4, 580, 580, 8650000, 1430000, 2677381, '2026-11-16', '2026-12-11', '2026-12-11', '2026-12-04', 'contract', 'scheduled', 'locked', null, null, null, true, 'monthly', 5, 'final_completion', '507 Water Ave, Owatonna, MN', '7:00 AM', 'Rachel Kim, 507-555-0121', 'None', 'Full harness and lanyard, hard hat, safety glasses'),
-  ('00000000-0000-4000-8002-00000000000d', '4196', 'Bluff Country Creamery', 'Floor system', 'Rochester, MN', 'NH', 'JS', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000001', 6, 430, 430, 5700000, 1250000, 1970954, '2026-11-16', '2026-11-27', '2026-11-27', null, null, 'scheduled', 'confirmed', null, null, null, false, 'final', 0, null, '544 Industrial Dr, Rochester, MN', '6:30 AM', 'Gary Holm, 507-555-0122', 'Site orientation, 1 hr, first morning', 'Half-face respirator, knee pads, steel toes'),
-  ('00000000-0000-4000-8002-00000000000e', '4203', 'Minnesota Valley Ag', 'Secondary containment', 'New Ulm, MN', 'RS', 'RL', 'Greg Halvorsen', '00000000-0000-4000-8001-00000000000d', 6, 650, 650, 8950000, 1970000, 3179711, '2026-11-23', '2026-12-11', '2026-12-11', null, null, 'scheduled', 'best_guess', null, null, null, false, 'final', 0, null, '581 Commerce Rd, New Ulm, MN', '6:30 AM', 'Lisa Ortiz, 507-555-0123', 'Badge pickup at the guard shack', 'Respirator, chemical gloves, Tyvek'),
-  ('00000000-0000-4000-8002-00000000000f', '4210', 'Iron Range Mining', 'Structural steel', 'Hibbing, MN', 'DM', 'TK', 'Greg Halvorsen', '00000000-0000-4000-8001-00000000000e', 8, 1730, 1730, 22800000, 3760000, 6457853, '2026-11-23', '2027-01-01', '2027-01-01', null, null, 'scheduled', 'flexible', null, null, null, true, 'milestone', 0, null, '618 Mill St, Hibbing, MN', '7:00 AM', 'Dan Berg, 507-555-0124', 'None', 'Full harness and lanyard, hard hat, safety glasses'),
-  ('00000000-0000-4000-8002-000000000010', '4217', 'Two Rivers Hospital', 'Interior painting', 'Mankato, MN', 'VC', 'JS', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000003', 4, 430, 430, 6300000, 690000, 1422913, '2026-11-23', '2026-12-11', '2026-12-11', null, null, 'scheduled', 'flexible', null, null, null, false, 'final', 0, null, '655 Plant Ave, Mankato, MN', '6:30 AM', 'Rachel Kim, 507-555-0125', 'Site orientation, 1 hr, first morning', 'Hard hat, safety glasses, steel toes'),
-  ('00000000-0000-4000-8002-000000000011', '4224', 'Kasota Stone', 'Concrete repair', 'Kasota, MN', 'TP', 'RL', 'Paula Kern', '00000000-0000-4000-8001-00000000000c', 3, 220, 220, 3200000, 530000, 974713, '2026-11-23', '2026-12-04', '2026-12-04', null, null, 'scheduled', 'fill_in', null, null, null, false, 'final', 0, null, '692 Elevator Dr, Kasota, MN', '6:30 AM', 'Gary Holm, 507-555-0126', 'Badge pickup at the guard shack', 'Hard hat, safety glasses, steel toes'),
-  ('00000000-0000-4000-8002-000000000012', '4231', 'Northern Plains Wind', 'Structural steel', 'Lake Benton, MN', 'BF', 'TK', 'Paula Kern', '00000000-0000-4000-8001-000000000005', 5, 540, 540, 6250000, 1030000, 1609375, '2026-11-23', '2026-12-11', '2026-12-11', null, null, 'scheduled', 'confirmed', null, null, null, true, 'final', 0, null, '729 Water Rd, Lake Benton, MN', '7:00 AM', 'Lisa Ortiz, 507-555-0127', 'None', 'Full harness and lanyard, hard hat, safety glasses'),
-  ('00000000-0000-4000-8002-000000000014', '4245', 'Lakeside Foods', 'Floor system', 'Cokato, MN', 'RS', 'JS', 'Paula Kern', '00000000-0000-4000-8001-000000000007', 5, 360, 360, 5300000, 1170000, 1968571, '2027-01-04', '2027-01-15', '2027-01-15', null, null, 'on_hold', 'best_guess', null, 'Customer is reworking the floor layout', '2027-01-25', false, 'final', 0, null, '803 Commerce Ave, Cokato, MN', '6:30 AM', 'Rachel Kim, 507-555-0129', 'Badge pickup at the guard shack', 'Half-face respirator, knee pads, steel toes'),
-  ('00000000-0000-4000-8002-000000000013', '4238', 'Riverbend Ethanol', 'Tank lining, phase 2', 'Bingham Lake, MN', 'JT', 'JS', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000002', 6, 860, 860, 10350000, 2280000, 3366334, '2026-12-28', '2027-01-22', '2027-01-22', null, null, 'scheduled', 'waiting', '00000000-0000-4000-8002-000000000002', null, null, false, 'final', 0, null, '766 Industrial St, Bingham Lake, MN', '6:30 AM', 'Dan Berg, 507-555-0128', 'Site orientation, 1 hr, first morning', 'Supplied-air respirator, Tyvek, confined-space permit');
+insert into public.jobs (id, number, customer, job_type, location, rep_code, pm_code, estimator, leader_id, crew_size, estimate_hrs, projected_hrs, contract_cents, material_cost_cents, material_revenue_cents, start, projected_finish, baseline_finish, must_finish, must_finish_reason, status, firmness, waits_on_job_id, hold_reason, hold_until, exterior, billing_method, retainage_pct, retainage_release, site_address, site_start_time, site_contact, site_orientation, site_ppe, actual_finish, customer_po, bill_to, lien_waivers, certified_payroll) values
+  ('00000000-0000-4000-8002-000000000001', '4112', 'North Prairie Dairy', 'Floor system', 'Lake Norden, SD', 'LB', 'JS', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000001', 6, 860, 860, 11800000, 2600000, 4185539, '2026-10-12', '2026-11-06', '2026-11-06', null, null, 'active', 'confirmed', null, null, null, false, 'monthly', 0, null, '100 Industrial Dr, Lake Norden, SD', '6:30 AM', 'Gary Holm, 507-555-0110', 'Site orientation, 1 hr, first morning', 'Half-face respirator, knee pads, steel toes', null, 'PO 52112', 'Accounts payable, North Prairie Dairy', true, false),
+  ('00000000-0000-4000-8002-000000000002', '4119', 'Riverbend Ethanol', 'Tank lining', 'Bingham Lake, MN', 'JT', 'JS', 'Paula Kern', '00000000-0000-4000-8001-000000000002', 8, 1440, 1440, 20250000, 4460000, 7295234, '2026-10-19', '2026-11-20', '2026-11-20', '2026-11-20', 'shutdown', 'active', 'locked', null, null, null, false, 'milestone', 0, null, '137 Commerce Rd, Bingham Lake, MN', '6:30 AM', 'Lisa Ortiz, 507-555-0111', 'Badge pickup at the guard shack', 'Supplied-air respirator, Tyvek, confined-space permit', null, 'PO 52119', 'Accounts payable, Riverbend Ethanol', true, false),
+  ('00000000-0000-4000-8002-000000000003', '4126', 'Twin Cities Metro Water', 'Water tower', 'Woodbury, MN', 'KW', 'RL', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000003', 5, 890, 1080, 12750000, 2100000, 3827734, '2026-10-05', '2026-11-13', '2026-11-13', null, null, 'active', 'confirmed', null, null, null, true, 'monthly', 5, 'final_completion', '174 Mill St, Woodbury, MN', '7:00 AM', 'Dan Berg, 507-555-0112', 'None', 'Full harness and lanyard, hard hat, safety glasses', null, 'PO 52126', 'Accounts payable, Twin Cities Metro Water', true, true),
+  ('00000000-0000-4000-8002-000000000004', '4133', 'Granite Falls Grain', 'Structural steel', 'Granite Falls, MN', 'NH', 'RL', 'Paula Kern', '00000000-0000-4000-8001-000000000004', 4, 430, 430, 6300000, 1040000, 1924229, '2026-10-26', '2026-11-13', '2026-11-13', null, null, 'active', 'confirmed', null, null, null, true, 'final', 0, null, '211 Plant Ave, Granite Falls, MN', '6:30 AM', 'Rachel Kim, 507-555-0113', 'Site orientation, 1 hr, first morning', 'Full harness and lanyard, hard hat, safety glasses', null, 'PO 52133', 'Accounts payable, Granite Falls Grain', false, false),
+  ('00000000-0000-4000-8002-000000000005', '4140', 'Lakeside Foods', 'Floor system', 'Owatonna, MN', 'RS', 'JS', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000005', 6, 430, 430, 5750000, 1270000, 2008941, '2026-10-26', '2026-11-06', '2026-11-06', null, null, 'active', 'flexible', null, null, null, false, 'final', 0, null, '248 Elevator Dr, Owatonna, MN', '6:30 AM', 'Gary Holm, 507-555-0114', 'Badge pickup at the guard shack', 'Half-face respirator, knee pads, steel toes', null, 'PO 52140', 'Accounts payable, Lakeside Foods', false, false),
+  ('00000000-0000-4000-8002-000000000006', '4147', 'Cedar Valley Power', 'Stack coating', 'Waterloo, IA', 'DM', 'TK', 'Paula Kern', '00000000-0000-4000-8001-000000000006', 4, 860, 860, 9750000, 1610000, 2475946, '2026-10-19', '2026-11-27', '2026-11-27', null, null, 'active', 'confirmed', null, null, null, true, 'final', 0, null, '285 Water Rd, Waterloo, IA', '7:00 AM', 'Lisa Ortiz, 507-555-0115', 'None', 'Full harness and lanyard, hard hat, safety glasses', null, 'PO 52147', 'Accounts payable, Cedar Valley Power', false, false),
+  ('00000000-0000-4000-8002-000000000007', '4154', 'St. Croix Paper', 'Secondary containment', 'Hudson, WI', 'VC', 'TK', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000007', 5, 540, 540, 7800000, 1720000, 2860554, '2026-11-02', '2026-11-20', '2026-11-20', null, null, 'scheduled', 'confirmed', null, null, null, false, 'final', 0, null, '322 Industrial St, Hudson, WI', '6:30 AM', 'Dan Berg, 507-555-0116', 'Site orientation, 1 hr, first morning', 'Respirator, chemical gloves, Tyvek', null, 'PO 52154', 'Accounts payable, St. Croix Paper', false, false),
+  ('00000000-0000-4000-8002-000000000008', '4161', 'Red Wing Malting', 'Interior painting', 'Red Wing, MN', 'TP', 'RL', 'Paula Kern', '00000000-0000-4000-8001-000000000008', 3, 220, 220, 2550000, 280000, 479195, '2026-11-02', '2026-11-13', '2026-11-13', null, null, 'scheduled', 'fill_in', null, null, null, false, 'final', 0, null, '359 Commerce Ave, Red Wing, MN', '6:30 AM', 'Rachel Kim, 507-555-0117', 'Badge pickup at the guard shack', 'Hard hat, safety glasses, steel toes', null, 'PO 52161', 'Accounts payable, Red Wing Malting', false, false),
+  ('00000000-0000-4000-8002-000000000009', '4168', 'Mesabi Aggregates', 'Structural steel', 'Virginia, MN', 'BF', 'TK', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000009', 6, 1080, 1080, 14300000, 2360000, 4066024, '2026-11-09', '2026-12-11', '2026-12-11', null, null, 'scheduled', 'confirmed', null, null, null, true, 'final', 0, null, '396 Mill Dr, Virginia, MN', '7:00 AM', 'Gary Holm, 507-555-0118', 'None', 'Full harness and lanyard, hard hat, safety glasses', null, 'PO 52168', 'Accounts payable, Mesabi Aggregates', true, false),
+  ('00000000-0000-4000-8002-00000000000a', '4175', 'Prairie Pork Processing', 'Floor system', 'Worthington, MN', 'LB', 'JS', 'Paula Kern', '00000000-0000-4000-8001-00000000000a', 8, 900, 860, 11350000, 2500000, 3808725, '2026-11-09', '2026-11-27', '2026-11-27', '2026-11-27', 'shutdown', 'scheduled', 'locked', null, null, null, false, 'final', 0, null, '433 Plant Rd, Worthington, MN', '6:30 AM', 'Lisa Ortiz, 507-555-0119', 'Site orientation, 1 hr, first morning', 'Half-face respirator, knee pads, steel toes', null, 'PO 52175', 'Accounts payable, Prairie Pork Processing', true, false),
+  ('00000000-0000-4000-8002-00000000000b', '4182', 'Heartland Fiberglass', 'Tank lining', 'Mankato, MN', 'JT', 'RL', 'Greg Halvorsen', '00000000-0000-4000-8001-00000000000b', 5, 720, 720, 9700000, 2130000, 3392611, '2026-11-16', '2026-12-11', '2026-12-11', null, null, 'scheduled', 'best_guess', null, null, null, false, 'final', 0, null, '470 Elevator St, Mankato, MN', '6:30 AM', 'Dan Berg, 507-555-0120', 'Badge pickup at the guard shack', 'Supplied-air respirator, Tyvek, confined-space permit', null, 'PO 52182', 'Accounts payable, Heartland Fiberglass', false, false),
+  ('00000000-0000-4000-8002-00000000000c', '4189', 'City of Owatonna', 'Water tower', 'Owatonna, MN', 'KW', 'TK', 'Paula Kern', '00000000-0000-4000-8001-00000000000c', 4, 580, 580, 8650000, 1430000, 2677381, '2026-11-16', '2026-12-11', '2026-12-11', '2026-12-04', 'contract', 'scheduled', 'locked', null, null, null, true, 'monthly', 5, 'final_completion', '507 Water Ave, Owatonna, MN', '7:00 AM', 'Rachel Kim, 507-555-0121', 'None', 'Full harness and lanyard, hard hat, safety glasses', null, 'PO 52189', 'Accounts payable, City of Owatonna', false, true),
+  ('00000000-0000-4000-8002-00000000000d', '4196', 'Bluff Country Creamery', 'Floor system', 'Rochester, MN', 'NH', 'JS', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000001', 6, 430, 430, 5700000, 1250000, 1970954, '2026-11-16', '2026-11-27', '2026-11-27', null, null, 'scheduled', 'confirmed', null, null, null, false, 'final', 0, null, '544 Industrial Dr, Rochester, MN', '6:30 AM', 'Gary Holm, 507-555-0122', 'Site orientation, 1 hr, first morning', 'Half-face respirator, knee pads, steel toes', null, 'PO 52196', 'Accounts payable, Bluff Country Creamery', false, false),
+  ('00000000-0000-4000-8002-00000000000e', '4203', 'Minnesota Valley Ag', 'Secondary containment', 'New Ulm, MN', 'RS', 'RL', 'Greg Halvorsen', '00000000-0000-4000-8001-00000000000d', 6, 650, 650, 8950000, 1970000, 3179711, '2026-11-23', '2026-12-11', '2026-12-11', null, null, 'scheduled', 'best_guess', null, null, null, false, 'final', 0, null, '581 Commerce Rd, New Ulm, MN', '6:30 AM', 'Lisa Ortiz, 507-555-0123', 'Badge pickup at the guard shack', 'Respirator, chemical gloves, Tyvek', null, 'PO 52203', 'Accounts payable, Minnesota Valley Ag', false, false),
+  ('00000000-0000-4000-8002-00000000000f', '4210', 'Iron Range Mining', 'Structural steel', 'Hibbing, MN', 'DM', 'TK', 'Greg Halvorsen', '00000000-0000-4000-8001-00000000000e', 8, 1730, 1730, 22800000, 3760000, 6457853, '2026-11-23', '2027-01-01', '2027-01-01', null, null, 'scheduled', 'flexible', null, null, null, true, 'milestone', 0, null, '618 Mill St, Hibbing, MN', '7:00 AM', 'Dan Berg, 507-555-0124', 'None', 'Full harness and lanyard, hard hat, safety glasses', null, 'PO 52210', 'Accounts payable, Iron Range Mining', true, false),
+  ('00000000-0000-4000-8002-000000000010', '4217', 'Two Rivers Hospital', 'Interior painting', 'Mankato, MN', 'VC', 'JS', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000003', 4, 430, 430, 6300000, 690000, 1422913, '2026-11-23', '2026-12-11', '2026-12-11', null, null, 'scheduled', 'flexible', null, null, null, false, 'final', 0, null, '655 Plant Ave, Mankato, MN', '6:30 AM', 'Rachel Kim, 507-555-0125', 'Site orientation, 1 hr, first morning', 'Hard hat, safety glasses, steel toes', null, 'PO 52217', 'Accounts payable, Two Rivers Hospital', false, false),
+  ('00000000-0000-4000-8002-000000000011', '4224', 'Kasota Stone', 'Concrete repair', 'Kasota, MN', 'TP', 'RL', 'Paula Kern', '00000000-0000-4000-8001-00000000000c', 3, 220, 220, 3200000, 530000, 974713, '2026-11-23', '2026-12-04', '2026-12-04', null, null, 'scheduled', 'fill_in', null, null, null, false, 'final', 0, null, '692 Elevator Dr, Kasota, MN', '6:30 AM', 'Gary Holm, 507-555-0126', 'Badge pickup at the guard shack', 'Hard hat, safety glasses, steel toes', null, 'PO 52224', 'Accounts payable, Kasota Stone', false, false),
+  ('00000000-0000-4000-8002-000000000012', '4231', 'Northern Plains Wind', 'Structural steel', 'Lake Benton, MN', 'BF', 'TK', 'Paula Kern', '00000000-0000-4000-8001-000000000005', 5, 540, 540, 6250000, 1030000, 1609375, '2026-11-23', '2026-12-11', '2026-12-11', null, null, 'scheduled', 'confirmed', null, null, null, true, 'final', 0, null, '729 Water Rd, Lake Benton, MN', '7:00 AM', 'Lisa Ortiz, 507-555-0127', 'None', 'Full harness and lanyard, hard hat, safety glasses', null, 'PO 52231', 'Accounts payable, Northern Plains Wind', false, false),
+  ('00000000-0000-4000-8002-000000000014', '4245', 'Lakeside Foods', 'Floor system', 'Cokato, MN', 'RS', 'JS', 'Paula Kern', '00000000-0000-4000-8001-000000000007', 5, 360, 360, 5300000, 1170000, 1968571, '2027-01-04', '2027-01-15', '2027-01-15', null, null, 'on_hold', 'best_guess', null, 'Customer is reworking the floor layout', '2027-01-25', false, 'final', 0, null, '803 Commerce Ave, Cokato, MN', '6:30 AM', 'Rachel Kim, 507-555-0129', 'Badge pickup at the guard shack', 'Half-face respirator, knee pads, steel toes', null, 'PO 52245', 'Accounts payable, Lakeside Foods', false, false),
+  ('00000000-0000-4000-8002-000000000064', '4051', 'Dakota Ridge Ethanol', 'Tank lining', 'Marshall, MN', 'JT', 'JS', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000002', 5, 990, 990, 14850000, 2450300, 4450000, '2026-09-11', '2026-10-23', '2026-10-23', null, null, 'complete', 'confirmed', null, null, null, false, 'final', 0, null, '', '6:30 AM', '', 'None', 'Supplied-air respirator, Tyvek, confined-space permit', '2026-10-23', 'PO 52051', 'Accounts payable, Dakota Ridge Ethanol', true, false),
+  ('00000000-0000-4000-8002-000000000065', '4058', 'Wabasha County Highway Dept', 'Structural steel', 'Wabasha, MN', 'NH', 'TK', 'Paula Kern', '00000000-0000-4000-8001-000000000009', 5, 1410, 1410, 21200000, 3498000, 6350000, '2026-09-18', '2026-10-23', '2026-10-23', null, null, 'complete', 'confirmed', null, null, null, false, 'monthly', 5, 'final_completion', '', '6:30 AM', '', 'None', 'Full harness and lanyard, hard hat, safety glasses', '2026-10-23', 'PO 52058', 'Accounts payable, Wabasha County Highway Dept', true, true),
+  ('00000000-0000-4000-8002-000000000066', '4065', 'Sunrise Cheese', 'Floor system', 'Melrose, MN', 'RS', 'RL', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000005', 5, 580, 580, 8650000, 1427300, 2600000, '2026-09-25', '2026-10-21', '2026-10-21', null, null, 'complete', 'confirmed', null, null, null, false, 'final', 0, null, '', '6:30 AM', '', 'None', 'Half-face respirator, knee pads, steel toes', '2026-10-21', 'PO 52065', 'Accounts payable, Sunrise Cheese', false, false),
+  ('00000000-0000-4000-8002-000000000067', '4072', 'Mankato Water Treatment', 'Secondary containment', 'Mankato, MN', 'KW', 'RL', 'Paula Kern', '00000000-0000-4000-8001-00000000000b', 5, 1160, 1160, 17400000, 2871000, 5200000, '2026-08-14', '2026-09-25', '2026-09-25', null, null, 'complete', 'confirmed', null, null, null, false, 'final', 5, 'final_completion', '', '6:30 AM', '', 'None', 'Respirator, chemical gloves, Tyvek', '2026-09-25', 'PO 52072', 'Accounts payable, Mankato Water Treatment', true, true),
+  ('00000000-0000-4000-8002-000000000068', '4079', 'Ag Partners Co-op', 'Interior painting', 'Redwood Falls, MN', 'TP', 'JS', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000008', 5, 390, 390, 5800000, 957000, 1750000, '2026-08-21', '2026-09-18', '2026-09-18', null, null, 'complete', 'confirmed', null, null, null, false, 'final', 0, null, '', '6:30 AM', '', 'None', 'Hard hat, safety glasses, steel toes', '2026-09-18', 'PO 52079', 'Accounts payable, Ag Partners Co-op', false, false),
+  ('00000000-0000-4000-8002-000000000013', '4238', 'Riverbend Ethanol', 'Tank lining, phase 2', 'Bingham Lake, MN', 'JT', 'JS', 'Greg Halvorsen', '00000000-0000-4000-8001-000000000002', 6, 860, 860, 10350000, 2280000, 3366334, '2026-12-28', '2027-01-22', '2027-01-22', null, null, 'scheduled', 'waiting', '00000000-0000-4000-8002-000000000002', null, null, false, 'final', 0, null, '766 Industrial St, Bingham Lake, MN', '6:30 AM', 'Dan Berg, 507-555-0128', 'Site orientation, 1 hr, first morning', 'Supplied-air respirator, Tyvek, confined-space permit', null, 'PO 52238', 'Accounts payable, Riverbend Ethanol', true, false);
 
 insert into public.job_requirements (job_id, qualification) values
   ('00000000-0000-4000-8002-000000000002', 'Confined space'),
@@ -406,7 +411,12 @@ insert into public.actual_hours (job_id, week, hours, source) values
   ('00000000-0000-4000-8002-000000000003', '2026-10-09', 191, 'import'),
   ('00000000-0000-4000-8002-000000000003', '2026-10-16', 178, 'import'),
   ('00000000-0000-4000-8002-000000000003', '2026-10-23', 177, 'import'),
-  ('00000000-0000-4000-8002-000000000006', '2026-10-23', 170, 'import');
+  ('00000000-0000-4000-8002-000000000006', '2026-10-23', 170, 'import'),
+  ('00000000-0000-4000-8002-000000000064', '2026-10-23', 990, 'import'),
+  ('00000000-0000-4000-8002-000000000065', '2026-10-23', 1410, 'import'),
+  ('00000000-0000-4000-8002-000000000066', '2026-10-23', 580, 'import'),
+  ('00000000-0000-4000-8002-000000000067', '2026-09-25', 1160, 'import'),
+  ('00000000-0000-4000-8002-000000000068', '2026-09-18', 390, 'import');
 
 insert into public.assignments (id, job_id, person_id, week) values
   ('00000000-0000-4000-8004-000000000001', '00000000-0000-4000-8002-000000000003', '00000000-0000-4000-8001-000000000003', '2026-10-30'),
@@ -857,6 +867,11 @@ update public.work_orders set version = 1, current_step = 0, since = '2026-10-25
 update public.work_orders set version = 0, current_step = 0, since = '2026-10-25', final = false, filed = false, file_name = null, returned_by = null, returned_role = null, returned_comment = null, returned_at = null where job_id = '00000000-0000-4000-8002-000000000012';
 update public.work_orders set version = 0, current_step = 0, since = '2026-10-26', final = false, filed = false, file_name = null, returned_by = null, returned_role = null, returned_comment = null, returned_at = null where job_id = '00000000-0000-4000-8002-000000000013';
 update public.work_orders set version = 0, current_step = 0, since = '2026-10-26', final = false, filed = false, file_name = null, returned_by = null, returned_role = null, returned_comment = null, returned_at = null where job_id = '00000000-0000-4000-8002-000000000014';
+update public.work_orders set version = 2, current_step = 4, since = '2026-08-22', final = true, filed = true, file_name = 'WO-4051 v2.pdf', returned_by = null, returned_role = null, returned_comment = null, returned_at = null where job_id = '00000000-0000-4000-8002-000000000064';
+update public.work_orders set version = 2, current_step = 4, since = '2026-08-29', final = true, filed = true, file_name = 'WO-4058 v2.pdf', returned_by = null, returned_role = null, returned_comment = null, returned_at = null where job_id = '00000000-0000-4000-8002-000000000065';
+update public.work_orders set version = 2, current_step = 4, since = '2026-09-05', final = true, filed = true, file_name = 'WO-4065 v2.pdf', returned_by = null, returned_role = null, returned_comment = null, returned_at = null where job_id = '00000000-0000-4000-8002-000000000066';
+update public.work_orders set version = 2, current_step = 4, since = '2026-07-25', final = true, filed = true, file_name = 'WO-4072 v2.pdf', returned_by = null, returned_role = null, returned_comment = null, returned_at = null where job_id = '00000000-0000-4000-8002-000000000067';
+update public.work_orders set version = 2, current_step = 4, since = '2026-08-01', final = true, filed = true, file_name = 'WO-4079 v2.pdf', returned_by = null, returned_role = null, returned_comment = null, returned_at = null where job_id = '00000000-0000-4000-8002-000000000068';
 insert into public.work_order_signoffs (job_id, version, step, by_name, at) values
   ('00000000-0000-4000-8002-000000000001', 1, 0, 'Greg Halvorsen', '2026-09-30T15:00:00Z'),
   ('00000000-0000-4000-8002-000000000001', 1, 1, 'Lena Brooks', '2026-09-30T15:00:00Z'),
@@ -903,7 +918,27 @@ insert into public.work_order_signoffs (job_id, version, step, by_name, at) valu
   ('00000000-0000-4000-8002-00000000000b', 1, 3, 'Nicole', '2026-11-04T15:00:00Z'),
   ('00000000-0000-4000-8002-00000000000c', 1, 0, 'Paula Kern', '2026-10-25T15:00:00Z'),
   ('00000000-0000-4000-8002-00000000000d', 1, 0, 'Greg Halvorsen', '2026-10-23T15:00:00Z'),
-  ('00000000-0000-4000-8002-00000000000d', 1, 1, 'Nate Holloway', '2026-10-24T15:00:00Z');
+  ('00000000-0000-4000-8002-00000000000d', 1, 1, 'Nate Holloway', '2026-10-24T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000064', 2, 0, 'Greg Halvorsen', '2026-08-22T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000064', 2, 1, 'Jordan Tate', '2026-08-22T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000064', 2, 2, 'Jenna Stahl', '2026-08-22T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000064', 2, 3, 'Nicole', '2026-08-22T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000065', 2, 0, 'Paula Kern', '2026-08-29T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000065', 2, 1, 'Nate Holloway', '2026-08-29T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000065', 2, 2, 'Tara Kline', '2026-08-29T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000065', 2, 3, 'Nicole', '2026-08-29T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000066', 2, 0, 'Greg Halvorsen', '2026-09-05T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000066', 2, 1, 'Rosa Santos', '2026-09-05T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000066', 2, 2, 'Rob Lindqvist', '2026-09-05T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000066', 2, 3, 'Nicole', '2026-09-05T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000067', 2, 0, 'Paula Kern', '2026-07-25T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000067', 2, 1, 'Kelly Wright', '2026-07-25T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000067', 2, 2, 'Rob Lindqvist', '2026-07-25T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000067', 2, 3, 'Nicole', '2026-07-25T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000068', 2, 0, 'Greg Halvorsen', '2026-08-01T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000068', 2, 1, 'Tom Pruitt', '2026-08-01T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000068', 2, 2, 'Jenna Stahl', '2026-08-01T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000068', 2, 3, 'Nicole', '2026-08-01T15:00:00Z');
 
 insert into public.work_order_events (job_id, at, who, action, note) values
   ('00000000-0000-4000-8002-000000000001', '2026-09-30T15:00:00Z', 'Lori', 'Final filed in Procore as the work order of record.', ''),
@@ -953,7 +988,12 @@ insert into public.work_order_events (job_id, at, who, action, note) values
   ('00000000-0000-4000-8002-000000000011', '2026-10-25T15:00:00Z', 'Lori', 'Uploaded draft WO-4224-draft-v1.pdf.', ''),
   ('00000000-0000-4000-8002-000000000012', '2026-10-25T15:00:00Z', 'Lori', 'Job booked on the schedule. Work order opened, awaiting a draft.', ''),
   ('00000000-0000-4000-8002-000000000013', '2026-10-26T15:00:00Z', 'Lori', 'Job booked on the schedule. Work order opened, awaiting a draft.', ''),
-  ('00000000-0000-4000-8002-000000000014', '2026-10-26T15:00:00Z', 'Lori', 'Job booked on the schedule. Work order opened, awaiting a draft.', '');
+  ('00000000-0000-4000-8002-000000000014', '2026-10-26T15:00:00Z', 'Lori', 'Job booked on the schedule. Work order opened, awaiting a draft.', ''),
+  ('00000000-0000-4000-8002-000000000064', '2026-08-22T15:00:00Z', 'Lori', 'Final filed in Procore as the work order of record.', ''),
+  ('00000000-0000-4000-8002-000000000065', '2026-08-29T15:00:00Z', 'Lori', 'Final filed in Procore as the work order of record.', ''),
+  ('00000000-0000-4000-8002-000000000066', '2026-09-05T15:00:00Z', 'Lori', 'Final filed in Procore as the work order of record.', ''),
+  ('00000000-0000-4000-8002-000000000067', '2026-07-25T15:00:00Z', 'Lori', 'Final filed in Procore as the work order of record.', ''),
+  ('00000000-0000-4000-8002-000000000068', '2026-08-01T15:00:00Z', 'Lori', 'Final filed in Procore as the work order of record.', '');
 
 insert into public.job_checkpoints (job_id, checkpoint_key, done_by, done_at) values
   ('00000000-0000-4000-8002-000000000001', 'po', 'Lena Brooks', '2026-09-07T15:00:00Z'),
@@ -1118,8 +1158,97 @@ insert into public.job_checkpoints (job_id, checkpoint_key, done_by, done_at) va
   ('00000000-0000-4000-8002-000000000013', 'del', 'Jenna Stahl', '2026-10-27T15:00:00Z'),
   ('00000000-0000-4000-8002-000000000013', 'prejob', 'Jenna Stahl', '2026-10-27T15:00:00Z'),
   ('00000000-0000-4000-8002-000000000014', 'rent', 'Nicole', '2026-10-27T15:00:00Z'),
-  ('00000000-0000-4000-8002-000000000014', 'crew', 'Nicole', '2026-10-27T15:00:00Z');
+  ('00000000-0000-4000-8002-000000000014', 'crew', 'Nicole', '2026-10-27T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000064', 'po', 'Jordan Tate', '2026-08-07T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000064', 'setup', 'Lori', '2026-08-12T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000064', 'sub', 'Jenna Stahl', '2026-08-21T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000064', 'coi', 'Lori', '2026-08-28T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000064', 'safety', 'Jenna Stahl', '2026-09-04T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000064', 'ord', 'Jenna Stahl', '2026-08-21T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000064', 'del', 'Jenna Stahl', '2026-09-08T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000064', 'rent', 'Nicole', '2026-09-04T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000064', 'crew', 'Nicole', '2026-09-04T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000064', 'badge', 'Jenna Stahl', '2026-09-06T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000064', 'prejob', 'Jenna Stahl', '2026-09-08T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000064', 'walk', 'Jenna Stahl', '2026-10-26T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000065', 'po', 'Nate Holloway', '2026-08-14T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000065', 'setup', 'Lori', '2026-08-19T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000065', 'sub', 'Tara Kline', '2026-08-28T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000065', 'coi', 'Lori', '2026-09-04T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000065', 'safety', 'Tara Kline', '2026-09-11T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000065', 'ord', 'Tara Kline', '2026-08-28T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000065', 'del', 'Tara Kline', '2026-09-15T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000065', 'rent', 'Nicole', '2026-09-11T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000065', 'crew', 'Nicole', '2026-09-11T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000065', 'badge', 'Tara Kline', '2026-09-13T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000065', 'prejob', 'Tara Kline', '2026-09-15T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000065', 'walk', 'Tara Kline', '2026-10-26T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000066', 'po', 'Rosa Santos', '2026-08-21T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000066', 'setup', 'Lori', '2026-08-26T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000066', 'sub', 'Rob Lindqvist', '2026-09-04T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000066', 'coi', 'Lori', '2026-09-11T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000066', 'safety', 'Rob Lindqvist', '2026-09-18T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000066', 'ord', 'Rob Lindqvist', '2026-09-04T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000066', 'del', 'Rob Lindqvist', '2026-09-22T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000066', 'rent', 'Nicole', '2026-09-18T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000066', 'crew', 'Nicole', '2026-09-18T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000066', 'badge', 'Rob Lindqvist', '2026-09-20T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000066', 'prejob', 'Rob Lindqvist', '2026-09-22T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000067', 'po', 'Kelly Wright', '2026-07-10T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000067', 'setup', 'Lori', '2026-07-15T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000067', 'sub', 'Rob Lindqvist', '2026-07-24T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000067', 'coi', 'Lori', '2026-07-31T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000067', 'safety', 'Rob Lindqvist', '2026-08-07T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000067', 'ord', 'Rob Lindqvist', '2026-07-24T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000067', 'del', 'Rob Lindqvist', '2026-08-11T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000067', 'rent', 'Nicole', '2026-08-07T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000067', 'crew', 'Nicole', '2026-08-07T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000067', 'badge', 'Rob Lindqvist', '2026-08-09T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000067', 'prejob', 'Rob Lindqvist', '2026-08-11T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000067', 'walk', 'Rob Lindqvist', '2026-09-28T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000067', 'cause', 'Rob Lindqvist', '2026-09-30T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000068', 'po', 'Tom Pruitt', '2026-07-17T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000068', 'setup', 'Lori', '2026-07-22T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000068', 'sub', 'Jenna Stahl', '2026-07-31T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000068', 'coi', 'Lori', '2026-08-07T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000068', 'safety', 'Jenna Stahl', '2026-08-14T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000068', 'ord', 'Jenna Stahl', '2026-07-31T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000068', 'del', 'Jenna Stahl', '2026-08-18T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000068', 'rent', 'Nicole', '2026-08-14T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000068', 'crew', 'Nicole', '2026-08-14T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000068', 'badge', 'Jenna Stahl', '2026-08-16T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000068', 'prejob', 'Jenna Stahl', '2026-08-18T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000068', 'walk', 'Jenna Stahl', '2026-09-21T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000068', 'cause', 'Jenna Stahl', '2026-09-23T15:00:00Z'),
+  ('00000000-0000-4000-8002-000000000068', 'warr', 'Jenna Stahl', '2026-09-28T15:00:00Z');
+
+insert into public.percent_complete (job_id, week, materials_pct, labor_pct, entered_by) values
+  ('00000000-0000-4000-8002-000000000001', '2026-10-16', 60, 25, 'Jenna Stahl'),
+  ('00000000-0000-4000-8002-000000000001', '2026-10-30', 85, 50, 'Jenna Stahl'),
+  ('00000000-0000-4000-8002-000000000002', '2026-10-30', 65, 30, 'Jenna Stahl'),
+  ('00000000-0000-4000-8002-000000000003', '2026-10-09', 55, 20, 'Rob Lindqvist'),
+  ('00000000-0000-4000-8002-000000000003', '2026-10-16', 70, 35, 'Rob Lindqvist'),
+  ('00000000-0000-4000-8002-000000000003', '2026-10-30', 85, 50, 'Rob Lindqvist'),
+  ('00000000-0000-4000-8002-000000000006', '2026-10-30', 100, 75, 'Tara Kline');
+
+insert into public.milestones (id, job_id, label, pct, sort, reached_on, reached_by) values
+  ('00000000-0000-4000-8008-000000000001', '00000000-0000-4000-8002-000000000002', 'Mobilization', 20, 1, '2026-10-23', 'Jenna Stahl'),
+  ('00000000-0000-4000-8008-000000000002', '00000000-0000-4000-8002-000000000002', 'Tank 1 lined', 40, 2, '2026-10-30', 'Jenna Stahl'),
+  ('00000000-0000-4000-8008-000000000003', '00000000-0000-4000-8002-000000000002', 'Tank 2 lined', 30, 3, null, null),
+  ('00000000-0000-4000-8008-000000000004', '00000000-0000-4000-8002-00000000000f', 'Mobilization', 20, 1, null, null),
+  ('00000000-0000-4000-8008-000000000005', '00000000-0000-4000-8002-00000000000f', 'Surface prep complete', 30, 2, null, null),
+  ('00000000-0000-4000-8008-000000000006', '00000000-0000-4000-8002-00000000000f', 'Coatings applied', 40, 3, null, null);
+
+insert into public.invoices (id, job_id, kind, period, milestone_id, number, amount_cents, invoiced_on, recorded_by) values
+  ('00000000-0000-4000-8007-000000000001', '00000000-0000-4000-8002-000000000001', 'progress', '2026-10', null, '26-1150', 6640000, '2026-10-25', 'Accounting'),
+  ('00000000-0000-4000-8007-000000000002', '00000000-0000-4000-8002-000000000002', 'milestone', null, '00000000-0000-4000-8008-000000000001', '26-1151', 4050000, '2026-10-23', 'Accounting'),
+  ('00000000-0000-4000-8007-000000000003', '00000000-0000-4000-8002-000000000065', 'progress', '2026-09', null, '26-1152', 15900000, '2026-09-28', 'Accounting'),
+  ('00000000-0000-4000-8007-000000000004', '00000000-0000-4000-8002-000000000067', 'final', null, null, '26-1153', 17400000, '2026-10-02', 'Accounting'),
+  ('00000000-0000-4000-8007-000000000005', '00000000-0000-4000-8002-000000000068', 'final', null, null, '26-1154', 5800000, '2026-09-25', 'Accounting');
+
 
 reset app.seeding;
 select app.capacity_check();
 select app.cert_reminders();
+select app.wo_check();
+select app.bill_check();

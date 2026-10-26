@@ -37,6 +37,10 @@ export function job(over: Partial<Job> = {}): Job {
     retainagePct: 0,
     retainageRelease: null,
     retainageReleaseNote: null,
+    customerPo: "",
+    billTo: "",
+    lienWaivers: false,
+    certifiedPayroll: false,
     requirements: [],
     siteAddress: "",
     siteStartTime: "",
@@ -74,6 +78,11 @@ export function dataset(over: Partial<Dataset> = {}): Dataset {
     checkpointDefs: [],
     jobCheckpoints: [],
     staff: { schedulers: [], jobSetup: [] },
+    percents: [],
+    changeOrders: [],
+    milestones: [],
+    invoices: [],
+    retainageReceipts: [],
     ...over,
   };
 }

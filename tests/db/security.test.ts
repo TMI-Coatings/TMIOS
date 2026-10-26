@@ -89,6 +89,9 @@ const UPDATE: Record<JobField, Stmt> = {
   notes: (q, j) => q("insert into public.job_notes (job_id, body) values ($1, 'Test note')", [j.id]),
   pinNotes: (q, j) => q("update public.job_notes set pinned = not pinned where job_id = $1", [j.id]),
   actuals: (q, j) => q("insert into public.hour_entries (job_id, week, hours) values ($1, $2, 40)", [j.id, TEST_WEEK]),
+  percent: (q, j) => q("select public.record_percent($1, 50, 40)", [j.id]),
+  changeOrders: (q, j) => q("select public.add_change_order($1)", [{ jobId: j.id, number: "CO-9", amountCents: 100000, hours: 10 }]),
+  milestones: (q, j) => q("select public.mark_milestone_reached((select id from public.milestones where job_id = $1 and label = 'Test milestone'))", [j.id]),
 };
 
 describe("editing jobs: the database allows exactly what permissions.ts allows", () => {
@@ -105,7 +108,10 @@ describe("editing jobs: the database allows exactly what permissions.ts allows",
   const otherPm: Viewer = { userId: "00000000-0000-4000-8fff-000000000002", email: "otherpm@example.com", name: "Other PM", role: "pm", personId: null, repCode: null, pmCode: "RL" };
 
   beforeAll(async () => {
-    for (const j of targets) await db.query("insert into public.job_notes (job_id, body) values ($1, 'Seed note')", [j.id]);
+    for (const j of new Set(targets)) {
+      await db.query("insert into public.job_notes (job_id, body) values ($1, 'Seed note')", [j.id]);
+      await db.query("insert into public.milestones (job_id, label, pct) values ($1, 'Test milestone', 10)", [j.id]);
+    }
   });
 
   for (const field of Object.keys(JOB_FIELD_RULES) as JobField[]) {
@@ -262,7 +268,7 @@ describe("functions", () => {
     const r = await as(user("sales_rep"), (q) => q("select public.company_load_inputs() x"));
     expect(r.ok).toBe(true);
     const x = r.ok && r.rows[0].x;
-    expect(x.jobs).toHaveLength(sample.jobs.length);
+    expect(x.jobs).toHaveLength(sample.jobs.filter((j) => j.status !== "complete").length);
     expect(Object.keys(x.jobs[0]).sort()).toEqual(["actuals", "overrides", "projectedFinish", "projectedHrs", "start", "status"]);
     expect(JSON.stringify(x)).not.toMatch(/customer|cents|name/i);
     const s = await as(user("superintendent"), (q) => q("select public.company_load_inputs()"));

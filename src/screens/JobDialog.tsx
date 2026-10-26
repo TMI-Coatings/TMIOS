@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Modal } from "../components/Modal";
 import { CREW_ISSUE_LABEL, assignedIds, crewIssues, missingQuals, proposeCrew } from "../domain/crew";
 import { jobProblem } from "../domain/jobRules";
-import { type JobField, JOB_COLUMNS, canEditJob } from "../domain/permissions";
+import { type JobField, JOB_COLUMNS, can, canEditJob } from "../domain/permissions";
+import { Money } from "../domain/money";
 import { FIRMNESS, actualToDate, bidMargin, buildIndex, eac, hoursLeft, inWindow, isOverrun, offFraction } from "../domain/schedule";
 import type { ChangeLogEntry, Job } from "../domain/types";
-import { fmtLong, fmtShort, weekList } from "../domain/weeks";
+import { fmtLong, fmtShort, todayIn, weekList } from "../domain/weeks";
 import { n0, pct, stamp, usd } from "../format";
 import type { Ctx } from "../Workspace";
+import { BillingPanel } from "./BillingPanel";
 import { JourneyPanel } from "./JourneyPanel";
 import { WorkOrderPanel } from "./WorkOrderPanel";
 
@@ -22,7 +24,7 @@ const STATUS: { k: Job["status"]; l: string }[] = [
   { k: "complete", l: "Complete" },
 ];
 
-export function JobDialog({ ctx, jobId, onClose, journeyOpen }: { ctx: Ctx; jobId: string; onClose: () => void; journeyOpen?: boolean }) {
+export function JobDialog({ ctx, jobId, onClose, journeyOpen, billingOpen }: { ctx: Ctx; jobId: string; onClose: () => void; journeyOpen?: boolean; billingOpen?: boolean }) {
   const { viewer, week, data, repo, run } = ctx;
   const ds = data.ds;
   const job = ds.jobs.find((j) => j.id === jobId);
@@ -127,6 +129,7 @@ export function JobDialog({ ctx, jobId, onClose, journeyOpen }: { ctx: Ctx; jobI
         </>
       }
     >
+      <BillingPanel ctx={ctx} job={job} open={billingOpen} />
       <JourneyPanel ctx={ctx} job={job} open={journeyOpen} />
       <WorkOrderPanel ctx={ctx} job={job} />
       <div className="stat">
@@ -156,6 +159,28 @@ export function JobDialog({ ctx, jobId, onClose, journeyOpen }: { ctx: Ctx; jobI
         <i style={{ width: elapsed * 100 + "%", opacity: 0.5 }} />
       </div>
 
+      {can.seeMoney(viewer.role) && job.status !== "complete" && (() => {
+        const m = new Money(ds, idx, week, todayIn(new Date()));
+        return (
+          <>
+            <div className="stat" style={{ marginTop: 14 }}>
+              <div>
+                Materials complete<b className="num">{pct(m.matDone(job))}</b>
+              </div>
+              <div>
+                Labor complete<b className="num" style={m.diverges(job) ? { color: "var(--red)" } : undefined}>{pct(m.labDone(job))}</b>
+              </div>
+              <div>
+                Recognized<b className="num">{usd(m.recognized(job))}</b>
+              </div>
+              <div>
+                Over (under) billed<b className="num">{m.overUnder(job) < 0 ? `(${usd(-m.overUnder(job))})` : usd(m.overUnder(job))}</b>
+              </div>
+            </div>
+            <p className="note" style={{ marginTop: -6 }}>Hours suggest labor is {pct(m.suggestLabor(job))} complete. Update percentages on the Revenue tab.</p>
+          </>
+        );
+      })()}
       <div className="fg" style={{ marginTop: 14 }}>
         {field(
           "Status",

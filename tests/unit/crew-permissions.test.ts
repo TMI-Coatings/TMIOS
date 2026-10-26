@@ -78,7 +78,8 @@ describe("permissions", () => {
 describe("sample data", () => {
   const s = buildSample(W);
   it("matches the demo's shape", () => {
-    expect(s.jobs).toHaveLength(20);
+    expect(s.jobs.filter((j) => j.status !== "complete")).toHaveLength(20);
+    expect(s.jobs.filter((j) => j.status === "complete")).toHaveLength(5);
     expect(s.people).toHaveLength(75);
     expect(s.people.filter((p) => p.kind === "leader")).toHaveLength(14);
   });

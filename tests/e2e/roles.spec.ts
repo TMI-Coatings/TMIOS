@@ -103,7 +103,7 @@ test("job setup adds a job from the estimate and it lands on the schedule", asyn
   await page.getByRole("button", { name: "Add job from estimate" }).click();
   const dlg = page.getByRole("dialog");
   await dlg.getByLabel("Job number").fill("4291");
-  await dlg.getByLabel("Customer").fill("Valley Malt House");
+  await dlg.getByLabel("Customer", { exact: true }).fill("Valley Malt House");
   await dlg.getByLabel("Estimator (required)").fill("Greg Halvorsen");
   await dlg.getByLabel("Contract value ($)").fill("96500");
   await dlg.getByLabel("Estimated labor hrs").fill("610");
@@ -121,7 +121,7 @@ test("a four-digit job number is required", async ({ page }) => {
   await page.getByRole("button", { name: "Add job from estimate" }).click();
   const dlg = page.getByRole("dialog");
   await dlg.getByLabel("Job number").fill("429");
-  await dlg.getByLabel("Customer").fill("Short Number Co");
+  await dlg.getByLabel("Customer", { exact: true }).fill("Short Number Co");
   await dlg.getByLabel("Estimator (required)").fill("Paula Kern");
   await dlg.getByLabel("Contract value ($)").fill("1000");
   await dlg.getByLabel("Estimated labor hrs").fill("10");

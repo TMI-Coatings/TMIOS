@@ -10,8 +10,10 @@ import { closeRows, forecastAccuracy, type CloseInput, type CloseResult } from "
 import { allPlans, buildIndex, capacity, hoursLeft, inWindow, isSold, materialRevenueCents } from "../domain/schedule";
 import { backlogCents, digestLines, digestTitle } from "../domain/insights";
 import { canCheck, type CheckpointDef } from "../domain/journey";
+import { MILESTONE_TEMPLATE, Money, monthLabel, type ChangeOrder, type InvoiceKind } from "../domain/money";
 import { WO_STEPS, stepWho, woCanFile, woCanSign, woCanUpload, woIsMine, woStatus, type Names, type WorkOrder } from "../domain/workOrders";
 import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Settings, Viewer } from "../domain/types";
+import { usd } from "../format";
 import { addDays, currentWeek, fmtShort, mondayOf, planningWeek, todayIn, weekList, weekToClose } from "../domain/weeks";
 import { buildSample, type SampleData } from "../sample/seed";
 import type { AccessUser, LoadResult, NewJobInput, Repo } from "./repo";
@@ -79,6 +81,49 @@ export class SampleRepo implements Repo {
     const idx = buildIndex(ds);
     this.push(capacityAlerts(ds, idx, allPlans(ds, idx, this.week()), this.week(), this.s.alertState));
     this.woCheck();
+    this.billCheck();
+  }
+  private money(): Money {
+    const d = this.s.data;
+    return new Money(d, buildIndex(d), this.week(), todayIn(new Date()));
+  }
+  /** Billing alerts, as the database's bill_check: the month's pay apps, late pay apps, ready, waiting, late invoices. */
+  private billCheck() {
+    const d = this.s.data;
+    const m = this.money();
+    const today = todayIn(new Date());
+    const st = this.s.alertState;
+    const n = this.names();
+    const due = d.jobs.filter((j) => m.progressDue(j).length);
+    const cp = today.slice(0, 7);
+    if (due.length && !st["bill-period|" + cp]) {
+      st["bill-period|" + cp] = "sent";
+      this.push([{ rule: "bill", title: `Progress billing for ${monthLabel(cp, true)}: ${due.length} job${due.length > 1 ? "s" : ""}`, body: due.map((j) => `${j.number} ${j.customer}`).join("\n") + `\nPay applications due by the ${d.settings.payAppDay}th.`, recipients: ["Accounting", "Jared"], jobId: null, personId: null }]);
+    }
+    for (const j of due)
+      for (const p of m.progressDue(j).filter((x) => m.progressLate(x))) {
+        const k = `bill-late|${j.id}|${p}`;
+        if (st[k]) continue;
+        st[k] = "sent";
+        this.push([{ rule: "bill", title: `Progress invoice late: ${j.number} ${j.customer}`, body: `${monthLabel(p, true)} was due ${fmtShort(m.payDue(p))}.`, recipients: ["Accounting", "Jared", "Leadership"], jobId: j.id, personId: null }]);
+      }
+    for (const j of d.jobs.filter((x) => x.status === "complete" && !m.finalInvoice(x))) {
+      const pm = "PM " + n.pm(j.pmCode);
+      if (!m.signedOff(j)) {
+        if (st["bill-wait|" + j.id]) continue;
+        st["bill-wait|" + j.id] = "sent";
+        this.push([{ rule: "bill", title: `Complete, waiting on sign-off: ${j.number} ${j.customer}`, body: `The job is complete but the customer hasn’t signed off at the final walk. ${pm} to get the sign-off so accounting can invoice.`, recipients: ["Accounting", "Jared", pm], jobId: j.id, personId: null }]);
+        continue;
+      }
+      if (!st["bill-ready|" + j.id]) {
+        st["bill-ready|" + j.id] = "sent";
+        this.push([{ rule: "bill", title: `Ready to invoice: ${j.number} ${j.customer}`, body: `Job complete ${fmtShort(j.actualFinish ?? j.projectedFinish)} and signed off by the customer.\nFinal invoice ${usd(m.toBill(j))}.\nInvoice due by ${fmtShort(m.invoiceDue(j)!)}.`, recipients: ["Accounting", "Jared", pm, "Leadership"], jobId: j.id, personId: null }]);
+      }
+      if (m.invoiceLate(j) && !st["bill-inv-late|" + j.id]) {
+        st["bill-inv-late|" + j.id] = "sent";
+        this.push([{ rule: "bill", title: `Invoice late: ${j.number} ${j.customer}`, body: `Ready to invoice since ${fmtShort(m.readyOn(j)!)}; it was due ${fmtShort(m.invoiceDue(j)!)}.`, recipients: ["Accounting", "Jared", "Leadership"], jobId: j.id, personId: null }]);
+      }
+    }
   }
   private names(): Names {
     const d = this.s.data;
@@ -196,6 +241,12 @@ export class SampleRepo implements Repo {
     ds.metrics = office2 ? d.metrics : [];
     ds.workOrders = d.workOrders.filter((w) => visible.has(w.jobId));
     ds.jobCheckpoints = d.jobCheckpoints.filter((c) => visible.has(c.jobId));
+    const money = can.seeMoney(viewer.role);
+    ds.percents = money ? d.percents.filter((x) => visible.has(x.jobId)) : [];
+    ds.changeOrders = money ? d.changeOrders.filter((x) => visible.has(x.jobId)) : [];
+    ds.milestones = money ? d.milestones.filter((x) => visible.has(x.jobId)) : [];
+    ds.invoices = money ? d.invoices.filter((x) => visible.has(x.jobId)) : [];
+    ds.retainageReceipts = money ? d.retainageReceipts.filter((x) => visible.has(x.jobId)) : [];
     if (viewer.role === "field_crew") ds.closes = [];
     const sawAll = visible.size === d.jobs.length;
     const totals = seesCompanyTotals(viewer.role) && !sawAll ? { ...d, jobs: d.jobs.filter((j) => j.status !== "complete") } : null;
@@ -702,6 +753,137 @@ export class SampleRepo implements Repo {
       this.d.checkpointDefs[i] = { ...def, autoSource: before.autoSource };
     }
     this.save();
+  }
+
+  async recordPercent(jobId: string, materialsPct: number, laborPct: number) {
+    const v = this.me();
+    const j = this.job(jobId);
+    if (!canEditJob(v, j, "percent")) throw new Error("Only the job's PM, Jared or an admin enters percent complete.");
+    if (![materialsPct, laborPct].every((x) => x >= 0 && x <= 100)) throw new Error("Percent complete is between 0 and 100.");
+    const w = this.week();
+    const i = this.d.percents.findIndex((p) => p.jobId === jobId && p.week === w);
+    const before = this.money().latest(j);
+    const row = { jobId, week: w, materialsPct, laborPct, enteredBy: v.name };
+    if (i >= 0) this.d.percents[i] = row;
+    else this.d.percents.push(row);
+    if (before?.materialsPct !== materialsPct) this.log("percent_complete", jobId + "|" + w, "Job " + j.number, "materials %", before?.materialsPct ?? null, materialsPct);
+    if (before?.laborPct !== laborPct) this.log("percent_complete", jobId + "|" + w, "Job " + j.number, "labor %", before?.laborPct ?? null, laborPct);
+    this.save();
+  }
+
+  async addChangeOrder(co: Omit<ChangeOrder, "id">) {
+    const v = this.me();
+    const j = this.job(co.jobId);
+    if (!canEditJob(v, j, "changeOrders")) throw new Error("Only the job's PM, job setup or an admin enters change orders.");
+    if (!co.number.trim()) throw new Error("Enter the change order number.");
+    this.d.changeOrders.push({ ...co, id: uid() });
+    this.log("change_orders", co.jobId, "Job " + j.number, "added", null, `${co.number}: ${usd(co.amountCents)}, ${co.hours} hrs`);
+    if (co.hours) {
+      this.log("jobs", j.id, "Job " + j.number, "projectedHrs", j.projectedHrs, Math.max(0, j.projectedHrs + co.hours));
+      j.projectedHrs = Math.max(0, j.projectedHrs + co.hours);
+    }
+    this.save();
+  }
+
+  async setBillingMethod(jobId: string, method: Job["billingMethod"]) {
+    if (!can.recordInvoices(this.me().role)) throw new Error("Only accounting or an admin changes the billing method.");
+    const j = this.job(jobId);
+    this.log("jobs", j.id, "Job " + j.number, "billingMethod", j.billingMethod, method);
+    j.billingMethod = method;
+    if (method === "milestone" && !this.d.milestones.some((m) => m.jobId === jobId))
+      MILESTONE_TEMPLATE.forEach(([label, pct], k) => this.d.milestones.push({ id: uid(), jobId, label, pct, sort: k + 1, reachedOn: null, reachedBy: null }));
+    this.save();
+  }
+
+  async saveMilestones(jobId: string, items: { id?: string; label: string; pct: number }[]) {
+    if (!can.recordInvoices(this.me().role)) throw new Error("Only accounting or an admin edits milestones.");
+    const j = this.job(jobId);
+    const m = this.money();
+    const locked = m.milestones(j).filter((x) => m.milestoneInvoice(x));
+    const total = items.reduce((a, x) => a + x.pct, 0) + locked.reduce((a, x) => a + x.pct, 0);
+    if (total > 100) throw new Error(`Milestones add up to ${Math.round(total)}%. Keep them at 100% or less; anything left bills at sign-off.`);
+    const keep = new Set(items.map((x) => x.id).filter(Boolean));
+    this.d.milestones = this.d.milestones.filter((x) => x.jobId !== jobId || keep.has(x.id) || locked.includes(x));
+    items.forEach((x, k) => {
+      const cur = this.d.milestones.find((y) => y.id === x.id);
+      if (cur && !locked.includes(cur)) Object.assign(cur, { label: x.label.trim() || cur.label, pct: x.pct, sort: k + 1 });
+      else if (!cur && x.pct > 0) this.d.milestones.push({ id: uid(), jobId, label: x.label.trim() || "Milestone", pct: x.pct, sort: k + 1, reachedOn: null, reachedBy: null });
+    });
+    this.log("milestones", jobId, "Job " + j.number, "milestones", null, items.map((x) => `${x.label} ${x.pct}%`).join(", "));
+    this.save();
+  }
+
+  async markMilestoneReached(milestoneId: string) {
+    const v = this.me();
+    const ms = this.d.milestones.find((x) => x.id === milestoneId);
+    if (!ms) throw denied();
+    const j = this.job(ms.jobId);
+    if (!canEditJob(v, j, "milestones")) throw new Error("Only the job's PM, the scheduler or an admin marks a milestone reached.");
+    if (ms.reachedOn) throw new Error("Already marked reached.");
+    ms.reachedOn = todayIn(new Date());
+    ms.reachedBy = v.name;
+    const amt = this.money().milestoneAmount(j, ms);
+    this.log("milestones", ms.id, "Job " + j.number, ms.label, "not reached", "reached");
+    this.push([{ rule: "bill", title: `Milestone reached: ${j.number} ${j.customer}`, body: `${ms.label} (${Math.round(ms.pct)}%, ${usd(amt)}). Ready to invoice.\nMarked by ${v.name}.`, recipients: ["Accounting", "Jared", "PM " + this.names().pm(j.pmCode)], jobId: j.id, personId: null }]);
+    this.save();
+  }
+
+  async recordInvoice(inv: { jobId: string; kind: InvoiceKind; period?: string; milestoneId?: string; number?: string; amountCents?: number }) {
+    const v = this.me();
+    if (!can.recordInvoices(v.role)) throw new Error("Only accounting or an admin records invoices.");
+    const j = this.job(inv.jobId);
+    const m = this.money();
+    const n = this.names();
+    const num = inv.number?.trim() || null;
+    if (inv.kind !== "skip" && !num) throw new Error("Enter the invoice number from Sage.");
+    const today = todayIn(new Date());
+    let amt = inv.amountCents ?? 0;
+    const base = { id: uid(), jobId: j.id, number: num, invoicedOn: today, recordedBy: v.name, period: null as string | null, milestoneId: null as string | null };
+    const to = ["Jared", "PM " + n.pm(j.pmCode), n.rep(j.repCode)];
+    if (inv.kind === "final") {
+      if (j.status !== "complete" || !m.signedOff(j)) throw new Error("The final invoice waits for the job to be complete and signed off by the customer.");
+      if (m.finalInvoice(j)) throw new Error("This job already has its final invoice.");
+      this.d.invoices.push({ ...base, kind: "final", amountCents: amt });
+      const ret = this.money().retainageOutstanding(j);
+      this.push([{ rule: "bill", title: `Invoiced: ${j.number} ${j.customer}`, body: `Final invoice ${num} for ${usd(amt)}.${j.retainagePct > 0 ? ` Retainage ${usd(ret)} still outstanding.` : ""}\nRecorded by ${v.name}.`, recipients: [...to, "Leadership"], jobId: j.id, personId: null }]);
+    } else if (inv.kind === "milestone") {
+      const ms = m.milestones(j).find((x) => x.id === inv.milestoneId);
+      if (!ms?.reachedOn) throw new Error("That milestone hasn't been reached.");
+      if (m.milestoneInvoice(ms)) throw new Error("That milestone is already invoiced.");
+      amt = m.milestoneAmount(j, ms);
+      this.d.invoices.push({ ...base, kind: "milestone", milestoneId: ms.id, amountCents: amt });
+      this.push([{ rule: "bill", title: `Milestone invoiced: ${j.number} ${j.customer}`, body: `${ms.label}: invoice ${num} for ${usd(amt)}.\nRecorded by ${v.name}.`, recipients: to, jobId: j.id, personId: null }]);
+    } else {
+      if (j.billingMethod !== "monthly") throw new Error("This job isn't billed monthly.");
+      if (!inv.period || !m.progressDue(j).includes(inv.period)) throw new Error("That month is already billed.");
+      this.d.invoices.push({ ...base, kind: inv.kind, period: inv.period, amountCents: inv.kind === "skip" ? 0 : amt });
+      if (inv.kind === "progress")
+        this.push([{ rule: "bill", title: `Progress invoiced: ${j.number} ${j.customer}`, body: `${monthLabel(inv.period, true)}: invoice ${num} for ${usd(amt)}.\nRecorded by ${v.name}.`, recipients: to, jobId: j.id, personId: null }]);
+    }
+    this.log("invoices", j.id, "Job " + j.number, inv.kind + " invoice", null, inv.kind === "skip" ? "nothing to bill" : `${num}, ${usd(amt)}`);
+    this.save();
+  }
+
+  async recordRetainageReceived(jobId: string) {
+    if (!can.recordInvoices(this.me().role)) throw new Error("Only accounting or an admin records retainage.");
+    const j = this.job(jobId);
+    const amt = this.money().retainageOutstanding(j);
+    if (amt <= 0) throw new Error("No retainage outstanding on this job.");
+    this.d.retainageReceipts.push({ id: uid(), jobId, amountCents: amt, receivedOn: todayIn(new Date()) });
+    this.log("retainage_receipts", jobId, "Job " + j.number, "retainage", "outstanding", "received " + usd(amt));
+    this.save();
+  }
+
+  async companyRevenueTotals() {
+    const v = this.me();
+    if (!["admin", "ceo", "cfo", "scheduler", "pm", "sales_rep", "accounting"].includes(v.role)) throw denied();
+    const m = this.money();
+    const jobs = this.d.jobs.filter((j) => j.active);
+    return {
+      remainingCents: Math.round(jobs.filter((j) => j.status !== "complete").reduce((a, j) => a + m.remaining(j), 0)),
+      netBillingCents: Math.round(jobs.filter((j) => m.billed(j) > 0 || m.recognized(j) > 0).reduce((a, j) => a + m.overUnder(j), 0)),
+      reviewCount: jobs.filter((j) => m.forReview(j)).length,
+    };
   }
 }
 

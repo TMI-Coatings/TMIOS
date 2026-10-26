@@ -37,6 +37,10 @@ export function AddJobDialog({ ctx, onClose }: { ctx: Ctx; onClose: () => void }
     retainagePct: "0",
     retainageRelease: "" as "" | NonNullable<Job["retainageRelease"]>,
     retainageReleaseNote: "",
+    customerPo: "",
+    billTo: "",
+    lienWaivers: false,
+    certifiedPayroll: false,
     requirements: [] as string[],
     exterior: false,
     siteAddress: "",
@@ -84,6 +88,10 @@ export function AddJobDialog({ ctx, onClose }: { ctx: Ctx; onClose: () => void }
       retainagePct: Number(f.retainagePct) || 0,
       retainageRelease: Number(f.retainagePct) > 0 ? f.retainageRelease || null : null,
       retainageReleaseNote: f.retainageRelease === "other" ? f.retainageReleaseNote.trim() || null : null,
+      customerPo: f.customerPo.trim(),
+      billTo: f.billTo.trim(),
+      lienWaivers: f.lienWaivers,
+      certifiedPayroll: f.certifiedPayroll,
       requirements: f.requirements,
       siteAddress: f.siteAddress,
       siteStartTime: f.siteStartTime,
@@ -197,6 +205,16 @@ export function AddJobDialog({ ctx, onClose }: { ctx: Ctx; onClose: () => void }
           </select>
         </label>
         {f.retainageRelease === "other" && text("retainageReleaseNote", "Release terms")}
+        {text("customerPo", "Customer PO")}
+        {text("billTo", "Billing contact")}
+      </div>
+      <div className="row" style={{ marginTop: 8 }}>
+        <label className="q">
+          <input type="checkbox" checked={f.lienWaivers} onChange={(e) => set("lienWaivers", e.target.checked)} /> Lien waivers required
+        </label>
+        <label className="q">
+          <input type="checkbox" checked={f.certifiedPayroll} onChange={(e) => set("certifiedPayroll", e.target.checked)} /> Certified payroll required
+        </label>
       </div>
 
       <h2 style={{ fontSize: 15, margin: "16px 0 8px" }}>Schedule</h2>

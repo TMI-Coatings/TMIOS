@@ -10,7 +10,7 @@ export const namesOf = (ds: Dataset): Names => ({
   jobSetup: ds.staff.jobSetup,
 });
 
-export const journeyOf = (ds: Dataset, today: IsoDate, finalInvoiced: (jobId: string) => boolean = () => false) =>
+export const journeyOf = (ds: Dataset, today: IsoDate, finalInvoiced: (jobId: string) => boolean = (id) => ds.invoices.some((i) => i.jobId === id && i.kind === "final")) =>
   new Journey(
     ds.stages,
     ds.checkpointDefs,

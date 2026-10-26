@@ -37,6 +37,7 @@ export function seedSql(week: string): string {
     "projected_finish", "baseline_finish", "must_finish", "must_finish_reason", "status", "firmness", "waits_on_job_id",
     "hold_reason", "hold_until", "exterior", "billing_method", "retainage_pct", "retainage_release",
     "site_address", "site_start_time", "site_contact", "site_orientation", "site_ppe",
+    "actual_finish", "customer_po", "bill_to", "lien_waivers", "certified_payroll",
   ];
   // Predecessors first so waits_on_job_id resolves.
   const jobs = [...s.jobs].sort((a, b) => (a.waitsOnJobId ? 1 : 0) - (b.waitsOnJobId ? 1 : 0));
@@ -50,6 +51,7 @@ export function seedSql(week: string): string {
         j.projectedFinish, j.baselineFinish, j.mustFinish, j.mustFinishReason, j.status, j.firmness, j.waitsOnJobId,
         j.holdReason, j.holdUntil, j.exterior, j.billingMethod, j.retainagePct, j.retainageRelease,
         j.siteAddress, j.siteStartTime, j.siteContact, j.siteOrientation, j.sitePpe,
+        j.actualFinish, j.customerPo, j.billTo, j.lienWaivers, j.certifiedPayroll,
       ]),
     ),
   );
@@ -108,7 +110,23 @@ export function seedSql(week: string): string {
     ),
   );
   out.push(rows("job_checkpoints", ["job_id", "checkpoint_key", "done_by", "done_at"], s.jobCheckpoints.map((c) => [c.jobId, c.key, c.by, c.at])));
-  out.push("reset app.seeding;\nselect app.capacity_check();\nselect app.cert_reminders();\n");
+  out.push(rows("percent_complete", ["job_id", "week", "materials_pct", "labor_pct", "entered_by"], s.percents.map((x) => [x.jobId, x.week, x.materialsPct, x.laborPct, x.enteredBy])));
+  out.push(
+    rows(
+      "milestones",
+      ["id", "job_id", "label", "pct", "sort", "reached_on", "reached_by"],
+      s.milestones.map((m) => [m.id, m.jobId, m.label, m.pct, m.sort, m.reachedOn, m.reachedBy]),
+    ),
+  );
+  out.push(
+    rows(
+      "invoices",
+      ["id", "job_id", "kind", "period", "milestone_id", "number", "amount_cents", "invoiced_on", "recorded_by"],
+      s.invoices.map((i) => [i.id, i.jobId, i.kind, i.period, i.milestoneId, i.number, i.amountCents, i.invoicedOn, i.recordedBy]),
+    ),
+  );
+  out.push(rows("retainage_receipts", ["id", "job_id", "amount_cents", "received_on", "recorded_by"], s.retainageReceipts.map((r) => [r.id, r.jobId, r.amountCents, r.receivedOn, "Accounting"])));
+  out.push("reset app.seeding;\nselect app.capacity_check();\nselect app.cert_reminders();\nselect app.wo_check();\nselect app.bill_check();\n");
   return out.join("\n");
 }
 

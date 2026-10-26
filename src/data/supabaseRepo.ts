@@ -7,6 +7,7 @@ import { can, seesCompanyTotals } from "../domain/permissions";
 import type { CloseInput, CloseResult } from "../domain/close";
 import type { CheckpointDef } from "../domain/journey";
 import type { WorkOrder } from "../domain/workOrders";
+import type { ChangeOrder, InvoiceKind } from "../domain/money";
 import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Person, Settings, TimeOff, Viewer } from "../domain/types";
 import { DEFAULT_SETTINGS } from "../domain/types";
 import type { AccessUser, LoadResult, NewJobInput, Repo } from "./repo";
@@ -46,6 +47,10 @@ const JOB_MAP: Record<keyof Omit<Job, "requirements">, string> = {
   retainagePct: "retainage_pct",
   retainageRelease: "retainage_release",
   retainageReleaseNote: "retainage_release_note",
+  customerPo: "customer_po",
+  billTo: "bill_to",
+  lienWaivers: "lien_waivers",
+  certifiedPayroll: "certified_payroll",
   siteAddress: "site_address",
   siteStartTime: "site_start_time",
   siteContact: "site_contact",
@@ -112,6 +117,15 @@ export class SupabaseRepo implements Repo {
       sb.from("journey_checkpoints").select("*").order("sort"),
       sb.from("job_checkpoints").select("job_id, checkpoint_key, done_by, done_at").eq("active", true),
       sb.rpc("staff_names"),
+    ]);
+    const money = can.seeMoney(viewer.role);
+    const none = Promise.resolve({ data: [], error: null });
+    const [pcts, cos, mss, invs, rets] = await Promise.all([
+      money ? sb.from("percent_complete").select("job_id, week, materials_pct, labor_pct, entered_by").order("week") : none,
+      money ? sb.from("change_orders").select("*").eq("active", true).order("approved_on") : none,
+      money ? sb.from("milestones").select("*").eq("active", true).order("sort") : none,
+      money ? sb.from("invoices").select("*").eq("active", true).order("invoiced_on") : none,
+      money ? sb.from("retainage_receipts").select("*").eq("active", true) : none,
     ]);
     const signBy = new Map<string, Row[]>();
     for (const r of check(signoffs) as Row[]) signBy.set(r.job_id, [...(signBy.get(r.job_id) ?? []), r]);
@@ -191,6 +205,30 @@ export class SupabaseRepo implements Repo {
       })),
       jobCheckpoints: (check(marks) as Row[]).map((r) => ({ jobId: r.job_id, key: r.checkpoint_key, by: r.done_by, at: r.done_at })),
       staff: (check(staff) as { schedulers: string[]; jobSetup: string[] } | null) ?? { schedulers: [], jobSetup: [] },
+      percents: (check(pcts) as Row[]).map((r) => ({ jobId: r.job_id, week: r.week, materialsPct: Number(r.materials_pct), laborPct: Number(r.labor_pct), enteredBy: r.entered_by })),
+      changeOrders: (check(cos) as Row[]).map((r) => ({
+        id: r.id,
+        jobId: r.job_id,
+        number: r.number,
+        description: r.description,
+        amountCents: Number(r.amount_cents),
+        materialCents: Number(r.material_cents),
+        hours: r.hours,
+        approvedOn: r.approved_on,
+      })),
+      milestones: (check(mss) as Row[]).map((r) => ({ id: r.id, jobId: r.job_id, label: r.label, pct: Number(r.pct), sort: r.sort, reachedOn: r.reached_on, reachedBy: r.reached_by })),
+      invoices: (check(invs) as Row[]).map((r) => ({
+        id: r.id,
+        jobId: r.job_id,
+        kind: r.kind,
+        period: r.period,
+        milestoneId: r.milestone_id,
+        number: r.number,
+        amountCents: Number(r.amount_cents),
+        invoicedOn: r.invoiced_on,
+        recordedBy: r.recorded_by,
+      })),
+      retainageReceipts: (check(rets) as Row[]).map((r) => ({ id: r.id, jobId: r.job_id, amountCents: Number(r.amount_cents), receivedOn: r.received_on })),
     };
     const w = check(weeks) as { planningWeek: string; weekToClose: string | null };
 
@@ -382,6 +420,38 @@ export class SupabaseRepo implements Repo {
     if (isNew) check(await this.sb.from("journey_checkpoints").insert(row));
     else check(await this.sb.from("journey_checkpoints").update(row).eq("key", d.key));
   }
+
+  async recordPercent(jobId: string, materialsPct: number, laborPct: number) {
+    check(await this.sb.rpc("record_percent", { p_job: jobId, p_materials: materialsPct, p_labor: laborPct }));
+  }
+
+  async addChangeOrder(co: Omit<ChangeOrder, "id">) {
+    check(await this.sb.rpc("add_change_order", { p: co }));
+  }
+
+  async setBillingMethod(jobId: string, method: Job["billingMethod"]) {
+    check(await this.sb.rpc("set_billing_method", { p_job: jobId, p_method: method }));
+  }
+
+  async saveMilestones(jobId: string, items: { id?: string; label: string; pct: number }[]) {
+    check(await this.sb.rpc("save_milestones", { p_job: jobId, p_items: items }));
+  }
+
+  async markMilestoneReached(milestoneId: string) {
+    check(await this.sb.rpc("mark_milestone_reached", { p_milestone: milestoneId }));
+  }
+
+  async recordInvoice(inv: { jobId: string; kind: InvoiceKind; period?: string; milestoneId?: string; number?: string; amountCents?: number }) {
+    check(await this.sb.rpc("record_invoice", { p: inv }));
+  }
+
+  async recordRetainageReceived(jobId: string) {
+    check(await this.sb.rpc("record_retainage_received", { p_job: jobId }));
+  }
+
+  async companyRevenueTotals() {
+    return check(await this.sb.rpc("company_revenue_totals")) as { remainingCents: number; netBillingCents: number; reviewCount: number };
+  }
 }
 
 interface CompanyInputs {
@@ -422,6 +492,11 @@ export function totalsDataset(x: CompanyInputs, settings: Settings): Dataset {
     checkpointDefs: [],
     jobCheckpoints: [],
     staff: { schedulers: [], jobSetup: [] },
+    percents: [],
+    changeOrders: [],
+    milestones: [],
+    invoices: [],
+    retainageReceipts: [],
   };
 }
 
@@ -451,6 +526,10 @@ const blankJob: Omit<Job, "id" | "number" | "projectedHrs" | "start" | "projecte
   retainagePct: 0,
   retainageRelease: null,
   retainageReleaseNote: null,
+  customerPo: "",
+  billTo: "",
+  lienWaivers: false,
+  certifiedPayroll: false,
   requirements: [],
   siteAddress: "",
   siteStartTime: "",

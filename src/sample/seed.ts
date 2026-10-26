@@ -25,7 +25,8 @@ import { DEFAULT_SETTINGS } from "../domain/types";
 import { allPlans, buildIndex, materialRevenueCents } from "../domain/schedule";
 import { DEFAULT_CHECKPOINTS, DEFAULT_STAGES, type JobCheckpoint } from "../domain/journey";
 import { WO_STEPS, type WorkOrder } from "../domain/workOrders";
-import { addDays, mondayOf } from "../domain/weeks";
+import { MILESTONE_TEMPLATE, type Invoice, type Milestone, type PercentEntry, type RetainageReceipt } from "../domain/money";
+import { addDays, mondayOf, weekEnding as weekEndingOf } from "../domain/weeks";
 
 /** The demo was built around this week. Sample dates shift so this week lines up with the base week. */
 const DEMO_WEEK = "2026-10-16";
@@ -249,6 +250,10 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
       retainagePct: muni ? 5 : 0,
       retainageRelease: muni ? "final_completion" : null,
       retainageReleaseNote: null,
+      customerPo: "PO " + (48000 + 4112 + i * 7),
+      billTo: "Accounts payable, " + s.c,
+      lienWaivers: value >= 100000,
+      certifiedPayroll: muni,
       requirements: s.q ?? [],
       siteAddress: `${100 + i * 37} ${["Industrial", "Commerce", "Mill", "Plant", "Elevator", "Water"][i % 6]} ${["Dr", "Rd", "St", "Ave"][i % 4]}, ${s.l}`,
       siteStartTime: i % 3 === 2 ? "7:00 AM" : "6:30 AM",
@@ -358,7 +363,7 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
   const snapshots: ForecastSnapshot[] = [];
   {
     const r7 = rng(7);
-    const ds0 = { jobs, people, timeOff, overrides: [], actuals, assignments, notes, settings: { ...DEFAULT_SETTINGS }, qualifications: QUALIFICATIONS, reps: REPS, pms: PMS, closes, hourEntries: [], confirmations: [], metrics, workOrders: [], stages: [], checkpointDefs: [], jobCheckpoints: [], staff: { schedulers: [], jobSetup: [] } };
+    const ds0 = { jobs, people, timeOff, overrides: [], actuals, assignments, notes, settings: { ...DEFAULT_SETTINGS }, qualifications: QUALIFICATIONS, reps: REPS, pms: PMS, closes, hourEntries: [], confirmations: [], metrics, workOrders: [], stages: [], checkpointDefs: [], jobCheckpoints: [], staff: { schedulers: [], jobSetup: [] }, percents: [], changeOrders: [], milestones: [], invoices: [], retainageReceipts: [] };
     const plans = allPlans(ds0, buildIndex(ds0), START);
     for (let i = 0; i < 4; i++) {
       const w = addDays(START, 7 * i);
@@ -492,6 +497,139 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
   unset(9, ["safety"]);
   unset(13, ["po"]);
 
+  // Percent complete from the Monday meetings, one entry per week with hours; the latest is this week's.
+  const percents: PercentEntry[] = [];
+  const r11 = rng(11);
+  const round5 = (x: number) => Math.round(x * 20) * 5;
+  jobs.forEach((j, i) => {
+    const weeks = actuals.filter((a) => a.jobId === j.id).sort((a, b) => a.week.localeCompare(b.week));
+    let cum = 0;
+    weeks.forEach((a, k) => {
+      cum += a.hours;
+      let lab = round5(Math.min(0.95, cum / j.projectedHrs));
+      const last = k === weeks.length - 1;
+      if (last && i === 5) lab = 75;
+      if (last && i === 1) lab = 30;
+      const mat = Math.min(100, round5(lab / 100 + 0.35));
+      percents.push({ jobId: j.id, week: last ? START : a.week, materialsPct: mat, laborPct: lab, enteredBy: pmName(j.pmCode) });
+    });
+  });
+  const recognizedNow = (j: Job) => {
+    const p = percents.filter((x) => x.jobId === j.id).at(-1);
+    return p ? (j.materialRevenueCents * p.materialsPct) / 100 + ((j.contractCents - j.materialRevenueCents) * p.laborPct) / 100 : 0;
+  };
+
+  // Billing: monthly progress on three jobs, milestones on Riverbend and Iron Range, the rest final only.
+  const invoices: Invoice[] = [];
+  const milestones: Milestone[] = [];
+  const retainageReceipts: RetainageReceipt[] = [];
+  let iv = 1;
+  let invNo = 1150;
+  const inv = (jobId: string, kind: Invoice["kind"], amountCents: number, on: IsoDate, extra: Partial<Invoice> = {}) =>
+    invoices.push({ id: sampleId(7, iv++), jobId, kind, period: null, milestoneId: null, number: kind === "skip" ? null : `26-${invNo++}`, amountCents, invoicedOn: on, recordedBy: "Accounting", ...extra });
+  {
+    const j0 = jobs[0];
+    const amt = Math.round((recognizedNow(j0) * (0.85 + r11() * 0.1)) / 10000) * 10000;
+    inv(j0.id, "progress", amt, addDays(START, -5), { period: START.slice(0, 7) });
+    let mn = 1;
+    const ms = (j: Job, list: [string, number][], reached: (IsoDate | null)[]) =>
+      list.forEach(([label, pct], k) =>
+        milestones.push({ id: sampleId(8, mn++), jobId: j.id, label, pct, sort: k + 1, reachedOn: reached[k] ?? null, reachedBy: reached[k] ? pmName(j.pmCode) : null }),
+      );
+    ms(jobs[1], [["Mobilization", 20], ["Tank 1 lined", 40], ["Tank 2 lined", 30]], [addDays(START, -7), START, null]);
+    inv(jobs[1].id, "milestone", Math.round(jobs[1].contractCents * 0.2), addDays(START, -7), { milestoneId: milestones[0].id });
+    ms(jobs[14], MILESTONE_TEMPLATE, []);
+  }
+
+  // Five finished jobs for the billing board: ready, monthly with a balance, waiting on sign-off, retainage out, closed.
+  const DONE = [
+    { num: "4051", c: "Dakota Ridge Ethanol", t: "Tank lining", l: "Marshall, MN", rep: "JT", pm: "JS", s: "Tony Becker", st: -45, fin: -7, val: 148500, method: "final", signed: true },
+    { num: "4058", c: "Wabasha County Highway Dept", t: "Structural steel", l: "Wabasha, MN", rep: "NH", pm: "TK", s: "Kevin Jensen", st: -38, fin: -7, val: 212000, method: "monthly", signed: true, prog: 159000, muni: true },
+    { num: "4065", c: "Sunrise Cheese", t: "Floor system", l: "Melrose, MN", rep: "RS", pm: "RL", s: "Luis Ortega", st: -31, fin: -9, val: 86500, method: "final", signed: false },
+    { num: "4072", c: "Mankato Water Treatment", t: "Secondary containment", l: "Mankato, MN", rep: "KW", pm: "RL", s: "Pete Larson", st: -73, fin: -35, val: 174000, method: "final", signed: true, final: true, muni: true },
+    { num: "4079", c: "Ag Partners Co-op", t: "Interior painting", l: "Redwood Falls, MN", rep: "TP", pm: "JS", s: "Ray Thompson", st: -66, fin: -42, val: 58000, method: "final", signed: true, final: true, warranty: true },
+  ];
+  DONE.forEach((x, k) => {
+    const id = sampleId(K.job, 100 + k);
+    const proj = Math.round(x.val / 150 / 10) * 10;
+    const start = addDays(START, x.st - 4);
+    const finish = addDays(START, x.fin);
+    const contractCents = x.val * 100;
+    const job: Job = {
+      id,
+      number: x.num,
+      customer: x.c,
+      jobType: x.t,
+      location: x.l,
+      repCode: RMAP[x.rep] ?? x.rep,
+      pmCode: x.pm,
+      estimator: ESTIMATORS[k % 2],
+      leaderId: leaderId(x.s),
+      crewSize: 5,
+      estimateHrs: proj,
+      projectedHrs: proj,
+      contractCents,
+      materialCostCents: Math.round(x.val * 0.3 * 0.55) * 100,
+      materialRevenueCents: Math.round((x.val * 0.3) / 500) * 50000,
+      start,
+      projectedFinish: finish,
+      baselineFinish: finish,
+      mustFinish: null,
+      mustFinishReason: null,
+      actualFinish: finish,
+      status: "complete",
+      firmness: "confirmed",
+      waitsOnJobId: null,
+      firmnessReason: null,
+      holdReason: null,
+      holdUntil: null,
+      exterior: false,
+      billingMethod: x.method as Job["billingMethod"],
+      retainagePct: x.muni ? 5 : 0,
+      retainageRelease: x.muni ? "final_completion" : null,
+      retainageReleaseNote: null,
+      customerPo: "PO " + (48000 + Number(x.num)),
+      billTo: "Accounts payable, " + x.c,
+      lienWaivers: x.val >= 100000,
+      certifiedPayroll: !!x.muni,
+      requirements: [],
+      siteAddress: "",
+      siteStartTime: "6:30 AM",
+      siteContact: "",
+      siteOrientation: "None",
+      sitePpe: ppeFor(x.t),
+      active: true,
+    };
+    jobs.push(job);
+    actuals.push({ jobId: id, week: weekEndingOf(finish), hours: proj });
+    const s0 = addDays(start, -20);
+    workOrders.push({
+      jobId: id,
+      version: 2,
+      currentStep: 4,
+      since: s0,
+      final: true,
+      filed: true,
+      fileName: `WO-${x.num} v2.pdf`,
+      filePath: null,
+      returned: null,
+      signoffs: WO_STEPS.map((_, i) => ({ step: i, by: who(job, i), at: stamp(s0) })),
+      history: [{ at: stamp(s0), who: "Lori", action: "Final filed in Procore as the work order of record.", note: "" }],
+    });
+    for (const c of DEFAULT_CHECKPOINTS) {
+      if (c.autoSource) continue;
+      if (c.anchor === "finish" && c.key !== "walk") continue;
+      if (c.key === "walk" && !x.signed) continue;
+      jobCheckpoints.push({ jobId: id, key: c.key, by: ownerWho(job, c.owner), at: stamp(addDays(c.anchor === "finish" ? finish : start, c.offsetDays)) });
+    }
+    if (x.prog) inv(id, "progress", x.prog * 100, addDays(START, -32), { period: addDays(START, -32).slice(0, 7) });
+    if (x.final) {
+      inv(id, "final", contractCents, addDays(finish, 7));
+      jobCheckpoints.push({ jobId: id, key: "cause", by: pmName(x.pm), at: stamp(addDays(finish, 5)) });
+      if (x.warranty) jobCheckpoints.push({ jobId: id, key: "warr", by: pmName(x.pm), at: stamp(addDays(finish, 10)) });
+    }
+  });
+
   return {
     jobs,
     people,
@@ -515,5 +653,10 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
     checkpointDefs: DEFAULT_CHECKPOINTS.map((x) => ({ ...x })),
     jobCheckpoints,
     staff: { schedulers: ["Nicole"], jobSetup: ["Lori"] },
+    percents,
+    changeOrders: [],
+    milestones,
+    invoices,
+    retainageReceipts,
   };
 }

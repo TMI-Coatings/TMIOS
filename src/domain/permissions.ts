@@ -9,7 +9,7 @@ import type { Job, Role, Viewer } from "./types";
 /** Full rights: admin, the CEO (decision 7) and the CFO. */
 const OFFICE_ALL: Role[] = ["admin", "ceo", "cfo"];
 
-export type Tab = "me" | "dashboard" | "schedule" | "wo" | "journey" | "close" | "crew" | "alerts" | "access" | "settings" | "log";
+export type Tab = "me" | "dashboard" | "schedule" | "wo" | "journey" | "billing" | "close" | "revenue" | "crew" | "alerts" | "access" | "settings" | "log";
 
 export const TABS: { id: Tab; label: string; roles: Role[] }[] = [
   { id: "me", label: "My week", roles: ["superintendent", "field_crew"] },
@@ -21,8 +21,11 @@ export const TABS: { id: Tab; label: string; roles: Role[] }[] = [
   },
   { id: "wo", label: "Work orders", roles: [...OFFICE_ALL, "scheduler", "job_setup", "estimator", "pm", "sales_rep"] },
   { id: "journey", label: "Job journey", roles: [...OFFICE_ALL, "scheduler", "job_setup", "estimator", "pm", "sales_rep", "accounting"] },
+  { id: "billing", label: "Billing", roles: [...OFFICE_ALL, "accounting"] },
   // PMs enter hours for their own jobs; the scheduler closes the week (decision 9).
   { id: "close", label: "Weekly close", roles: [...OFFICE_ALL, "scheduler", "pm"] },
+  // PMs enter percent complete for their own jobs (decision 16).
+  { id: "revenue", label: "Revenue", roles: [...OFFICE_ALL, "scheduler", "pm", "sales_rep", "accounting"] },
   { id: "crew", label: "Crew", roles: [...OFFICE_ALL, "scheduler"] },
   { id: "alerts", label: "Alerts", roles: ["admin", "ceo", "cfo", "scheduler", "job_setup", "estimator", "pm", "superintendent", "sales_rep", "field_crew", "accounting"] },
   { id: "log", label: "Change log", roles: [...OFFICE_ALL, "scheduler"] },
@@ -74,7 +77,10 @@ export type JobField =
   | "crew"
   | "notes"
   | "pinNotes"
-  | "actuals";
+  | "actuals"
+  | "percent"
+  | "changeOrders"
+  | "milestones";
 
 type Rule = { any: Role[]; own?: Role[] };
 
@@ -97,6 +103,11 @@ export const JOB_FIELD_RULES: Record<JobField, Rule> = {
   pinNotes: { any: OFFICE_ALL },
   // Hours for the open week, before the close (decision 9).
   actuals: { any: [...OFFICE_ALL, "scheduler"], own: ["pm"] },
+  // Monday percent complete: the PM, or Jared and the admins (decision 16).
+  percent: { any: OFFICE_ALL, own: ["pm"] },
+  // Approved change orders: the PM or Lori (decision 19).
+  changeOrders: { any: [...OFFICE_ALL, "job_setup"], own: ["pm"] },
+  milestones: { any: [...OFFICE_ALL, "scheduler"], own: ["pm"] },
 };
 
 export function canEditJob(v: Viewer, j: Job, f: JobField): boolean {
@@ -106,7 +117,7 @@ export function canEditJob(v: Viewer, j: Job, f: JobField): boolean {
 }
 
 /** Which job columns each field group covers (used by the edit form and mirrored in the database trigger). */
-export const JOB_COLUMNS: Record<Exclude<JobField, "plan" | "crew" | "notes" | "pinNotes" | "actuals">, (keyof Job)[]> = {
+export const JOB_COLUMNS: Record<Exclude<JobField, "plan" | "crew" | "notes" | "pinNotes" | "actuals" | "percent" | "changeOrders" | "milestones">, (keyof Job)[]> = {
   start: ["start"],
   projectedFinish: ["projectedFinish"],
   crewSize: ["crewSize"],
@@ -134,6 +145,10 @@ export const JOB_COLUMNS: Record<Exclude<JobField, "plan" | "crew" | "notes" | "
     "retainagePct",
     "retainageRelease",
     "retainageReleaseNote",
+    "customerPo",
+    "billTo",
+    "lienWaivers",
+    "certifiedPayroll",
     "requirements",
     "active",
   ],
@@ -150,4 +165,6 @@ export const can = {
   closeWeek: (r: Role) => ([...OFFICE_ALL, "scheduler"] as Role[]).includes(r),
   sendDigest: (r: Role) => ([...OFFICE_ALL, "scheduler"] as Role[]).includes(r),
   editJourney: (r: Role) => OFFICE_ALL.includes(r),
+  recordInvoices: (r: Role) => ([...OFFICE_ALL, "accounting"] as Role[]).includes(r),
+  seeMoney: (r: Role) => ([...OFFICE_ALL, "scheduler", "pm", "sales_rep", "accounting", "job_setup"] as Role[]).includes(r),
 };

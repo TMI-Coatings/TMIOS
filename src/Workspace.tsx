@@ -7,7 +7,9 @@ import { AccessScreen } from "./screens/AccessScreen";
 import { AlertsScreen } from "./screens/AlertsScreen";
 import { CloseScreen } from "./screens/CloseScreen";
 import { DashboardScreen } from "./screens/DashboardScreen";
+import { BillingScreen } from "./screens/BillingScreen";
 import { JourneyScreen } from "./screens/JourneyScreen";
+import { RevenueScreen } from "./screens/RevenueScreen";
 import { MyWeekScreen } from "./screens/MyWeekScreen";
 import { WorkOrdersScreen } from "./screens/WorkOrdersScreen";
 import { CrewScreen } from "./screens/CrewScreen";
@@ -122,6 +124,10 @@ export function Workspace({ repo, viewer, header }: { repo: Repo; viewer: Viewer
           <WorkOrdersScreen ctx={ctx} />
         ) : tab === "journey" ? (
           <JourneyScreen ctx={ctx} />
+        ) : tab === "billing" ? (
+          <BillingScreen ctx={ctx} />
+        ) : tab === "revenue" ? (
+          <RevenueScreen ctx={ctx} />
         ) : tab === "close" ? (
           <CloseScreen ctx={ctx} />
         ) : tab === "alerts" ? (

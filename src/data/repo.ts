@@ -1,5 +1,6 @@
 import type { CloseInput, CloseResult } from "../domain/close";
 import type { CheckpointDef } from "../domain/journey";
+import type { ChangeOrder, InvoiceKind } from "../domain/money";
 import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Person, Role, Settings, TimeOffType, Viewer } from "../domain/types";
 
 export interface NewJobInput {
@@ -27,6 +28,10 @@ export interface NewJobInput {
   retainagePct: number;
   retainageRelease: Job["retainageRelease"];
   retainageReleaseNote: string | null;
+  customerPo: string;
+  billTo: string;
+  lienWaivers: boolean;
+  certifiedPayroll: boolean;
   requirements: string[];
   siteAddress: string;
   siteStartTime: string;
@@ -97,6 +102,16 @@ export interface Repo {
   woFileUrl(jobId: string): Promise<string | null>;
   setCheckpoint(jobId: string, key: string, done: boolean): Promise<void>;
   saveCheckpointDef(def: CheckpointDef, isNew: boolean): Promise<void>;
+  /** Monday percent complete for this week, 0 to 100. */
+  recordPercent(jobId: string, materialsPct: number, laborPct: number): Promise<void>;
+  addChangeOrder(co: Omit<ChangeOrder, "id">): Promise<void>;
+  setBillingMethod(jobId: string, method: Job["billingMethod"]): Promise<void>;
+  saveMilestones(jobId: string, items: { id?: string; label: string; pct: number }[]): Promise<void>;
+  markMilestoneReached(milestoneId: string): Promise<void>;
+  recordInvoice(inv: { jobId: string; kind: InvoiceKind; period?: string; milestoneId?: string; number?: string; amountCents?: number }): Promise<void>;
+  recordRetainageReceived(jobId: string): Promise<void>;
+  /** Company revenue totals for reps and PMs, who only see their own jobs (decision 6). */
+  companyRevenueTotals(): Promise<{ remainingCents: number; netBillingCents: number; reviewCount: number } | null>;
 }
 
 /** Turns a database or rule error into one plain sentence for the screen. */

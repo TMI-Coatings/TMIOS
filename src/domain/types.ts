@@ -1,5 +1,6 @@
 import type { CheckpointDef, JobCheckpoint, JourneyStage } from "./journey";
 import type { WorkOrder } from "./workOrders";
+import type { ChangeOrder, Invoice, Milestone, PercentEntry, RetainageReceipt } from "./money";
 
 export const ROLES = [
   "admin",
@@ -76,6 +77,10 @@ export interface Job {
   retainagePct: number;
   retainageRelease: RetainageRelease | null;
   retainageReleaseNote: string | null;
+  customerPo: string;
+  billTo: string;
+  lienWaivers: boolean;
+  certifiedPayroll: boolean;
   requirements: string[];
   siteAddress: string;
   siteStartTime: string;
@@ -156,6 +161,12 @@ export interface Settings {
   woReviewDays: number;
   woStartSoonDays: number;
   journeyLookaheadDays: number;
+  payAppDay: number;
+  invoiceDays: number;
+  underBilledFlagCents: number;
+  overBilledFlagPct: number;
+  laborDivergencePts: number;
+  marginFadePts: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -178,6 +189,12 @@ export const DEFAULT_SETTINGS: Settings = {
   woReviewDays: 2,
   woStartSoonDays: 14,
   journeyLookaheadDays: 21,
+  payAppDay: 25,
+  invoiceDays: 3,
+  underBilledFlagCents: 100000,
+  overBilledFlagPct: 10,
+  laborDivergencePts: 15,
+  marginFadePts: 3,
 };
 
 export interface Lookup {
@@ -303,6 +320,11 @@ export interface Dataset {
   stages: JourneyStage[];
   checkpointDefs: CheckpointDef[];
   jobCheckpoints: JobCheckpoint[];
+  percents: PercentEntry[];
+  changeOrders: ChangeOrder[];
+  milestones: Milestone[];
+  invoices: Invoice[];
+  retainageReceipts: RetainageReceipt[];
   /** Names only, so screens can say who a step waits on. */
   staff: { schedulers: string[]; jobSetup: string[] };
 }

@@ -28,6 +28,12 @@ import {
 import type { Dataset, Firmness, IsoDate, Job, Settings } from "./types";
 import { addDays, daysBetween, fmtShort, weekList } from "./weeks";
 import { journeyOf, namesOf } from "./views";
+import { Money, revenueByPeriod } from "./money";
+
+const usdShort = (cents: number) => {
+  const v = cents / 100;
+  return v >= 1e6 ? "$" + (v / 1e6).toFixed(2) + "M" : v >= 1e3 ? "$" + Math.round(v / 1e3) + "K" : "$" + Math.round(v);
+};
 import { woDaysWaiting, woLate, woOpen, woStatus, woWaiting } from "./workOrders";
 
 const n0 = (v: number) => Math.round(v).toLocaleString("en-US");
@@ -263,6 +269,12 @@ export function digestLines(ds: Dataset, idx: Index, plans: Plans, week: IsoDate
       return `Work orders: ${open.length} not final${late ? `, ${late} past the review deadline` : ""}${soon ? `, ${soon} starting within ${s.woStartSoonDays} days` : ""}.`;
     })(),
     missing.length ? `Missing hours from last close: ${missing.map((j) => `${j.number} ${j.customer} (PM ${pmName(j.pmCode)})`).join(", ")}.` : last ? "All hours entered at last close." : "",
+    (() => {
+      if (!ds.percents.length && !ds.invoices.length) return "";
+      const m = new Money(ds, idx, week, today);
+      const [mo] = revenueByPeriod(ds, m, plans, week, "month");
+      return `${mo.label} revenue forecast ${usdShort(mo.actual + mo.lab + mo.mat)}, ${usdShort(mo.actual)} recognized so far.`;
+    })(),
     acc != null ? `Forecast accuracy, 4 weeks out: ${Math.round(acc * 100)}%.` : "Forecast accuracy starts after the first close.",
   ].filter(Boolean);
 }
