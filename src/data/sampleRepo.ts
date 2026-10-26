@@ -18,7 +18,7 @@ import { addDays, currentWeek, fmtShort, mondayOf, planningWeek, todayIn, weekLi
 import { buildSample, type SampleData } from "../sample/seed";
 import type { AccessUser, LoadResult, NewJobInput, Repo } from "./repo";
 
-const KEY = "tmi-ops-sample-v2";
+const KEY = "tmi-ops-sample-v3";
 
 const uid = () => crypto.randomUUID();
 const denied = () => new Error("You don't have permission to make that change.");
