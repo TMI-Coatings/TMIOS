@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { canEditJob, canSeeJob, tabsFor } from "../../src/domain/permissions";
+import { can, canEditJob, canSeeJob, tabsFor } from "../../src/domain/permissions";
 import { isSold } from "../../src/domain/schedule";
 import type { Role } from "../../src/domain/types";
 import { ROLE_LABEL } from "../../src/domain/types";
@@ -42,7 +42,7 @@ for (const role of ROLES_WITH_SAMPLE_USER) {
     if (readOnly) await expect(page.locator(`tr[data-job-row="${readOnly.number}"] input`)).toHaveCount(0);
 
     const addJob = page.getByRole("button", { name: "Add job from estimate" });
-    await expect(addJob).toHaveCount(["admin", "ceo", "scheduler", "job_setup"].includes(role) ? 1 : 0);
+    await expect(addJob).toHaveCount(can.addJob(role) ? 1 : 0);
   });
 }
 

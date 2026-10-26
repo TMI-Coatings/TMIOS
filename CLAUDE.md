@@ -22,7 +22,7 @@ Crew scheduling, forecasting, WIP, work orders, job journey and billing for TMI 
 9. Work in small steps: show me a plan, build, run the tests, then commit with a plain-English message.
 
 ## Roles
-admin, ceo, scheduler (Nicole), job setup (Lori), estimator, pm, superintendent, sales rep, field crew (leaders only in Phase 1), accounting, cfo (Jared). No board role: the board gets an exported PDF pack. Use the demo's permissions for each, except where docs/decisions.md says otherwise.
+admin, ceo, scheduler (Nicole), job setup (Lori), estimator, pm, superintendent, sales rep, field crew (leaders only in Phase 1), accounting, cfo (Jared, full rights like admin and ceo). No board role: the board gets an exported PDF pack. Use the demo's permissions for each, except where docs/decisions.md says otherwise.
 
 ## Business rules to keep exactly
 - Forecast counts sold work only. On-hold hours come out of capacity.

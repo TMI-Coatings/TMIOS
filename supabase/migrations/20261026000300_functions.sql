@@ -26,7 +26,7 @@ declare
   est integer := (p ->> 'estimateHrs')::integer;
   q text;
 begin
-  if not app.role_in('admin', 'ceo', 'scheduler', 'job_setup') then
+  if not app.role_in('admin', 'ceo', 'cfo', 'scheduler', 'job_setup') then
     raise exception 'You can''t add jobs' using errcode = '42501';
   end if;
   insert into public.jobs (
@@ -69,7 +69,7 @@ $$;
 create function public.company_load_inputs() returns jsonb
   language plpgsql stable security definer set search_path = public, pg_temp as $$
 begin
-  if not app.role_in('admin', 'ceo', 'scheduler', 'job_setup', 'estimator', 'pm', 'sales_rep', 'accounting', 'cfo') then
+  if not app.role_in('admin', 'ceo', 'cfo', 'scheduler', 'job_setup', 'estimator', 'pm', 'sales_rep', 'accounting') then
     raise exception 'Company totals are not available for your role' using errcode = '42501';
   end if;
   return jsonb_build_object(

@@ -6,7 +6,8 @@ import type { Job, Role, Viewer } from "./types";
  * database tests run every rule here against Postgres, so the two can't drift apart.
  */
 
-const OFFICE_ALL: Role[] = ["admin", "ceo"];
+/** Full rights: admin, the CEO (decision 7) and the CFO. */
+const OFFICE_ALL: Role[] = ["admin", "ceo", "cfo"];
 
 export type Tab = "schedule" | "crew" | "access" | "settings" | "log";
 
@@ -16,10 +17,10 @@ export const TABS: { id: Tab; label: string; roles: Role[] }[] = [
     label: "Schedule",
     roles: ["admin", "ceo", "scheduler", "job_setup", "estimator", "pm", "superintendent", "sales_rep", "accounting", "cfo"],
   },
-  { id: "crew", label: "Crew", roles: ["admin", "ceo", "scheduler"] },
-  { id: "log", label: "Change log", roles: ["admin", "ceo", "scheduler"] },
-  { id: "access", label: "Access", roles: ["admin", "ceo"] },
-  { id: "settings", label: "Settings", roles: ["admin", "ceo"] },
+  { id: "crew", label: "Crew", roles: [...OFFICE_ALL, "scheduler"] },
+  { id: "log", label: "Change log", roles: [...OFFICE_ALL, "scheduler"] },
+  { id: "access", label: "Access", roles: OFFICE_ALL },
+  { id: "settings", label: "Settings", roles: OFFICE_ALL },
 ];
 
 export const tabsFor = (role: Role) => TABS.filter((t) => t.roles.includes(role));
@@ -83,7 +84,7 @@ export const JOB_FIELD_RULES: Record<JobField, Rule> = {
   actualFinish: { any: [...OFFICE_ALL, "scheduler"] },
   site: { any: [...OFFICE_ALL, "scheduler"] },
   intake: { any: [...OFFICE_ALL, "job_setup"] },
-  crew: { any: OFFICE_ALL, own: ["superintendent"] },
+  crew: { any: [...OFFICE_ALL, "scheduler"], own: ["superintendent"] },
   notes: { any: [...OFFICE_ALL, "scheduler"], own: ["superintendent"] },
   pinNotes: { any: OFFICE_ALL },
 };

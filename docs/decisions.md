@@ -15,9 +15,10 @@ Answers to the open questions in `kickoff-analysis.md` section 3, decided by Aus
 
 7. **CEO (Derrick).** Full admin powers, as in the demo.
 8. **Moving start dates and plan cells.** Admin, ceo and scheduler on any job; a PM on their own jobs. Every move is logged and fires the Date-moved alert.
+8a. **Crew assignment.** Admin, ceo, cfo and scheduler on any job; a leader on their own jobs.
 9. **Entering actuals.** Admin, ceo, scheduler, and a PM on their own jobs. The scheduler closes the week.
 10. **Closeout cause tags.** The PM tags. Admin, ceo and scheduler can correct.
-11. **Finance.** A new `cfo` role for Jared: accounting powers plus company financial views and billing approvals. Exact rights to be confirmed before the RLS policies are written. Billing alerts go to the role, not to a hard-coded name.
+11. **Finance.** A new `cfo` role for Jared, with full rights: the same powers as admin and CEO. Billing alerts go to the role, not to a hard-coded name.
 12. **Board.** No board login and no board role. The board gets an exported PDF board pack, which admin, ceo or cfo can generate.
 
 ## Business rules
@@ -46,7 +47,6 @@ Answers to the open questions in `kickoff-analysis.md` section 3, decided by Aus
 
 ## Still open
 
-- Exact rights of the `cfo` role (deferred).
 - Time-system name and a sample export layout (deferred).
 - Teams channel: recommended a new private channel, "TMI Ops Alerts". Awaiting OK.
 - What "go-live" means and its date: see below.

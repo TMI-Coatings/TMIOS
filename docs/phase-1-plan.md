@@ -37,6 +37,6 @@ Weekly close and actuals entry, dashboard, alerts and digest, work orders, journ
 ## Calls I made where the demo and decisions were silent
 
 - Leaders sign in as `superintendent`, linked to their person record. `field_crew` exists as a role but has no screens until the My week screen.
-- `cfo` has the same Phase 1 rights as `accounting` (read the schedule). Its full rights are still open.
-- Weekly crew assignment follows the demo: admin, ceo and the job's own leader. The scheduler can't, which looks wrong for the person who owns the board. Flagged for Austin.
+- `cfo` has full rights, the same as admin and ceo (Austin, Oct 26).
+- Weekly crew assignment: admin, ceo, cfo, the scheduler, and the job's own leader (Austin, Oct 26).
 - Phase 1 has no actuals entry, so hours left uses seeded sample actuals.

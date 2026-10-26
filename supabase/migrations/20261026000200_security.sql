@@ -34,7 +34,7 @@ $$;
 
 create function app.can_see(p_leader uuid, p_rep text, p_pm text) returns boolean
   language sql stable security definer set search_path = public, pg_temp as $$
-  select app.role_in('admin', 'ceo', 'scheduler', 'job_setup', 'estimator', 'accounting', 'cfo')
+  select app.role_in('admin', 'ceo', 'cfo', 'scheduler', 'job_setup', 'estimator', 'accounting')
       or app.owns(p_leader, p_rep, p_pm)
 $$;
 
@@ -53,21 +53,21 @@ declare
 begin
   if r is null then return false; end if;
   case p_field
-    when 'plan' then any_roles := '{admin,ceo,scheduler}'; own_roles := '{pm}';
-    when 'start' then any_roles := '{admin,ceo,scheduler}'; own_roles := '{pm}';
-    when 'projectedFinish' then any_roles := '{admin,ceo,scheduler}'; own_roles := '{pm,superintendent}';
-    when 'crewSize' then any_roles := '{admin,ceo}'; own_roles := '{superintendent}';
-    when 'leaderId' then any_roles := '{admin,ceo}';
-    when 'projectedHrs' then any_roles := '{admin,ceo}';
-    when 'mustFinish' then any_roles := '{admin,ceo}';
-    when 'firmness' then any_roles := '{admin,ceo,scheduler}'; own_roles := '{pm,sales_rep}';
-    when 'status' then any_roles := '{admin,ceo,scheduler}';
-    when 'actualFinish' then any_roles := '{admin,ceo,scheduler}';
-    when 'site' then any_roles := '{admin,ceo,scheduler}';
-    when 'intake' then any_roles := '{admin,ceo,job_setup}';
-    when 'crew' then any_roles := '{admin,ceo}'; own_roles := '{superintendent}';
-    when 'notes' then any_roles := '{admin,ceo,scheduler}'; own_roles := '{superintendent}';
-    when 'pinNotes' then any_roles := '{admin,ceo}';
+    when 'plan' then any_roles := '{admin,ceo,cfo,scheduler}'; own_roles := '{pm}';
+    when 'start' then any_roles := '{admin,ceo,cfo,scheduler}'; own_roles := '{pm}';
+    when 'projectedFinish' then any_roles := '{admin,ceo,cfo,scheduler}'; own_roles := '{pm,superintendent}';
+    when 'crewSize' then any_roles := '{admin,ceo,cfo}'; own_roles := '{superintendent}';
+    when 'leaderId' then any_roles := '{admin,ceo,cfo}';
+    when 'projectedHrs' then any_roles := '{admin,ceo,cfo}';
+    when 'mustFinish' then any_roles := '{admin,ceo,cfo}';
+    when 'firmness' then any_roles := '{admin,ceo,cfo,scheduler}'; own_roles := '{pm,sales_rep}';
+    when 'status' then any_roles := '{admin,ceo,cfo,scheduler}';
+    when 'actualFinish' then any_roles := '{admin,ceo,cfo,scheduler}';
+    when 'site' then any_roles := '{admin,ceo,cfo,scheduler}';
+    when 'intake' then any_roles := '{admin,ceo,cfo,job_setup}';
+    when 'crew' then any_roles := '{admin,ceo,cfo,scheduler}'; own_roles := '{superintendent}';
+    when 'notes' then any_roles := '{admin,ceo,cfo,scheduler}'; own_roles := '{superintendent}';
+    when 'pinNotes' then any_roles := '{admin,ceo,cfo}';
     else return false;
   end case;
   return r = any (any_roles) or (r = any (own_roles) and app.owns(p_leader, p_rep, p_pm));
@@ -160,7 +160,7 @@ $$;
 create function app.people_guard() returns trigger
   language plpgsql security definer set search_path = public, pg_temp as $$
 begin
-  if auth.uid() is not null and old.active is distinct from new.active and not app.role_in('admin', 'ceo') then
+  if auth.uid() is not null and old.active is distinct from new.active and not app.role_in('admin', 'ceo', 'cfo') then
     raise exception 'Only an admin can change who is on the active roster' using errcode = '42501';
   end if;
   return new;
@@ -255,40 +255,40 @@ grant execute on all functions in schema app to authenticated;
 -- ---------------------------------------------------------------- policies
 -- Lookups
 create policy read on public.sales_reps for select to authenticated using (app.is_member());
-create policy write on public.sales_reps for insert to authenticated with check (app.role_in('admin', 'ceo'));
-create policy edit on public.sales_reps for update to authenticated using (app.role_in('admin', 'ceo'));
+create policy write on public.sales_reps for insert to authenticated with check (app.role_in('admin', 'ceo', 'cfo'));
+create policy edit on public.sales_reps for update to authenticated using (app.role_in('admin', 'ceo', 'cfo'));
 create policy read on public.project_managers for select to authenticated using (app.is_member());
-create policy write on public.project_managers for insert to authenticated with check (app.role_in('admin', 'ceo'));
-create policy edit on public.project_managers for update to authenticated using (app.role_in('admin', 'ceo'));
+create policy write on public.project_managers for insert to authenticated with check (app.role_in('admin', 'ceo', 'cfo'));
+create policy edit on public.project_managers for update to authenticated using (app.role_in('admin', 'ceo', 'cfo'));
 create policy read on public.qualifications for select to authenticated using (app.is_member());
-create policy write on public.qualifications for insert to authenticated with check (app.role_in('admin', 'ceo'));
-create policy edit on public.qualifications for update to authenticated using (app.role_in('admin', 'ceo'));
+create policy write on public.qualifications for insert to authenticated with check (app.role_in('admin', 'ceo', 'cfo'));
+create policy edit on public.qualifications for update to authenticated using (app.role_in('admin', 'ceo', 'cfo'));
 
 -- People: names and quals for office roles; phone, DOT and time off for the crew office only.
 create policy read on public.people for select to authenticated using (app.is_member() and not app.role_in('field_crew'));
-create policy write on public.people for insert to authenticated with check (app.role_in('admin', 'ceo', 'scheduler'));
-create policy edit on public.people for update to authenticated using (app.role_in('admin', 'ceo', 'scheduler'));
-create policy read on public.people_private for select to authenticated using (app.role_in('admin', 'ceo', 'scheduler'));
-create policy write on public.people_private for insert to authenticated with check (app.role_in('admin', 'ceo', 'scheduler'));
-create policy edit on public.people_private for update to authenticated using (app.role_in('admin', 'ceo', 'scheduler'));
+create policy write on public.people for insert to authenticated with check (app.role_in('admin', 'ceo', 'cfo', 'scheduler'));
+create policy edit on public.people for update to authenticated using (app.role_in('admin', 'ceo', 'cfo', 'scheduler'));
+create policy read on public.people_private for select to authenticated using (app.role_in('admin', 'ceo', 'cfo', 'scheduler'));
+create policy write on public.people_private for insert to authenticated with check (app.role_in('admin', 'ceo', 'cfo', 'scheduler'));
+create policy edit on public.people_private for update to authenticated using (app.role_in('admin', 'ceo', 'cfo', 'scheduler'));
 create policy read on public.person_qualifications for select to authenticated using (app.is_member() and not app.role_in('field_crew'));
-create policy write on public.person_qualifications for insert to authenticated with check (app.role_in('admin', 'ceo', 'scheduler'));
-create policy edit on public.person_qualifications for update to authenticated using (app.role_in('admin', 'ceo', 'scheduler'));
-create policy read on public.time_off for select to authenticated using (app.role_in('admin', 'ceo', 'scheduler'));
-create policy write on public.time_off for insert to authenticated with check (app.role_in('admin', 'ceo', 'scheduler'));
-create policy edit on public.time_off for update to authenticated using (app.role_in('admin', 'ceo', 'scheduler'));
+create policy write on public.person_qualifications for insert to authenticated with check (app.role_in('admin', 'ceo', 'cfo', 'scheduler'));
+create policy edit on public.person_qualifications for update to authenticated using (app.role_in('admin', 'ceo', 'cfo', 'scheduler'));
+create policy read on public.time_off for select to authenticated using (app.role_in('admin', 'ceo', 'cfo', 'scheduler'));
+create policy write on public.time_off for insert to authenticated with check (app.role_in('admin', 'ceo', 'cfo', 'scheduler'));
+create policy edit on public.time_off for update to authenticated using (app.role_in('admin', 'ceo', 'cfo', 'scheduler'));
 
 -- Users: everyone reads their own row; admin and CEO manage access.
-create policy read on public.app_users for select to authenticated using (auth_user_id = auth.uid() or app.role_in('admin', 'ceo'));
-create policy write on public.app_users for insert to authenticated with check (app.role_in('admin', 'ceo'));
-create policy edit on public.app_users for update to authenticated using (app.role_in('admin', 'ceo'));
+create policy read on public.app_users for select to authenticated using (auth_user_id = auth.uid() or app.role_in('admin', 'ceo', 'cfo'));
+create policy write on public.app_users for insert to authenticated with check (app.role_in('admin', 'ceo', 'cfo'));
+create policy edit on public.app_users for update to authenticated using (app.role_in('admin', 'ceo', 'cfo'));
 
 -- Jobs
 create policy read on public.jobs for select to authenticated using (app.can_see(leader_id, rep_code, pm_code));
-create policy write on public.jobs for insert to authenticated with check (app.role_in('admin', 'ceo', 'scheduler', 'job_setup'));
+create policy write on public.jobs for insert to authenticated with check (app.role_in('admin', 'ceo', 'cfo', 'scheduler', 'job_setup'));
 create policy edit on public.jobs for update to authenticated
   using (app.can_see(leader_id, rep_code, pm_code))
-  with check (app.can_see(leader_id, rep_code, pm_code) or app.role_in('admin', 'ceo', 'job_setup'));
+  with check (app.can_see(leader_id, rep_code, pm_code) or app.role_in('admin', 'ceo', 'cfo', 'job_setup'));
 
 create policy read on public.job_requirements for select to authenticated using (app.can_see_job(job_id));
 create policy write on public.job_requirements for insert to authenticated with check (app.can_edit_job(job_id, 'intake'));
@@ -310,7 +310,7 @@ create policy write on public.assignments for insert to authenticated with check
 create policy edit on public.assignments for update to authenticated using (app.can_edit_job(job_id, 'crew'));
 
 create policy read on public.settings for select to authenticated using (app.is_member());
-create policy edit on public.settings for update to authenticated using (app.role_in('admin', 'ceo'));
+create policy edit on public.settings for update to authenticated using (app.role_in('admin', 'ceo', 'cfo'));
 
 create policy read on public.change_log for select to authenticated
-  using (app.role_in('admin', 'ceo', 'scheduler') or (job_id is not null and app.can_see_job(job_id)));
+  using (app.role_in('admin', 'ceo', 'cfo', 'scheduler') or (job_id is not null and app.can_see_job(job_id)));

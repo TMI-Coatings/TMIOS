@@ -43,11 +43,11 @@ describe("reading jobs", () => {
     expect(r.ok).toBe(false);
   });
   it("only the crew office reads phone, DOT expiry and time off", async () => {
-    for (const role of ["admin", "ceo", "scheduler"]) {
+    for (const role of ["admin", "ceo", "cfo", "scheduler"]) {
       const r = await as(user(role), (q) => q("select (select count(*) from public.people_private) a, (select count(*) from public.time_off) b"));
       expect(r.ok && Number(r.rows[0].a) > 0 && Number(r.rows[0].b) > 0, role).toBe(true);
     }
-    for (const role of ["sales_rep", "pm", "superintendent", "cfo", "estimator"]) {
+    for (const role of ["sales_rep", "pm", "superintendent", "accounting", "estimator"]) {
       const r = await as(user(role), (q) => q("select (select count(*) from public.people_private) a, (select count(*) from public.time_off) b"));
       expect(r.ok && r.rows[0], role).toEqual({ a: "0", b: "0" });
     }
@@ -192,7 +192,16 @@ describe("business rules held in the database", () => {
     const r3 = await as(user("ceo"), (q) => q("update public.people set active = false where id = $1", [fieldPerson]));
     expect(r3.ok && r3.rowCount).toBe(1);
   });
-  it("only admin and CEO change settings", async () => {
+  it("the CFO has full rights: settings, access and the roster", async () => {
+    const r = await as(user("cfo"), async (q) => {
+      await q("update public.settings set value = '11' where key = 'absencePct'");
+      await q("insert into public.app_users (email, name, role) values ('new.est@example.com', 'New Estimator', 'estimator')");
+      await q("update public.people set active = false where id = $1", [fieldPerson]);
+      return q("select (select value::text from public.settings where key = 'absencePct') v, (select count(*) from public.app_users where email = 'new.est@example.com') u");
+    });
+    expect(r.ok && r.rows[0]).toEqual({ v: "11", u: "1" });
+  });
+  it("only admin, CEO and CFO change settings", async () => {
     const r1 = await as(user("scheduler"), (q) => q("update public.settings set value = '12' where key = 'absencePct'"));
     expect(r1.ok && r1.rowCount).toBe(0);
     const r2 = await as(admin, (q) => q("update public.settings set value = '12' where key = 'absencePct'"));
