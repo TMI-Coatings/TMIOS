@@ -17,7 +17,7 @@ export function seedSql(week: string): string {
   const rows = (table: string, cols: string[], data: unknown[][]) =>
     data.length ? `insert into public.${table} (${cols.join(", ")}) values\n${data.map((r) => "  (" + r.map(q).join(", ") + ")").join(",\n")};\n` : "";
 
-  const out: string[] = [`-- Sample data generated for the week ending ${week}. Invented names and numbers only.\n`];
+  const out: string[] = [`-- Sample data generated for the week ending ${week}. Invented names and numbers only.\n`, "set app.seeding = 'on';\n"];
   out.push(rows("sales_reps", ["code", "name"], s.reps.map((r) => [r.code, r.name])));
   out.push(rows("project_managers", ["code", "name"], s.pms.map((r) => [r.code, r.name])));
   out.push(rows("qualifications", ["name"], s.qualifications.map((n) => [n])));
@@ -70,6 +70,22 @@ export function seedSql(week: string): string {
       s.users.map((u) => [u.userId, u.email, u.name, u.role, u.personId, u.repCode, u.pmCode]),
     ),
   );
+  out.push(
+    rows(
+      "week_closes",
+      ["week", "entered", "total_hrs"],
+      s.closes.map((c) => [c.week, c.entered, c.totalHrs]),
+    ),
+  );
+  out.push(
+    rows(
+      "weekly_metrics",
+      ["week", "utilization", "utilization_roster", "backlog_weeks", "accuracy", "on_time", "illustrative"],
+      s.metrics.map((m) => [m.week, m.utilization, m.utilizationRoster, m.backlogWeeks, m.accuracy, m.onTime, m.illustrative]),
+    ),
+  );
+  out.push(rows("forecast_snapshots", ["made_week", "target_week", "job_id", "hours"], s.snapshots.map((x) => [x.madeWeek, x.targetWeek, x.jobId, x.hours])));
+  out.push("reset app.seeding;\nselect app.capacity_check();\nselect app.cert_reminders();\n");
   return out.join("\n");
 }
 

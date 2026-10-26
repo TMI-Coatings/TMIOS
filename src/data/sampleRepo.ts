@@ -5,13 +5,16 @@
  */
 import { JOB_COLUMNS, can, canEditJob, canSeeJob, seesCompanyTotals, type JobField } from "../domain/permissions";
 import { jobProblem } from "../domain/jobRules";
-import { materialRevenueCents } from "../domain/schedule";
-import type { ChangeLogEntry, Dataset, IsoDate, Job, Settings, Viewer } from "../domain/types";
-import { currentWeek } from "../domain/weeks";
+import { canSeeAlert, capacityAlerts, certAlerts, jobChangeAlerts, overrunAlert, type NewAlert } from "../domain/alerts";
+import { closeRows, forecastAccuracy, type CloseInput, type CloseResult } from "../domain/close";
+import { allPlans, buildIndex, capacity, hoursLeft, inWindow, isSold, materialRevenueCents } from "../domain/schedule";
+import { backlogCents, digestLines, digestTitle } from "../domain/insights";
+import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Settings, Viewer } from "../domain/types";
+import { addDays, currentWeek, mondayOf, planningWeek, todayIn, weekList, weekToClose } from "../domain/weeks";
 import { buildSample, type SampleData } from "../sample/seed";
 import type { AccessUser, LoadResult, NewJobInput, Repo } from "./repo";
 
-const KEY = "tmi-ops-sample-v1";
+const KEY = "tmi-ops-sample-v2";
 
 const uid = () => crypto.randomUUID();
 const denied = () => new Error("You don't have permission to make that change.");
@@ -21,6 +24,10 @@ interface Stored {
   week: IsoDate;
   data: SampleData;
   log: ChangeLogEntry[];
+  alerts: Alert[];
+  alertState: Record<string, string>;
+  mutes: Record<string, AlertRule[]>;
+  acks: Record<string, string>;
 }
 
 export class SampleRepo implements Repo {
@@ -46,7 +53,29 @@ export class SampleRepo implements Repo {
 
   private fresh(): Stored {
     const week = currentWeek();
-    return { week, data: buildSample(week), log: [] };
+    const s: Stored = { week, data: buildSample(week), log: [], alerts: [], alertState: {}, mutes: {}, acks: {} };
+    this.s = s;
+    this.checks();
+    this.push(certAlerts(s.data, this.week(), s.alertState));
+    const ds = s.data;
+    const idx = buildIndex(ds);
+    this.push([{ rule: "digest", title: digestTitle(this.week()), body: digestLines(ds, idx, allPlans(ds, idx, this.week()), this.week()).join("\n"), recipients: ["Leadership team"], jobId: null, personId: null }]);
+    for (const a of s.alerts) a.at = mondayOf(this.week()) + "T11:00:00Z";
+    return s;
+  }
+  /** The week the schedule plans from: after a close it moves on even if the calendar hasn't. */
+  week(): IsoDate {
+    return planningWeek(this.s.data.closes.map((c) => c.week), todayIn(new Date()));
+  }
+  private push(list: NewAlert[]) {
+    const at = new Date().toISOString();
+    this.s.alerts.unshift(...list.map((a) => ({ ...a, id: uid(), at })));
+  }
+  /** Capacity gap and open-capacity checks after every change, as the database triggers do. */
+  private checks() {
+    const ds = this.s.data;
+    const idx = buildIndex(ds);
+    this.push(capacityAlerts(ds, idx, allPlans(ds, idx, this.week()), this.week(), this.s.alertState));
   }
   private read(): Stored | null {
     try {
@@ -60,6 +89,7 @@ export class SampleRepo implements Repo {
     }
   }
   private save() {
+    this.checks();
     try {
       this.storage?.setItem(KEY, JSON.stringify(this.s));
     } catch {
@@ -110,9 +140,16 @@ export class SampleRepo implements Repo {
       timeOff: office ? d.timeOff : [],
       people: viewer.role === "field_crew" ? [] : d.people.map((p) => (office ? p : { ...p, phone: "", dotExpires: null })),
     };
+    const office2 = ["admin", "ceo", "cfo", "scheduler"].includes(viewer.role);
+    ds.hourEntries = d.hourEntries.filter((e) => visible.has(e.jobId));
+    ds.confirmations = d.confirmations.filter((c) => visible.has(c.jobId));
+    ds.metrics = office2 ? d.metrics : [];
+    if (viewer.role === "field_crew") ds.closes = [];
     const sawAll = visible.size === d.jobs.length;
     const totals = seesCompanyTotals(viewer.role) && !sawAll ? { ...d, jobs: d.jobs.filter((j) => j.status !== "complete") } : null;
-    return { ds, totals };
+    const closed = this.d.closes.map((c) => c.week);
+    const today = todayIn(new Date());
+    return { ds, totals, week: planningWeek(closed, today), weekToClose: weekToClose(closed, today) };
   }
 
   async setPlanCell(jobId: string, week: IsoDate, hours: number | null) {
@@ -152,7 +189,9 @@ export class SampleRepo implements Repo {
         createdAt: new Date().toISOString(),
       });
     }
+    const before = { ...j };
     Object.assign(j, next);
+    this.push(jobChangeAlerts(this.d, before, j, v.name));
     this.save();
   }
 
@@ -309,6 +348,169 @@ export class SampleRepo implements Repo {
     }
     if (!can.readChangeLog(v.role)) throw denied();
     return this.s.log.slice(0, 300);
+  }
+
+  async saveHourEntry(jobId: string, week: IsoDate, hours: number | null, source: "typed" | "csv" | "import") {
+    const j = this.job(jobId);
+    if (!canEditJob(this.me(), j, "actuals")) throw denied();
+    const i = this.d.hourEntries.findIndex((e) => e.jobId === jobId && e.week === week);
+    const old = i >= 0 ? this.d.hourEntries[i].hours : null;
+    if (hours === null) {
+      if (i >= 0) this.d.hourEntries.splice(i, 1);
+    } else if (i >= 0) this.d.hourEntries[i] = { jobId, week, hours, source };
+    else this.d.hourEntries.push({ jobId, week, hours, source });
+    this.log("hour_entries", jobId + "|" + week, "Job " + j.number, `hours, week ending ${week} (${source})`, old, hours);
+    this.save();
+  }
+
+  async closeWeek(input: CloseInput): Promise<CloseResult> {
+    const v = this.me();
+    if (!["admin", "ceo", "cfo", "scheduler"].includes(v.role)) throw new Error("Only the scheduler or an admin closes the week.");
+    const d = this.d;
+    const expected = weekToClose(d.closes.map((c) => c.week), todayIn(new Date()));
+    if (!expected) throw new Error("This week is already closed.");
+    if (input.week !== expected) throw new Error(`The next week to close is the week ending ${expected}.`);
+    const w = input.week;
+    const before = this.s.alerts.length;
+    let total = 0;
+    for (const e of input.entries) {
+      const hrs = Math.round(e.hours * 10) / 10;
+      d.actuals.push({ jobId: e.jobId, week: w, hours: hrs });
+      total += hrs;
+      const j = d.jobs.find((x) => x.id === e.jobId);
+      this.log("actual_hours", e.jobId + "|" + w, "Job " + (j?.number ?? ""), "added", null, `${hrs} hrs (${e.source})`);
+    }
+    const entered = new Set(input.entries.map((e) => e.jobId));
+    const missing = closeRows(d, w).filter((j) => !entered.has(j.id)).map((j) => j.id);
+    d.closes.push({ week: w, entered: input.entries.length, totalHrs: total, missingJobIds: missing, completedJobIds: input.finished });
+    const done = d.jobs.filter((j) => input.finished.includes(j.id));
+    const onTime = done.length ? done.filter((j) => w <= (j.mustFinish ?? j.baselineFinish)).length / done.length : null;
+    for (const j of done) {
+      this.log("jobs", j.id, "Job " + j.number, "status", j.status, "complete");
+      Object.assign(j, { status: "complete", actualFinish: j.actualFinish ?? w, holdReason: null, holdUntil: null });
+    }
+    d.hourEntries = d.hourEntries.filter((e) => e.week !== w);
+    const snap = this.d.snapshots.filter((x) => x.targetWeek === w && x.madeWeek === addDays(w, -28));
+    const accuracy = forecastAccuracy(snap, total, missing);
+    const nw = addDays(w, 7);
+    const idx = buildIndex(d);
+    const plans = allPlans(d, idx, nw);
+    const cap = weekList(nw, 13).reduce((a, x) => a + capacity(d, idx, x), 0) / 13;
+    const left = d.jobs.filter(isSold).reduce((a, j) => a + Math.max(0, hoursLeft(idx, j)), 0);
+    const roster = d.people.filter((p) => p.active && p.kind !== "leadership").length;
+    d.metrics.push({
+      week: w,
+      utilization: total / (d.settings.targetHeadcount * d.settings.hoursPerManWeek),
+      utilizationRoster: total / (roster * d.settings.hoursPerManWeek),
+      backlogWeeks: cap ? left / cap : null,
+      backlogCents: backlogCents(d, idx),
+      accuracy,
+      onTime,
+      illustrative: false,
+    });
+    for (const target of [nw, addDays(nw, 28)])
+      for (const j of d.jobs) {
+        const h = plans.get(j.id)?.get(target) ?? 0;
+        if (h > 0 && j.status !== "on_hold" && !d.snapshots.some((x) => x.madeWeek === nw && x.targetWeek === target && x.jobId === j.id))
+          d.snapshots.push({ madeWeek: nw, targetWeek: target, jobId: j.id, hours: h });
+      }
+    for (const j of d.jobs.filter((x) => isSold(x) && entered.has(x.id))) {
+      const a = overrunAlert(d, idx, j, input.entries.find((e) => e.jobId === j.id)!.hours, hoursLeft(idx, j));
+      if (a) this.push([a]);
+    }
+    this.log("week_closes", w, "Schedule", "week closed", `week ending ${w}`, `rolled to ${nw}`);
+    this.push(certAlerts(d, nw, this.s.alertState));
+    this.save();
+    return { week: w, entered: input.entries.length, total, missing: missing.length, alerts: this.s.alerts.length - before, nextWeek: nw };
+  }
+
+  async alerts(): Promise<Alert[]> {
+    const v = this.me();
+    return this.s.alerts.filter((a) => canSeeAlert(v, a, this.d, this.week())).slice(0, 200);
+  }
+
+  async mutedRules(): Promise<AlertRule[]> {
+    return this.s.mutes[this.me().userId] ?? [];
+  }
+
+  async setMuted(rule: AlertRule, muted: boolean) {
+    const id = this.me().userId;
+    const cur = new Set(this.s.mutes[id] ?? []);
+    if (muted) cur.add(rule);
+    else cur.delete(rule);
+    this.s.mutes[id] = [...cur];
+    this.save();
+  }
+
+  async postDigest(title: string, body: string) {
+    if (!["admin", "ceo", "cfo", "scheduler"].includes(this.me().role)) throw new Error("Only the scheduler or an admin sends the digest.");
+    this.push([{ rule: "digest", title, body, recipients: ["Leadership team"], jobId: null, personId: null }]);
+    this.save();
+  }
+
+  async confirmMyCrews(): Promise<number> {
+    const v = this.me();
+    if (v.role !== "superintendent" || !v.personId) throw new Error("Only a job leader confirms crews.");
+    const w = this.week();
+    const mine = this.d.jobs.filter((j) => j.leaderId === v.personId && isSold(j) && j.status !== "on_hold" && inWindow(j, w));
+    for (const j of mine) {
+      if (!this.d.confirmations.some((c) => c.jobId === j.id && c.week === w)) {
+        this.d.confirmations.push({ jobId: j.id, week: w });
+        this.log("crew_confirmations", j.id + "|" + w, "Job " + j.number, "crew confirmed, week ending " + w, null, "confirmed");
+      }
+    }
+    this.save();
+    return mine.length;
+  }
+
+  async myWeek(): Promise<MyWeek | null> {
+    const v = this.me();
+    const me = this.d.people.find((p) => p.id === v.personId);
+    if (!me) return null;
+    const w0 = this.week();
+    const name = (id: string | null) => this.d.people.find((p) => p.id === id)?.name ?? null;
+    return {
+      person: { id: me.id, name: me.name, driver: me.driver, dotExpires: me.dotExpires },
+      certs: Object.entries(me.quals)
+        .map(([n, e]) => ({ name: n, expires: e }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+      weeks: [w0, addDays(w0, 7)].map((wk) => ({
+        week: wk,
+        acknowledged: this.s.acks[me.id + "|" + wk] ?? null,
+        timeOff: this.d.timeOff.filter((t) => t.active && t.personId === me.id && t.firstDay <= wk && t.lastDay >= mondayOf(wk)).map((t) => ({ firstDay: t.firstDay, lastDay: t.lastDay, type: t.type })),
+        jobs: this.d.jobs
+          .filter((j) => isSold(j) && j.status !== "on_hold" && this.d.assignments.some((a) => a.jobId === j.id && a.personId === me.id && a.week === wk))
+          .sort((a, b) => a.start.localeCompare(b.start))
+          .map((j) => ({
+            number: j.number,
+            customer: j.customer,
+            jobType: j.jobType,
+            location: j.location,
+            from: j.start > mondayOf(wk) ? j.start : mondayOf(wk),
+            to: j.projectedFinish < wk ? j.projectedFinish : wk,
+            siteAddress: j.siteAddress,
+            siteStartTime: j.siteStartTime,
+            siteContact: j.siteContact,
+            siteOrientation: j.siteOrientation,
+            sitePpe: j.sitePpe,
+            leader: name(j.leaderId),
+            leaderPhone: this.d.people.find((p) => p.id === j.leaderId)?.phone ?? null,
+            notes: this.d.notes.filter((n) => n.jobId === j.id && n.crewVisible).map((n) => n.text),
+            crew: this.d.assignments
+              .filter((a) => a.jobId === j.id && a.week === wk)
+              .map((a) => (name(a.personId) ?? "").split(" ")[0])
+              .sort(),
+          })),
+      })),
+    };
+  }
+
+  async acknowledgeWeek(week: IsoDate) {
+    const v = this.me();
+    if (!v.personId) throw new Error("This sign-in isn't linked to a person on the roster.");
+    const k = v.personId + "|" + week;
+    if (!this.s.acks[k]) this.s.acks[k] = new Date().toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/Chicago" });
+    this.save();
   }
 }
 

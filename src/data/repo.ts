@@ -1,4 +1,5 @@
-import type { ChangeLogEntry, Dataset, IsoDate, Job, Person, Role, Settings, TimeOffType, Viewer } from "../domain/types";
+import type { CloseInput, CloseResult } from "../domain/close";
+import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Person, Role, Settings, TimeOffType, Viewer } from "../domain/types";
 
 export interface NewJobInput {
   number: string;
@@ -48,6 +49,10 @@ export interface AccessUser {
 
 export interface LoadResult {
   ds: Dataset;
+  /** The week the schedule plans from: the first week not yet closed. */
+  week: IsoDate;
+  /** The next week to close, or null when this week is already closed. */
+  weekToClose: IsoDate | null;
   /** Inputs for the company totals rows when the viewer only sees some jobs (decision 6). */
   totals: Dataset | null;
 }
@@ -72,6 +77,16 @@ export interface Repo {
   listUsers(): Promise<AccessUser[]>;
   saveUser(u: Omit<AccessUser, "id" | "linked"> & { id?: string }): Promise<void>;
   changeLog(jobId?: string): Promise<ChangeLogEntry[]>;
+  /** Hours a PM or the scheduler enters for the open week; null clears it. */
+  saveHourEntry(jobId: string, week: IsoDate, hours: number | null, source: "typed" | "csv" | "import"): Promise<void>;
+  closeWeek(input: CloseInput): Promise<CloseResult>;
+  alerts(): Promise<Alert[]>;
+  mutedRules(): Promise<AlertRule[]>;
+  setMuted(rule: AlertRule, muted: boolean): Promise<void>;
+  postDigest(title: string, body: string): Promise<void>;
+  confirmMyCrews(): Promise<number>;
+  myWeek(): Promise<MyWeek | null>;
+  acknowledgeWeek(week: IsoDate): Promise<void>;
 }
 
 /** Turns a database or rule error into one plain sentence for the screen. */
@@ -83,5 +98,6 @@ export function friendlyError(e: unknown): string {
   if (/projected_finish.*start|jobs_check\b|finish date/i.test(msg)) return "The finish date has to be on or after the start date.";
   if (/hold_reason|hold_until/i.test(msg)) return "Jobs on hold need a reason and an expected restart date.";
   if (/retainage_release/i.test(msg)) return "Jobs with retainage need release terms.";
+  if (/actual_hours_job_id_week|hour_entries_pkey/i.test(msg)) return "Hours for that job and week are already in.";
   return msg.replace(/^.*?: /, "");
 }

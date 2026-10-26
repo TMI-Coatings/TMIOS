@@ -4,7 +4,8 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { can, seesCompanyTotals } from "../domain/permissions";
-import type { ChangeLogEntry, Dataset, IsoDate, Job, Person, Settings, TimeOff, Viewer } from "../domain/types";
+import type { CloseInput, CloseResult } from "../domain/close";
+import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Person, Settings, TimeOff, Viewer } from "../domain/types";
 import { DEFAULT_SETTINGS } from "../domain/types";
 import type { AccessUser, LoadResult, NewJobInput, Repo } from "./repo";
 
@@ -59,6 +60,8 @@ function rowToJob(r: Row, reqs: string[]): Job {
   return j;
 }
 
+const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+
 function check<T>(res: { data: T; error: unknown }): T {
   if (res.error) throw res.error;
   return res.data;
@@ -67,19 +70,21 @@ function check<T>(res: { data: T; error: unknown }): T {
 export class SupabaseRepo implements Repo {
   readonly mode = "live" as const;
   private viewerName = "";
+  private viewer: Viewer | null = null;
   constructor(private sb: SupabaseClient) {}
 
   async load(viewer: Viewer): Promise<LoadResult> {
     const sb = this.sb;
     this.viewerName = viewer.name;
-    const office = can.editCrewRecords(viewer.role);
+    this.viewer = viewer;
+    const officeRole = can.editCrewRecords(viewer.role);
     const [jobs, reqs, people, priv, quals, timeOff, overrides, actuals, assignments, notes, settings, reps, pms, qualList] = await Promise.all([
       sb.from("jobs").select("*").eq("active", true),
       sb.from("job_requirements").select("job_id, qualification").eq("active", true),
       sb.from("people").select("id, name, kind, state, driver, active").order("name"),
-      office ? sb.from("people_private").select("person_id, phone, dot_expires") : Promise.resolve({ data: [], error: null }),
+      officeRole ? sb.from("people_private").select("person_id, phone, dot_expires") : Promise.resolve({ data: [], error: null }),
       sb.from("person_qualifications").select("person_id, qualification, expires").eq("active", true),
-      office ? sb.from("time_off").select("id, person_id, first_day, last_day, type, active").eq("active", true) : Promise.resolve({ data: [], error: null }),
+      officeRole ? sb.from("time_off").select("id, person_id, first_day, last_day, type, active").eq("active", true) : Promise.resolve({ data: [], error: null }),
       sb.from("plan_overrides").select("job_id, week, hours").eq("active", true),
       sb.from("actual_hours").select("job_id, week, hours").eq("active", true),
       sb.from("assignments").select("id, job_id, person_id, week").eq("active", true),
@@ -88,6 +93,14 @@ export class SupabaseRepo implements Repo {
       sb.from("sales_reps").select("code, name").eq("active", true).order("name"),
       sb.from("project_managers").select("code, name").eq("active", true).order("name"),
       sb.from("qualifications").select("name").eq("active", true).order("name"),
+    ]);
+    const office = can.editCrewRecords(viewer.role);
+    const [closes, entries, confirmations, metrics, weeks] = await Promise.all([
+      viewer.role === "field_crew" ? Promise.resolve({ data: [], error: null }) : sb.from("week_closes").select("week, entered, total_hrs, missing_job_ids, completed_job_ids").order("week"),
+      sb.from("hour_entries").select("job_id, week, hours, source").eq("active", true),
+      sb.from("crew_confirmations").select("job_id, week").eq("active", true),
+      office ? sb.from("weekly_metrics").select("*").order("week") : Promise.resolve({ data: [], error: null }),
+      sb.rpc("schedule_weeks"),
     ]);
     const reqsBy = new Map<string, string[]>();
     for (const r of check(reqs) as Row[]) reqsBy.set(r.job_id, [...(reqsBy.get(r.job_id) ?? []), r.qualification]);
@@ -121,13 +134,27 @@ export class SupabaseRepo implements Repo {
       qualifications: (check(qualList) as Row[]).map((r) => r.name),
       reps: (check(reps) as Row[]).map((r) => ({ code: r.code, name: r.name })),
       pms: (check(pms) as Row[]).map((r) => ({ code: r.code, name: r.name })),
+      closes: (check(closes) as Row[]).map((r) => ({ week: r.week, entered: r.entered, totalHrs: Number(r.total_hrs), missingJobIds: r.missing_job_ids ?? [], completedJobIds: r.completed_job_ids ?? [] })),
+      hourEntries: (check(entries) as Row[]).map((r) => ({ jobId: r.job_id, week: r.week, hours: Number(r.hours), source: r.source })),
+      confirmations: (check(confirmations) as Row[]).map((r) => ({ jobId: r.job_id, week: r.week })),
+      metrics: (check(metrics) as Row[]).map((r) => ({
+        week: r.week,
+        utilization: num(r.utilization),
+        utilizationRoster: num(r.utilization_roster),
+        backlogWeeks: num(r.backlog_weeks),
+        backlogCents: num(r.backlog_cents),
+        accuracy: num(r.accuracy),
+        onTime: num(r.on_time),
+        illustrative: r.illustrative,
+      })),
     };
+    const w = check(weeks) as { planningWeek: string; weekToClose: string | null };
 
     let totals: Dataset | null = null;
     if (seesCompanyTotals(viewer.role) && !office && ["pm", "sales_rep"].includes(viewer.role)) {
       totals = totalsDataset(check(await sb.rpc("company_load_inputs")) as CompanyInputs, s);
     }
-    return { ds, totals };
+    return { ds, totals, week: w.planningWeek, weekToClose: w.weekToClose };
   }
 
   async setPlanCell(jobId: string, week: IsoDate, hours: number | null) {
@@ -233,6 +260,44 @@ export class SupabaseRepo implements Repo {
       newValue: r.new_value,
     }));
   }
+
+  async saveHourEntry(jobId: string, week: IsoDate, hours: number | null, source: "typed" | "csv" | "import") {
+    if (hours === null) check(await this.sb.from("hour_entries").update({ active: false }).eq("job_id", jobId).eq("week", week));
+    else check(await this.sb.from("hour_entries").upsert({ job_id: jobId, week, hours, source, active: true }));
+  }
+
+  async closeWeek(input: CloseInput): Promise<CloseResult> {
+    return check(await this.sb.rpc("close_week", { p: input })) as CloseResult;
+  }
+
+  async alerts(): Promise<Alert[]> {
+    const rows = check(await this.sb.from("alerts").select("*").order("at", { ascending: false }).limit(200)) as Row[];
+    return rows.map((r) => ({ id: r.id, at: r.at, rule: r.rule, title: r.title, body: r.body, recipients: r.recipients, jobId: r.job_id, personId: r.person_id }));
+  }
+
+  async mutedRules(): Promise<AlertRule[]> {
+    return (check(await this.sb.from("alert_mutes").select("rule, muted")) as Row[]).filter((r) => r.muted).map((r) => r.rule);
+  }
+
+  async setMuted(rule: AlertRule, muted: boolean) {
+    check(await this.sb.from("alert_mutes").upsert({ user_id: this.viewer?.userId, rule, muted }));
+  }
+
+  async postDigest(title: string, body: string) {
+    check(await this.sb.rpc("post_digest", { p_title: title, p_body: body }));
+  }
+
+  async confirmMyCrews(): Promise<number> {
+    return check(await this.sb.rpc("confirm_my_crews")) as number;
+  }
+
+  async myWeek(): Promise<MyWeek | null> {
+    return check(await this.sb.rpc("my_week")) as MyWeek | null;
+  }
+
+  async acknowledgeWeek(week: IsoDate) {
+    check(await this.sb.rpc("acknowledge_week", { p_week: week }));
+  }
 }
 
 interface CompanyInputs {
@@ -264,6 +329,10 @@ export function totalsDataset(x: CompanyInputs, settings: Settings): Dataset {
     qualifications: [],
     reps: [],
     pms: [],
+    closes: [],
+    hourEntries: [],
+    confirmations: [],
+    metrics: [],
   };
 }
 

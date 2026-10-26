@@ -5,6 +5,9 @@
  * Never load real TMI data (hard rule 1).
  */
 import type {
+  ForecastSnapshot,
+  WeekClose,
+  WeeklyMetric,
   ActualHours,
   Assignment,
   Dataset,
@@ -19,7 +22,7 @@ import type {
   Viewer,
 } from "../domain/types";
 import { DEFAULT_SETTINGS } from "../domain/types";
-import { materialRevenueCents } from "../domain/schedule";
+import { allPlans, buildIndex, materialRevenueCents } from "../domain/schedule";
 import { addDays, mondayOf } from "../domain/weeks";
 
 /** The demo was built around this week. Sample dates shift so this week lines up with the base week. */
@@ -104,6 +107,7 @@ function ppeFor(t: string) {
 
 export interface SampleData extends Dataset {
   users: (Viewer & { active: boolean })[];
+  snapshots: ForecastSnapshot[];
 }
 
 /** Build the sample dataset with the demo's week lined up to `baseWeek` (a Friday). */
@@ -323,6 +327,47 @@ export function buildSample(baseWeek: IsoDate): SampleData {
   U("Jared", "cfo");
   U("Accounting", "accounting");
 
+  // Ten closed weeks before this one, with the demo's illustrative board-metric history.
+  const ILLUS = {
+    util: [0.41, 0.43, 0.42, 0.45, 0.44, 0.47, 0.46, 0.49, 0.5, 0.52],
+    roster: [0.27, 0.29, 0.28, 0.3, 0.29, 0.31, 0.31, 0.33, 0.33, 0.35],
+    backlog: [3.1, 3.0, 3.4, 3.6, 3.5, 3.9, 4.1, 4.0, 4.4, 4.6],
+    acc: [0.62, 0.66, 0.65, 0.7, 0.71, 0.73, 0.76, 0.78, 0.77, 0.81],
+    ontime: [0.6, 0.62, 0.66, 0.65, 0.7, 0.74, 0.73, 0.78, 0.81, 0.84],
+  };
+  const closes: WeekClose[] = [];
+  const metrics: WeeklyMetric[] = [];
+  for (let i = 0; i < 10; i++) {
+    const w = addDays(START, -7 * (10 - i));
+    const rows = actuals.filter((a) => a.week === w);
+    closes.push({ week: w, entered: rows.length, totalHrs: rows.reduce((a, r) => a + r.hours, 0), missingJobIds: [], completedJobIds: [] });
+    metrics.push({
+      week: w,
+      utilization: ILLUS.util[i],
+      utilizationRoster: ILLUS.roster[i],
+      backlogWeeks: ILLUS.backlog[i],
+      backlogCents: null,
+      accuracy: ILLUS.acc[i],
+      onTime: ILLUS.ontime[i],
+      illustrative: true,
+    });
+  }
+  // The forecast "made" four weeks before each of the next four weeks, with the demo's noise.
+  const snapshots: ForecastSnapshot[] = [];
+  {
+    const r7 = rng(7);
+    const ds0 = { jobs, people, timeOff, overrides: [], actuals, assignments, notes, settings: { ...DEFAULT_SETTINGS }, qualifications: QUALIFICATIONS, reps: REPS, pms: PMS, closes, hourEntries: [], confirmations: [], metrics };
+    const plans = allPlans(ds0, buildIndex(ds0), START);
+    for (let i = 0; i < 4; i++) {
+      const w = addDays(START, 7 * i);
+      for (const j of jobs) {
+        if (j.status === "on_hold") continue;
+        const h = plans.get(j.id)?.get(w) ?? 0;
+        if (h) snapshots.push({ madeWeek: addDays(w, -28), targetWeek: w, jobId: j.id, hours: Math.round(h * (0.82 + r7() * 0.36)) });
+      }
+    }
+  }
+
   return {
     jobs,
     people,
@@ -336,5 +381,10 @@ export function buildSample(baseWeek: IsoDate): SampleData {
     reps: REPS,
     pms: PMS,
     users,
+    closes,
+    hourEntries: [],
+    confirmations: [],
+    metrics,
+    snapshots,
   };
 }

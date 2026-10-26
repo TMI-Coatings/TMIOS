@@ -192,7 +192,7 @@ begin
     when 'sales_reps' then n ->> 'code'
     when 'project_managers' then n ->> 'code'
     when 'qualifications' then n ->> 'name'
-    else n ->> 'id'
+    else coalesce(n ->> 'id', concat_ws('|', n ->> 'job_id', n ->> 'person_id', n ->> 'week'))
   end;
   jid := case when tg_table_name = 'jobs' then (n ->> 'id')::uuid else (n ->> 'job_id')::uuid end;
   pid := case when tg_table_name = 'people' then (n ->> 'id')::uuid else (n ->> 'person_id')::uuid end;

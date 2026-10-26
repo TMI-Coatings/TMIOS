@@ -65,6 +65,10 @@ export function dataset(over: Partial<Dataset> = {}): Dataset {
     qualifications: ["Confined space", "Lift", "Fiberglass"],
     reps: [],
     pms: [],
+    closes: [],
+    hourEntries: [],
+    confirmations: [],
+    metrics: [],
     ...over,
   };
 }

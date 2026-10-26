@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { crewIssues } from "../domain/crew";
+import { assignedIds, crewIssues } from "../domain/crew";
 import { can, canEditJob, seesCompanyTotals } from "../domain/permissions";
 import {
   FIRMNESS,
@@ -107,6 +107,12 @@ export function ScheduleScreen({ ctx }: { ctx: Ctx }) {
       );
     if (issues.some((i) => i.job.id === j.id)) t.push(<span key="i" className="tag yel">Crew issue</span>);
     if (j.exterior) t.push(<span key="x" className="tag blue">Exterior</span>);
+    if (ds.confirmations.some((c) => c.jobId === j.id && c.week === week))
+      t.push(
+        <span key="cf" className="tag grn">
+          Confirmed
+        </span>,
+      );
     return t;
   };
 
@@ -118,6 +124,36 @@ export function ScheduleScreen({ ctx }: { ctx: Ctx }) {
           ? "Planned hours spread evenly from today to each job’s finish. Type over any week to set it; the rest of the job rebalances. Clear a week to put it back to automatic. Click a job to change dates, crew or leader."
           : "Planned hours by week. Click a job for its crew, details and history."}
       </p>
+      {viewer.role === "superintendent" && (() => {
+        const mine = ds.jobs.filter((j) => isSold(j) && !isOnHold(j) && j.leaderId === viewer.personId && (plans.get(j.id)?.get(week) ?? 0) > 0);
+        const done = mine.length > 0 && mine.every((j) => ds.confirmations.some((c) => c.jobId === j.id && c.week === week));
+        return (
+          <div className="panel" style={{ marginBottom: 16 }}>
+            <div className="confirm">
+              <div>
+                <b>Your crews for week ending {fmtShort(week)}</b>
+                {mine.length ? (
+                  mine.map((j) => (
+                    <div className="note" key={j.id}>
+                      {j.customer}: {assignedIds(ds, j.id, week).map((id) => ds.people.find((p) => p.id === id)?.name).filter(Boolean).join(", ") || "no crew assigned"}
+                    </div>
+                  ))
+                ) : (
+                  <div className="note">No jobs this week.</div>
+                )}
+              </div>
+              {mine.length > 0 &&
+                (done ? (
+                  <span className="tag grn">Confirmed</span>
+                ) : (
+                  <button className="btn" onClick={() => run(() => repo.confirmMyCrews(), "Crews confirmed.")}>
+                    Confirm my crews
+                  </button>
+                ))}
+            </div>
+          </div>
+        );
+      })()}
       {can.addJob(viewer.role) && (
         <div className="row" style={{ marginBottom: 12 }}>
           <button className="btn" onClick={() => setAdding(true)}>

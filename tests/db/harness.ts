@@ -9,6 +9,8 @@ import { seedSql } from "../../scripts/make-seed-sql";
  * Supabase project (hard rule 1: never touch tmi-ops-prod).
  */
 export const TEST_WEEK = "2026-10-30";
+/** The tests pretend today is the Monday of that week, whatever the real date is. */
+export const TEST_TODAY = "2026-10-26";
 const BASE = process.env.TEST_DATABASE_URL ?? "postgres://postgres:postgres@localhost:5432/postgres";
 if (/supabase\.(co|com)|tmi-ops-prod|pooler/i.test(BASE)) throw new Error("Database tests only run against a local Postgres.");
 
@@ -27,6 +29,8 @@ export async function freshDatabase(): Promise<{ db: pg.Client; close: () => Pro
   for (const f of readdirSync(root + "supabase/migrations").sort()) {
     await db.query(readFileSync(root + "supabase/migrations/" + f, "utf8"));
   }
+  await db.query(`alter database ${name} set app.today = '${TEST_TODAY}'`);
+  await db.query(`set app.today = '${TEST_TODAY}'`);
   await db.query(seedSql(TEST_WEEK));
   // Sign every sample user in: an auth user per app user, linked by id.
   await db.query(`insert into auth.users (id, email) select id, email from public.app_users`);

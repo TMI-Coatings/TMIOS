@@ -88,6 +88,7 @@ const UPDATE: Record<JobField, Stmt> = {
   crew: (q, j) => q("insert into public.assignments (job_id, person_id, week) values ($1, $2, '2027-03-05')", [j.id, fieldPerson]),
   notes: (q, j) => q("insert into public.job_notes (job_id, body) values ($1, 'Test note')", [j.id]),
   pinNotes: (q, j) => q("update public.job_notes set pinned = not pinned where job_id = $1", [j.id]),
+  actuals: (q, j) => q("insert into public.hour_entries (job_id, week, hours) values ($1, $2, 40)", [j.id, TEST_WEEK]),
 };
 
 describe("editing jobs: the database allows exactly what permissions.ts allows", () => {

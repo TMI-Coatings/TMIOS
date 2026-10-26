@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { assignedIds } from "../domain/crew";
+import { assignedIds, proposeWeek } from "../domain/crew";
 import { can } from "../domain/permissions";
 import { allPlans, availableMen, buildIndex, isSold, leadersNeeded } from "../domain/schedule";
 import type { Person, TimeOffType } from "../domain/types";
@@ -24,6 +24,8 @@ export function CrewScreen({ ctx }: { ctx: Ctx }) {
   const upcoming = ds.timeOff.filter((t) => t.active && t.lastDay >= mondayOf(week)).sort((a, b) => a.firstDay.localeCompare(b.firstDay));
   const byId = new Map(ds.people.map((p) => [p.id, p]));
   const [q, setQ] = useState("");
+  const fillWeek = addDays(week, 7 * ds.settings.autoFillWeeksOut);
+  const [fill, setFill] = useState<ReturnType<typeof proposeWeek> | null>(null);
   const [to, setTo] = useState({ personId: "", first: addDays(week, 3), last: addDays(week, 7), type: "PTO" as TimeOffType });
   const [np, setNp] = useState({ name: "", kind: "field" as Person["kind"], state: "MN", phone: "", driver: false, dot: "" });
 
@@ -72,6 +74,61 @@ export function CrewScreen({ ctx }: { ctx: Ctx }) {
           </tbody>
         </table>
       </div>
+
+      {can.editCrewRecords(viewer.role) && (
+        <>
+          <h2>Crew auto-fill</h2>
+          <div className="panel">
+            <div className="row">
+              <span className="note" style={{ flex: 1 }}>
+                Fills short crews for the week ending {fmtShort(fillWeek)} ({ds.settings.autoFillWeeksOut} weeks out): leader first, then last week’s crew, then qualified people who are free. You see the list
+                before anything is assigned.
+              </span>
+              <button className="btn sec" onClick={() => setFill(proposeWeek(ds, idx, fillWeek))}>
+                Preview auto-fill
+              </button>
+            </div>
+            {fill && (
+              <div style={{ marginTop: 10 }} role="region" aria-label="Auto-fill preview">
+                {fill.length === 0 ? (
+                  <p className="note">Every crew that week is full, or nobody suitable is free.</p>
+                ) : (
+                  <>
+                    <ul className="att">
+                      {fill.map((f) => (
+                        <li key={f.job.id}>
+                          <span className="tag blue">{f.job.number}</span>
+                          <span>
+                            {f.job.customer}: add {f.add.map((id) => byId.get(id)?.name).join(", ")}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="row" style={{ marginTop: 8 }}>
+                      <button
+                        className="btn"
+                        onClick={async () => {
+                          const list = fill;
+                          const n = list.reduce((a, f) => a + f.add.length, 0);
+                          const ok = await run(async () => {
+                            for (const f of list) for (const pid of f.add) await repo.assign(f.job.id, pid, fillWeek);
+                          }, `${n} people assigned for the week ending ${fmtShort(fillWeek)}.`);
+                          if (ok) setFill(null);
+                        }}
+                      >
+                        Assign all
+                      </button>
+                      <button className="btn sec" onClick={() => setFill(null)}>
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {edit && (
         <>

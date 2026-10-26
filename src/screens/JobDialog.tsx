@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Modal } from "../components/Modal";
-import { CREW_ISSUE_LABEL, assignedIds, crewIssues, missingQuals } from "../domain/crew";
+import { CREW_ISSUE_LABEL, assignedIds, crewIssues, missingQuals, proposeCrew } from "../domain/crew";
 import { jobProblem } from "../domain/jobRules";
 import { type JobField, JOB_COLUMNS, canEditJob } from "../domain/permissions";
 import { FIRMNESS, actualToDate, bidMargin, buildIndex, eac, hoursLeft, inWindow, isOverrun, offFraction } from "../domain/schedule";
@@ -31,6 +31,7 @@ export function JobDialog({ ctx, jobId, onClose }: { ctx: Ctx; jobId: string; on
   const crewWeeks = useMemo(() => (job ? weekList(week, 30).filter((w) => inWindow(job, w)) : []), [job, week]);
   const [crewWeek, setCrewWeek] = useState(crewWeeks[0] ?? null);
   const [addPerson, setAddPerson] = useState("");
+  const [proposal, setProposal] = useState<string[] | null>(null);
   const [note, setNote] = useState({ text: "", pinned: false, crew: false });
 
   useEffect(() => {
@@ -340,7 +341,7 @@ export function JobDialog({ ctx, jobId, onClose }: { ctx: Ctx; jobId: string; on
           <div className="row" style={{ marginBottom: 8 }}>
             <label className="field">
               Week ending
-              <select value={crewWeek} onChange={(e) => setCrewWeek(e.target.value)}>
+              <select value={crewWeek} onChange={(e) => { setCrewWeek(e.target.value); setProposal(null); }}>
                 {crewWeeks.map((w) => (
                   <option key={w} value={w}>
                     {fmtShort(w)}
@@ -403,6 +404,43 @@ export function JobDialog({ ctx, jobId, onClose }: { ctx: Ctx; jobId: string; on
               >
                 Add
               </button>
+              <button className="btn sec" disabled={assigned.length >= job.crewSize} onClick={() => setProposal(proposeCrew(ds, idx, job, crewWeek))}>
+                Fill to crew size
+              </button>
+            </div>
+          )}
+          {crewEdit && proposal && (
+            <div className="wobox" style={{ marginTop: 10 }} role="region" aria-label="Proposed crew">
+              {proposal.length ? (
+                <>
+                  <b>Proposed for week ending {fmtShort(crewWeek)}:</b>{" "}
+                  {proposal.map((id) => ds.people.find((p) => p.id === id)?.name).join(", ")}.
+                  <p className="note" style={{ margin: "4px 0 8px" }}>
+                    Leader first, then last week’s crew, then qualified people who are free. Nothing is assigned until you accept.
+                  </p>
+                  <div className="row">
+                    <button
+                      className="btn"
+                      onClick={async () => {
+                        const ids = proposal;
+                        if (await run(async () => { for (const id of ids) await repo.assign(job.id, id, crewWeek); }, `${ids.length} added to the crew.`)) setProposal(null);
+                      }}
+                    >
+                      Add these {proposal.length}
+                    </button>
+                    <button className="btn sec" onClick={() => setProposal(null)}>
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  Nobody suitable is free that week.{" "}
+                  <button className="jl" onClick={() => setProposal(null)}>
+                    OK
+                  </button>
+                </>
+              )}
             </div>
           )}
         </>

@@ -37,3 +37,18 @@ export const fmtShort = (s: IsoDate) =>
 
 export const fmtLong = (s: IsoDate) =>
   toDate(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+
+/** The week the schedule plans from: the first week not yet closed, never behind the calendar. */
+export const planningWeek = (closedWeeks: IsoDate[], today: IsoDate): IsoDate => {
+  const cal = weekEnding(today);
+  if (!closedWeeks.length) return cal;
+  const next = addDays([...closedWeeks].sort().at(-1)!, 7);
+  return next > cal ? next : cal;
+};
+
+/** The week the next close is for, or null when this week is already closed. */
+export const weekToClose = (closedWeeks: IsoDate[], today: IsoDate): IsoDate | null => {
+  const cal = weekEnding(today);
+  const w = closedWeeks.length ? addDays([...closedWeeks].sort().at(-1)!, 7) : cal;
+  return w <= cal ? w : null;
+};

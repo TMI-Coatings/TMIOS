@@ -144,6 +144,12 @@ export interface Settings {
   winterEnd: string; // MM-DD
   confirmDatesDays: number;
   smallJobLeaderWeight: number;
+  openCapacityHrs: number;
+  openWindowStartWeeks: number;
+  openWindowEndWeeks: number;
+  certFirstDays: number;
+  certSecondDays: number;
+  autoFillWeeksOut: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -157,6 +163,12 @@ export const DEFAULT_SETTINGS: Settings = {
   winterEnd: "03-15",
   confirmDatesDays: 28,
   smallJobLeaderWeight: 0.5,
+  openCapacityHrs: 400,
+  openWindowStartWeeks: 4,
+  openWindowEndWeeks: 8,
+  certFirstDays: 60,
+  certSecondDays: 30,
+  autoFillWeeksOut: 3,
 };
 
 export interface Lookup {
@@ -176,6 +188,91 @@ export interface ChangeLogEntry {
   newValue: string | null;
 }
 
+export interface WeekClose {
+  week: IsoDate;
+  entered: number;
+  totalHrs: number;
+  missingJobIds: string[];
+  completedJobIds: string[];
+}
+
+export interface HourEntry {
+  jobId: string;
+  week: IsoDate;
+  hours: number;
+  source: "typed" | "csv" | "import";
+}
+
+export interface WeeklyMetric {
+  week: IsoDate;
+  utilization: number | null;
+  utilizationRoster: number | null;
+  backlogWeeks: number | null;
+  backlogCents: number | null;
+  accuracy: number | null;
+  onTime: number | null;
+  illustrative: boolean;
+}
+
+export interface ForecastSnapshot {
+  madeWeek: IsoDate;
+  targetWeek: IsoDate;
+  jobId: string;
+  hours: number;
+}
+
+export const ALERT_RULES = [
+  { id: "wo", name: "Work order", desc: "Draft ready, sign-offs, send-backs and late reviews" },
+  { id: "bill", name: "Billing", desc: "Job complete and signed off, ready to invoice; late invoices" },
+  { id: "open", name: "Open capacity", desc: "Unsold hours 4 to 8 weeks out, for the sales team" },
+  { id: "date", name: "Date moved", desc: "Start or finish changes on any job" },
+  { id: "overrun", name: "Overrun warning", desc: "Job on pace to beat its hours by the threshold" },
+  { id: "crew", name: "Crew change", desc: "Crew size or leader changes" },
+  { id: "gap", name: "Capacity gap", desc: "Men or leaders short in the next 8 weeks" },
+  { id: "digest", name: "Monday digest", desc: "Week ahead, gaps, missing hours, accuracy" },
+  { id: "cert", name: "Certification reminder", desc: "DOT physical or certification expiring in 60 or 30 days" },
+] as const;
+export type AlertRule = (typeof ALERT_RULES)[number]["id"];
+
+export interface Alert {
+  id: string;
+  at: string;
+  rule: AlertRule;
+  title: string;
+  body: string;
+  recipients: string[];
+  jobId: string | null;
+  personId: string | null;
+}
+
+/** My week: what a person needs about the jobs they're on this week and next. */
+export interface MyWeek {
+  person: { id: string; name: string; driver: boolean; dotExpires: IsoDate | null };
+  certs: { name: string; expires: IsoDate | null }[];
+  weeks: {
+    week: IsoDate;
+    acknowledged: string | null;
+    timeOff: { firstDay: IsoDate; lastDay: IsoDate; type: string }[];
+    jobs: {
+      number: string;
+      customer: string;
+      jobType: string;
+      location: string;
+      from: IsoDate;
+      to: IsoDate;
+      siteAddress: string;
+      siteStartTime: string;
+      siteContact: string;
+      siteOrientation: string;
+      sitePpe: string;
+      leader: string | null;
+      leaderPhone: string | null;
+      notes: string[];
+      crew: string[];
+    }[];
+  }[];
+}
+
 /** Everything the Schedule and Crew screens read. */
 export interface Dataset {
   jobs: Job[];
@@ -189,6 +286,10 @@ export interface Dataset {
   qualifications: string[];
   reps: Lookup[];
   pms: Lookup[];
+  closes: WeekClose[];
+  hourEntries: HourEntry[];
+  confirmations: { jobId: string; week: IsoDate }[];
+  metrics: WeeklyMetric[];
 }
 
 /** The signed-in person as the app sees them. */

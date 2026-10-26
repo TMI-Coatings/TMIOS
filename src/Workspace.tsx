@@ -3,8 +3,11 @@ import type { LoadResult, Repo } from "./data/repo";
 import { friendlyError } from "./data/repo";
 import { type Tab, tabsFor } from "./domain/permissions";
 import type { Viewer } from "./domain/types";
-import { currentWeek } from "./domain/weeks";
 import { AccessScreen } from "./screens/AccessScreen";
+import { AlertsScreen } from "./screens/AlertsScreen";
+import { CloseScreen } from "./screens/CloseScreen";
+import { DashboardScreen } from "./screens/DashboardScreen";
+import { MyWeekScreen } from "./screens/MyWeekScreen";
 import { CrewScreen } from "./screens/CrewScreen";
 import { LogScreen } from "./screens/LogScreen";
 import { ScheduleScreen } from "./screens/ScheduleScreen";
@@ -17,6 +20,8 @@ export interface Ctx {
   data: LoadResult;
   /** Run a change, report a failure in plain words, then reload. Returns true if it worked. */
   run: (action: () => Promise<unknown>, done?: string) => Promise<boolean>;
+  /** Switch tabs, e.g. a dashboard link to the journey. */
+  go: (t: Tab) => void;
 }
 
 export function Workspace({ repo, viewer, header }: { repo: Repo; viewer: Viewer; header: React.ReactNode }) {
@@ -28,7 +33,6 @@ export function Workspace({ repo, viewer, header }: { repo: Repo; viewer: Viewer
   const [data, setData] = useState<LoadResult | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ text: string; err: boolean } | null>(null);
-  const week = currentWeek();
 
   const reload = useCallback(async () => {
     try {
@@ -71,7 +75,7 @@ export function Workspace({ repo, viewer, header }: { repo: Repo; viewer: Viewer
     window.scrollTo(0, 0);
   };
 
-  const ctx: Ctx | null = data ? { repo, viewer, week, data, run } : null;
+  const ctx: Ctx | null = data ? { repo, viewer, week: data.week, data, run, go } : null;
 
   return (
     <>
@@ -108,6 +112,14 @@ export function Workspace({ repo, viewer, header }: { repo: Repo; viewer: Viewer
           </p>
         ) : !ctx ? (
           <p className="note">Loading…</p>
+        ) : tab === "me" ? (
+          <MyWeekScreen ctx={ctx} />
+        ) : tab === "dashboard" ? (
+          <DashboardScreen ctx={ctx} />
+        ) : tab === "close" ? (
+          <CloseScreen ctx={ctx} />
+        ) : tab === "alerts" ? (
+          <AlertsScreen ctx={ctx} />
         ) : tab === "schedule" ? (
           <ScheduleScreen ctx={ctx} />
         ) : tab === "crew" ? (

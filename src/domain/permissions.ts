@@ -9,15 +9,20 @@ import type { Job, Role, Viewer } from "./types";
 /** Full rights: admin, the CEO (decision 7) and the CFO. */
 const OFFICE_ALL: Role[] = ["admin", "ceo", "cfo"];
 
-export type Tab = "schedule" | "crew" | "access" | "settings" | "log";
+export type Tab = "me" | "dashboard" | "schedule" | "close" | "crew" | "alerts" | "access" | "settings" | "log";
 
 export const TABS: { id: Tab; label: string; roles: Role[] }[] = [
+  { id: "me", label: "My week", roles: ["superintendent", "field_crew"] },
+  { id: "dashboard", label: "Dashboard", roles: [...OFFICE_ALL, "scheduler"] },
   {
     id: "schedule",
     label: "Schedule",
     roles: ["admin", "ceo", "scheduler", "job_setup", "estimator", "pm", "superintendent", "sales_rep", "accounting", "cfo"],
   },
+  // PMs enter hours for their own jobs; the scheduler closes the week (decision 9).
+  { id: "close", label: "Weekly close", roles: [...OFFICE_ALL, "scheduler", "pm"] },
   { id: "crew", label: "Crew", roles: [...OFFICE_ALL, "scheduler"] },
+  { id: "alerts", label: "Alerts", roles: ["admin", "ceo", "cfo", "scheduler", "job_setup", "estimator", "pm", "superintendent", "sales_rep", "field_crew", "accounting"] },
   { id: "log", label: "Change log", roles: [...OFFICE_ALL, "scheduler"] },
   { id: "access", label: "Access", roles: OFFICE_ALL },
   { id: "settings", label: "Settings", roles: OFFICE_ALL },
@@ -66,7 +71,8 @@ export type JobField =
   | "intake"
   | "crew"
   | "notes"
-  | "pinNotes";
+  | "pinNotes"
+  | "actuals";
 
 type Rule = { any: Role[]; own?: Role[] };
 
@@ -87,6 +93,8 @@ export const JOB_FIELD_RULES: Record<JobField, Rule> = {
   crew: { any: [...OFFICE_ALL, "scheduler"], own: ["superintendent"] },
   notes: { any: [...OFFICE_ALL, "scheduler"], own: ["superintendent"] },
   pinNotes: { any: OFFICE_ALL },
+  // Hours for the open week, before the close (decision 9).
+  actuals: { any: [...OFFICE_ALL, "scheduler"], own: ["pm"] },
 };
 
 export function canEditJob(v: Viewer, j: Job, f: JobField): boolean {
@@ -96,7 +104,7 @@ export function canEditJob(v: Viewer, j: Job, f: JobField): boolean {
 }
 
 /** Which job columns each field group covers (used by the edit form and mirrored in the database trigger). */
-export const JOB_COLUMNS: Record<Exclude<JobField, "plan" | "crew" | "notes" | "pinNotes">, (keyof Job)[]> = {
+export const JOB_COLUMNS: Record<Exclude<JobField, "plan" | "crew" | "notes" | "pinNotes" | "actuals">, (keyof Job)[]> = {
   start: ["start"],
   projectedFinish: ["projectedFinish"],
   crewSize: ["crewSize"],
@@ -137,4 +145,6 @@ export const can = {
   editSettings: (r: Role) => OFFICE_ALL.includes(r),
   manageAccess: (r: Role) => OFFICE_ALL.includes(r),
   readChangeLog: (r: Role) => ([...OFFICE_ALL, "scheduler"] as Role[]).includes(r),
+  closeWeek: (r: Role) => ([...OFFICE_ALL, "scheduler"] as Role[]).includes(r),
+  sendDigest: (r: Role) => ([...OFFICE_ALL, "scheduler"] as Role[]).includes(r),
 };

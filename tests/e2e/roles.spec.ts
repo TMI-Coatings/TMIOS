@@ -19,7 +19,7 @@ const ROLES_WITH_SAMPLE_USER: Role[] = ["admin", "ceo", "scheduler", "job_setup"
 
 for (const role of ROLES_WITH_SAMPLE_USER) {
   test(`${role}: sees the right tabs, jobs, totals and edit controls`, async ({ page }) => {
-    await viewAs(page, role);
+    await viewAs(page, role, "#schedule");
     const v = userFor(role);
     const tabs = page.getByRole("navigation", { name: "Sections" }).getByRole("button");
     await expect(tabs).toHaveText(tabsFor(role).map((t) => t.label));
@@ -47,7 +47,7 @@ for (const role of ROLES_WITH_SAMPLE_USER) {
 }
 
 test("reps and PMs see company-wide totals over their own jobs", async ({ page }) => {
-  await viewAs(page, "sales_rep");
+  await viewAs(page, "sales_rep", "#schedule");
   await expect(page.getByText("Totals below stay company-wide.")).toBeVisible();
   const allSold = sample.jobs.filter((j) => isSold(j) && j.status !== "on_hold").length;
   expect(allSold).toBeGreaterThan(await page.locator("tr[data-job-row]").count());
@@ -66,7 +66,7 @@ test("admin sets a week by hand, and it is logged", async ({ page }) => {
 });
 
 test("the scheduler can move dates on any job but not change the leader", async ({ page }) => {
-  await viewAs(page, "scheduler");
+  await viewAs(page, "scheduler", "#schedule");
   const job = sample.jobs[3];
   await page.getByRole("button", { name: `${job.number} ${job.customer}` }).click();
   const dlg = page.getByRole("dialog");
@@ -75,7 +75,7 @@ test("the scheduler can move dates on any job but not change the leader", async 
 });
 
 test("a PM can move their own job and not someone else's", async ({ page }) => {
-  await viewAs(page, "pm");
+  await viewAs(page, "pm", "#schedule");
   const own = sample.jobs.find((j) => j.pmCode === "JS" && isSold(j))!;
   await page.getByRole("button", { name: `${own.number} ${own.customer}` }).click();
   await expect(page.getByRole("dialog").getByLabel("Start", { exact: true })).toBeEnabled();
@@ -84,7 +84,7 @@ test("a PM can move their own job and not someone else's", async ({ page }) => {
 });
 
 test("moving a job off Locked needs a reason, which lands in pinned notes", async ({ page }) => {
-  await viewAs(page, "admin");
+  await viewAs(page, "admin", "#schedule");
   const job = sample.jobs.find((j) => j.firmness === "locked" && j.status === "active")!;
   await page.getByRole("button", { name: `${job.number} ${job.customer}` }).click();
   const dlg = page.getByRole("dialog");
@@ -99,7 +99,7 @@ test("moving a job off Locked needs a reason, which lands in pinned notes", asyn
 });
 
 test("job setup adds a job from the estimate and it lands on the schedule", async ({ page }) => {
-  await viewAs(page, "job_setup");
+  await viewAs(page, "job_setup", "#schedule");
   await page.getByRole("button", { name: "Add job from estimate" }).click();
   const dlg = page.getByRole("dialog");
   await dlg.getByLabel("Job number").fill("4291");
@@ -117,7 +117,7 @@ test("job setup adds a job from the estimate and it lands on the schedule", asyn
 });
 
 test("a four-digit job number is required", async ({ page }) => {
-  await viewAs(page, "admin");
+  await viewAs(page, "admin", "#schedule");
   await page.getByRole("button", { name: "Add job from estimate" }).click();
   const dlg = page.getByRole("dialog");
   await dlg.getByLabel("Job number").fill("429");
@@ -156,7 +156,7 @@ test("only admin and CEO see Access and Settings; a setting change is logged", a
 
 test("the schedule fits a phone screen without sideways page scroll", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await viewAs(page, "superintendent");
+  await viewAs(page, "superintendent", "#schedule");
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
