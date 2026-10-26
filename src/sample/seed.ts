@@ -226,6 +226,7 @@ export function buildSample(baseWeek: IsoDate): SampleData {
       status: start <= START ? "active" : "scheduled",
       firmness: FIRM[i],
       waitsOnJobId: i === 18 ? sampleId(K.job, 2) : null,
+      firmnessReason: null,
       holdReason: i === 19 ? "Customer is reworking the floor layout" : null,
       holdUntil: i === 19 ? shift("2027-01-11") : null,
       exterior: !!s.x,

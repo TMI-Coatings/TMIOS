@@ -102,7 +102,7 @@ export const JOB_COLUMNS: Record<Exclude<JobField, "plan" | "crew" | "notes" | "
   leaderId: ["leaderId"],
   projectedHrs: ["projectedHrs"],
   mustFinish: ["mustFinish", "mustFinishReason"],
-  firmness: ["firmness", "waitsOnJobId"],
+  firmness: ["firmness", "waitsOnJobId", "firmnessReason"],
   status: ["status", "holdReason", "holdUntil"],
   actualFinish: ["actualFinish"],
   site: ["siteAddress", "siteStartTime", "siteContact", "siteOrientation", "sitePpe"],

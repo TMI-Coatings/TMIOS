@@ -64,6 +64,7 @@ export interface Job {
   status: JobStatus;
   firmness: Firmness;
   waitsOnJobId: string | null;
+  firmnessReason: string | null;
   holdReason: string | null;
   holdUntil: IsoDate | null;
   exterior: boolean;

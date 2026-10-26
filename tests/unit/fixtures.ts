@@ -29,6 +29,7 @@ export function job(over: Partial<Job> = {}): Job {
     status: "active",
     firmness: "confirmed",
     waitsOnJobId: null,
+    firmnessReason: null,
     holdReason: null,
     holdUntil: null,
     exterior: false,
