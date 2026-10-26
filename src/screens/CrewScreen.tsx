@@ -80,7 +80,7 @@ export function CrewScreen({ ctx }: { ctx: Ctx }) {
             <div className="row">
               <label className="field">
                 Person
-                <select value={to.personId} onChange={(e) => setTo({ ...to, personId: e.target.value })}>
+                <select value={to.personId} aria-label="Person taking time off" onChange={(e) => setTo({ ...to, personId: e.target.value })}>
                   <option value="">Select…</option>
                   {[...active]
                     .sort((a, b) => a.name.localeCompare(b.name))
@@ -102,7 +102,7 @@ export function CrewScreen({ ctx }: { ctx: Ctx }) {
               </label>
               <label className="field">
                 Type
-                <select value={to.type} onChange={(e) => setTo({ ...to, type: e.target.value as TimeOffType })}>
+                <select value={to.type} aria-label="Time off type" onChange={(e) => setTo({ ...to, type: e.target.value as TimeOffType })}>
                   {TYPES.map((t) => (
                     <option key={t}>{t}</option>
                   ))}

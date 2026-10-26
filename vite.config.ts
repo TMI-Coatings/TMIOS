@@ -6,6 +6,7 @@ export default defineConfig({
   build: { sourcemap: false },
   test: {
     environment: "node",
+    exclude: ["tests/e2e/**", "node_modules/**"],
     testTimeout: 20000,
   },
 });
