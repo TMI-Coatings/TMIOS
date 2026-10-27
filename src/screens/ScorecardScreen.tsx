@@ -4,6 +4,7 @@ import { buildIndex, eac, isSold } from "../domain/schedule";
 import { fadeCents, leaderRows, lostByCause } from "../domain/scorecard";
 import { addDays, fmtShort, todayIn } from "../domain/weeks";
 import { n0, pct, usd } from "../format";
+import { can } from "../domain/permissions";
 import type { Ctx } from "../Workspace";
 
 const pts = (v: number) => `${v >= 0 ? "+" : "−"}${(Math.round(Math.abs(v * 1000)) / 10).toLocaleString("en-US")} pts`;
@@ -16,6 +17,8 @@ export function ScorecardScreen({ ctx }: { ctx: Ctx }) {
   const ds = data.ds;
   const s = ds.settings;
   const me = viewer.role === "superintendent";
+  // Leaders see hours only: no margin or dollars (decision 11c).
+  const money = can.seeMoney(viewer.role);
   const canTag = ["admin", "ceo", "cfo", "scheduler", "pm"].includes(viewer.role);
   const idx = useMemo(() => buildIndex(ds), [ds]);
   const m = useMemo(() => new Money(ds, idx, week, todayIn(new Date())), [ds, idx, week]);
@@ -35,7 +38,7 @@ export function ScorecardScreen({ ctx }: { ctx: Ctx }) {
     <>
       <h1>{me ? "My scorecard" : "Leader scorecard"}</h1>
       <p className="lead">
-        {me ? "Your" : "Each leader’s"} completed jobs over the last {s.scorecardMonths} months, plus jobs running now. Fade is final margin against bid margin. The PM tags the cause of every overrun at
+        {me ? "Your" : "Each leader’s"} completed jobs over the last {s.scorecardMonths} months, plus jobs running now.{money ? " Fade is final margin against bid margin." : ""} The PM tags the cause of every overrun at
         closeout, so estimating misses and uncaptured change orders don’t land on the leader. Ranked by field-caused fade.
       </p>
       <div className="kpis" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
@@ -47,16 +50,25 @@ export function ScorecardScreen({ ctx }: { ctx: Ctx }) {
           <div className="v num">{est ? `${act >= est ? "+" : "−"}${n0(Math.abs(act / est - 1) * 100)}%` : "–"}</div>
           <div className="l">Hours against bid</div>
         </div>
-        <div className={"kpi" + (lost < 0 ? " warn" : "")}>
-          <div className="v num">{usdS(lost)}</div>
-          <div className="l">Margin lost to fade</div>
-        </div>
-        <div className="kpi">
-          <div className="num" style={{ fontSize: 14, lineHeight: 1.5 }}>
-            {causes.length ? causes.map(([k, v]) => <div key={k}>{`${k}: ${pct(lost ? v / lost : 0)}`}</div>) : "None"}
+        {money ? (
+          <>
+            <div className={"kpi" + (lost < 0 ? " warn" : "")}>
+              <div className="v num">{usdS(lost)}</div>
+              <div className="l">Margin lost to fade</div>
+            </div>
+            <div className="kpi">
+              <div className="num" style={{ fontSize: 14, lineHeight: 1.5 }}>
+                {causes.length ? causes.map(([k, v]) => <div key={k}>{`${k}: ${pct(lost ? v / lost : 0)}`}</div>) : "None"}
+              </div>
+              <div className="l">Lost margin by cause</div>
+            </div>
+          </>
+        ) : (
+          <div className="kpi">
+            <div className="v num">{outcomes.length ? pct(outcomes.filter((o) => o.onTime).length / outcomes.length) : "–"}</div>
+            <div className="l">Finished on time</div>
           </div>
-          <div className="l">Lost margin by cause</div>
-        </div>
+        )}
       </div>
       <div className="scroll" style={{ marginTop: 16 }}>
         <table>
@@ -66,9 +78,13 @@ export function ScorecardScreen({ ctx }: { ctx: Ctx }) {
               <th className="r">Jobs</th>
               <th className="r">Hours vs bid</th>
               <th className="r">Jobs over {s.overrunPct}%</th>
-              <th className="r">Margin fade</th>
-              <th className="r">Fade $</th>
-              <th className="r">Field-caused $</th>
+              {money && (
+                <>
+                  <th className="r">Margin fade</th>
+                  <th className="r">Fade $</th>
+                  <th className="r">Field-caused $</th>
+                </>
+              )}
               <th className="r">On time</th>
               <th className="r">Running now</th>
             </tr>
@@ -76,7 +92,7 @@ export function ScorecardScreen({ ctx }: { ctx: Ctx }) {
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={9} className="note">
+                <td colSpan={money ? 9 : 6} className="note">
                   No finished jobs yet. The scorecard fills in as jobs close out.
                 </td>
               </tr>
@@ -98,23 +114,27 @@ export function ScorecardScreen({ ctx }: { ctx: Ctx }) {
                       {n0(Math.abs(r.hoursVsBid) * 100)}%
                     </td>
                     <td className="r num">{r.over}</td>
-                    <td className="r num" style={red(r.fadePts)}>
-                      {pts(r.fadePts)}
-                    </td>
-                    <td className="r num" style={red(r.fadeCents)}>
-                      {usdS(r.fadeCents)}
-                    </td>
-                    <td className="r num" style={red(r.fieldCents)}>
-                      {usdS(r.fieldCents)}
-                    </td>
+                    {money && (
+                      <>
+                        <td className="r num" style={red(r.fadePts)}>
+                          {pts(r.fadePts)}
+                        </td>
+                        <td className="r num" style={red(r.fadeCents)}>
+                          {usdS(r.fadeCents)}
+                        </td>
+                        <td className="r num" style={red(r.fieldCents)}>
+                          {usdS(r.fieldCents)}
+                        </td>
+                      </>
+                    )}
                     <td className="r num">{r.onTime == null ? "–" : pct(r.onTime)}</td>
                     <td className="r num" style={red(liveFade)}>
-                      {r.running.length ? `${r.running.length} · ${usdS(liveFade)}` : "–"}
+                      {r.running.length ? (money ? `${r.running.length} · ${usdS(liveFade)}` : r.running.length) : "–"}
                     </td>
                   </tr>
                   {open === r.leader.id && (
                     <tr>
-                      <td colSpan={9}>
+                      <td colSpan={money ? 9 : 6}>
                         <div className="scroll">
                           <table>
                             <thead>
@@ -123,9 +143,13 @@ export function ScorecardScreen({ ctx }: { ctx: Ctx }) {
                                 <th>Finished</th>
                                 <th className="r">Hours bid</th>
                                 <th className="r">Hours actual</th>
-                                <th className="r">GP bid</th>
-                                <th className="r">GP final</th>
-                                <th className="r">Fade</th>
+                                {money && (
+                                  <>
+                                    <th className="r">GP bid</th>
+                                    <th className="r">GP final</th>
+                                    <th className="r">Fade</th>
+                                  </>
+                                )}
                                 <th>On time</th>
                                 <th>Cause of overrun</th>
                               </tr>
@@ -145,14 +169,18 @@ export function ScorecardScreen({ ctx }: { ctx: Ctx }) {
                                     <td className="r num" style={over ? { color: "var(--red)" } : undefined}>
                                       {n0(o.actualHrs)}
                                     </td>
-                                    <td className="r num">{pct(o.gpBid)}</td>
-                                    <td className="r num">{pct(o.gpFinal)}</td>
-                                    <td className="r num" style={red(o.gpFinal - o.gpBid)}>
-                                      {pts(o.gpFinal - o.gpBid)}
-                                    </td>
+                                    {money && (
+                                      <>
+                                        <td className="r num">{pct(o.gpBid)}</td>
+                                        <td className="r num">{pct(o.gpFinal)}</td>
+                                        <td className="r num" style={red(o.gpFinal - o.gpBid)}>
+                                          {pts(o.gpFinal - o.gpBid)}
+                                        </td>
+                                      </>
+                                    )}
                                     <td>{o.onTime ? "Yes" : <span className="tag red">Late</span>}</td>
                                     <td>
-                                      {o.actualHrs > o.estimateHrs * 1.03 || fadeCents(o) < 0 || o.cause ? (
+                                      {o.actualHrs > o.estimateHrs * 1.03 || (money && fadeCents(o) < 0) || o.cause ? (
                                         tagAllowed ? (
                                           <select value={o.cause ?? ""} aria-label={`Cause of overrun ${o.number}`} onChange={(e) => run(() => repo.tagCause(o.id, e.target.value || null), "Cause tagged.")}>
                                             <option value="">Untagged</option>
@@ -179,11 +207,15 @@ export function ScorecardScreen({ ctx }: { ctx: Ctx }) {
                                   <td>Due {fmtShort(j.projectedFinish)}</td>
                                   <td className="r num">{n0(j.estimateHrs)}</td>
                                   <td className="r num">{n0(eac(idx, j))} proj.</td>
-                                  <td className="r num">{pct(m.gpBid(j))}</td>
-                                  <td className="r num">{pct(m.gpNow(j))} proj.</td>
-                                  <td className="r num" style={red(m.fade(j))}>
-                                    {pts(m.fade(j))}
-                                  </td>
+                                  {money && (
+                                    <>
+                                      <td className="r num">{pct(m.gpBid(j))}</td>
+                                      <td className="r num">{pct(m.gpNow(j))} proj.</td>
+                                      <td className="r num" style={red(m.fade(j))}>
+                                        {pts(m.fade(j))}
+                                      </td>
+                                    </>
+                                  )}
                                   <td />
                                   <td className="note">Tagged at closeout</td>
                                 </tr>

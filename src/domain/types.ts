@@ -347,4 +347,6 @@ export interface Viewer {
   personId: string | null;
   repCode: string | null;
   pmCode: string | null;
+  /** On the estimator list though their role is something else (Access → "Also estimates"). */
+  alsoEstimator?: boolean;
 }

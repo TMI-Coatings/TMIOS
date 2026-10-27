@@ -27,7 +27,7 @@ export function JourneyScreen({ ctx }: { ctx: Ctx }) {
   const mine = full
     ? []
     : jobs
-        .flatMap((j) => jy.defs.filter((c) => canCheck(viewer, c, canSeeJob(viewer, j)) && !jy.isDone(j, c) && dueDate(j, c) <= addDays(today, 14)).map((c) => ({ j, c })))
+        .flatMap((j) => jy.defs.filter((c) => canCheck(viewer, c, canSeeJob(viewer, j) ? j : null) && !jy.isDone(j, c) && dueDate(j, c) <= addDays(today, 14)).map((c) => ({ j, c })))
         .sort((a, b) => dueDate(a.j, a.c).localeCompare(dueDate(b.j, b.c)));
 
   const row = ({ j, c }: { j: Job; c: CheckpointDef }) => (
@@ -42,7 +42,7 @@ export function JourneyScreen({ ctx }: { ctx: Ctx }) {
       <td>{fmtShort(dueDate(j, c))}</td>
       <td className="r num">{jy.isLate(j, c) ? jy.daysLate(j, c) : "—"}</td>
       <td>
-        {canCheck(viewer, c, true) && (
+        {canCheck(viewer, c, j) && (
           <button className="btn sec" onClick={() => run(() => repo.setCheckpoint(j.id, c.key, true), "Marked done.")}>
             Mark done
           </button>

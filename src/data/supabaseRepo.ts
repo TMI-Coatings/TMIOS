@@ -134,8 +134,15 @@ export class SupabaseRepo implements Repo {
       money ? sb.from("retainage_receipts").select("*").eq("active", true) : none,
     ]);
     const outs = ["admin", "ceo", "cfo", "scheduler", "pm", "superintendent"].includes(viewer.role)
-      ? await sb.from("closeout_outcomes").select("*").order("finished_on", { ascending: false })
+      ? await sb
+          .from("closeout_outcomes")
+          .select("id, job_id, number, customer, job_type, leader_id, pm_code, finished_on, estimate_hrs, actual_hrs, on_time, cause, illustrative")
+          .order("finished_on", { ascending: false })
       : { data: [], error: null };
+    // Contract value and margin on closeouts only reach the roles that see money (outcome_money()).
+    const outMoney = new Map<string, Row>(
+      ["admin", "ceo", "cfo", "scheduler", "pm"].includes(viewer.role) ? ((check(await sb.rpc("outcome_money")) as Row[]) ?? []).map((r) => [r.id, r]) : [],
+    );
     const signBy = new Map<string, Row[]>();
     for (const r of check(signoffs) as Row[]) signBy.set(r.job_id, [...(signBy.get(r.job_id) ?? []), r]);
     const evBy = new Map<string, Row[]>();
@@ -257,9 +264,9 @@ export class SupabaseRepo implements Repo {
         finishedOn: r.finished_on,
         estimateHrs: Number(r.estimate_hrs),
         actualHrs: Number(r.actual_hrs),
-        contractCents: Number(r.contract_cents),
-        gpBid: Number(r.gp_bid),
-        gpFinal: Number(r.gp_final),
+        contractCents: Number(outMoney.get(r.id)?.contract_cents ?? 0),
+        gpBid: Number(outMoney.get(r.id)?.gp_bid ?? 0),
+        gpFinal: Number(outMoney.get(r.id)?.gp_final ?? 0),
         onTime: r.on_time,
         cause: r.cause,
         illustrative: r.illustrative,

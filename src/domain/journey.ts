@@ -98,11 +98,14 @@ export class Journey {
   inStartup = (j: Job) => this.stageOf(j) < this.stages.length && !!this.stages[this.stageOf(j)]?.startup;
 }
 
-/** Who may tick a checkpoint. Same rules as app.can_check in the database. */
-export function canCheck(v: Viewer, c: CheckpointDef, seesJob: boolean): boolean {
-  if (c.autoSource || !seesJob || !c.active) return false;
+/** Who may tick a checkpoint. Same rules as app.can_check in the database. PMs and reps tick only on their own jobs. */
+export function canCheck(v: Viewer, c: CheckpointDef, j: Pick<Job, "repCode" | "pmCode"> | null): boolean {
+  if (c.autoSource || !j || !c.active) return false;
   if ((["admin", "ceo", "cfo"] as Role[]).includes(v.role)) return true;
-  return c.owner === v.role;
+  if (c.owner !== v.role) return false;
+  if (v.role === "pm") return !!v.pmCode && j.pmCode === v.pmCode;
+  if (v.role === "sales_rep") return !!v.repCode && j.repCode === v.repCode;
+  return true;
 }
 
 export function ownerName(j: Job, c: CheckpointDef, names: { rep: (c: string) => string; pm: (c: string) => string; jobSetup: string[]; schedulers: string[] }): string {

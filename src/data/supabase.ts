@@ -38,5 +38,5 @@ export async function currentViewer(): Promise<Viewer | null | "no-access"> {
   if (error) throw error;
   const r = (rows as Record<string, any>[] | null)?.[0];
   if (!r) return "no-access";
-  return { userId: r.id, name: r.name, email: r.email, role: r.role, personId: r.person_id, repCode: r.rep_code, pmCode: r.pm_code };
+  return { userId: r.id, name: r.name, email: r.email, role: r.role, personId: r.person_id, repCode: r.rep_code, pmCode: r.pm_code, alsoEstimator: !!r.also_estimator };
 }

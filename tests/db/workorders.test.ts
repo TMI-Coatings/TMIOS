@@ -162,7 +162,7 @@ describe("job journey", () => {
       for (const j of jobs)
         for (const c of DEFAULT_CHECKPOINTS) {
           const r = await as(v, (q) => q("select app.can_check($1, $2) ok", [j.id, c.key]));
-          expect(r.ok && r.rows[0].ok, `${v.role} ${c.key} on ${j.number}`).toBe(canCheck(v, c, canSeeJob(v, j)));
+          expect(r.ok && r.rows[0].ok, `${v.role} ${c.key} on ${j.number}`).toBe(canCheck(v, c, canSeeJob(v, j) ? j : null));
         }
   });
 

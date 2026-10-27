@@ -233,3 +233,80 @@ describe("reminders, retainage part payments and stages", () => {
     expect(pm.ok).toBe(false);
   });
 });
+
+describe("independent review: security fixes", () => {
+  const attempt = async (q: (s: string, p?: unknown[]) => Promise<pg.QueryResult>, sql: string, params: unknown[] = []) => {
+    await q("savepoint t");
+    try {
+      await q(sql, params);
+      await q("release savepoint t");
+      return "ok";
+    } catch (e: any) {
+      await q("rollback to savepoint t");
+      return e.message as string;
+    }
+  };
+  it("leaders can't read closeout dollars, directly or through the change log; money roles still can", async () => {
+    const supt = user("superintendent");
+    const direct = await as(supt, (q) => q("select contract_cents from public.closeout_outcomes limit 1"));
+    expect(direct.ok).toBe(false);
+    const own = await as(supt, (q) => q("select count(*)::int n from public.closeout_outcomes"));
+    expect(own.ok && own.rows[0].n).toBeGreaterThan(0);
+    const viaFn = await as(supt, (q) => q("select count(*)::int n from public.outcome_money()"));
+    expect(viaFn.ok && viaFn.rows[0].n).toBe(0);
+    const cfo = await as(user("cfo"), (q) => q("select count(*)::int n from public.outcome_money()"));
+    expect(cfo.ok && cfo.rows[0].n).toBe(sample.outcomes.length);
+    // Complete a job so a closeout row lands in the change log, then look as an estimator.
+    const j = sample.jobs.find((x) => x.status === "active")!;
+    const est = user("estimator");
+    const r = await as(user("admin"), async (q) => {
+      await q("update public.jobs set status = 'complete', actual_finish = $2 where id = $1", [j.id, TEST_WEEK]);
+      await q("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: est.userId, email: est.email, role: "authenticated" })]);
+      return q("select count(*)::int n from public.change_log where table_name = 'closeout_outcomes'");
+    });
+    expect(r.ok && r.rows[0].n).toBe(0);
+  });
+  it("a PM can't tick the customer sign-off on someone else's job", async () => {
+    const pm = user("pm");
+    const other = sample.jobs.find((x) => x.pmCode !== pm.pmCode && x.status !== "complete")!;
+    const mine = sample.jobs.find((x) => x.pmCode === pm.pmCode && x.status !== "complete")!;
+    const r = await as(pm, async (q) => ({
+      rows: {
+        other: await attempt(q, "select public.set_checkpoint($1, 'walk', true)", [other.id]),
+        mine: await attempt(q, "select public.set_checkpoint($1, 'walk', true)", [mine.id]),
+      },
+    }) as never);
+    expect(r.ok && r.rows).toEqual({ other: "That checkpoint belongs to someone else", mine: "ok" });
+  });
+  it("job setup can't name herself estimator and sign the estimator step", async () => {
+    const lori = user("job_setup");
+    const w = sample.workOrders.find((x) => x && !x.final && x.fileName && !x.returned && x.currentStep === 0)!;
+    const r = await as(lori, async (q) => {
+      await q("update public.jobs set estimator = $2 where id = $1", [w.jobId, lori.name]);
+      return { rows: { sign: await attempt(q, "select public.wo_approve($1)", [w.jobId]) } } as never;
+    });
+    expect(r.ok && (r.rows as unknown as { sign: string }).sign).not.toBe("ok");
+  });
+  it("nobody inserts jobs directly; create_job is the only way in", async () => {
+    const r = await as(user("scheduler"), (q) =>
+      q("insert into public.jobs (number, customer, job_type, location, rep_code, pm_code, estimator, crew_size, estimate_hrs, projected_hrs, contract_cents, start, projected_finish, baseline_finish) values ('9876','X','Y','Z','ER','JM','E',1,100,100,100,'2026-12-07','2026-12-11','2027-12-31')"),
+    );
+    expect(r.ok).toBe(false);
+  });
+  it("notes carry the real author, and a leader can't add a pinned note", async () => {
+    const supt = user("superintendent");
+    const j = sample.jobs.find((x) => x.leaderId === supt.personId)!;
+    const r = await as(supt, async (q) => ({
+      rows: {
+        pinned: await attempt(q, "insert into public.job_notes (job_id, body, pinned, author_name) values ($1, 'x', true, 'Derrick Gordon')", [j.id]),
+        plain: await attempt(q, "insert into public.job_notes (job_id, body, pinned, author_name) values ($1, 'gate code changed', false, 'Derrick Gordon')", [j.id]),
+        author: (await q("select author_name from public.job_notes where body = 'gate code changed'")).rows[0]?.author_name,
+      },
+    }) as never);
+    expect(r.ok ? "" : r.error).toBe("");
+    const x = (r.ok ? r.rows : []) as unknown as { pinned: string; plain: string; author: string };
+    expect(x.pinned).not.toBe("ok");
+    expect(x.plain).toBe("ok");
+    expect(x.author).toBe(supt.name);
+  });
+});

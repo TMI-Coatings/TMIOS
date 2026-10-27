@@ -287,7 +287,7 @@ export class SampleRepo implements Repo {
     ds.outcomes = ["admin", "ceo", "cfo", "scheduler", "pm"].includes(viewer.role)
       ? d.outcomes
       : viewer.role === "superintendent"
-          ? d.outcomes.filter((o) => o.leaderId === viewer.personId)
+          ? d.outcomes.filter((o) => o.leaderId === viewer.personId).map((o) => ({ ...o, contractCents: 0, gpBid: 0, gpFinal: 0 }))
           : [];
     if (viewer.role === "field_crew") ds.closes = [];
     // Roles that can't see every job or the crew's time off get the company totals separately.
@@ -828,7 +828,7 @@ export class SampleRepo implements Repo {
     const v = this.me();
     const j = this.job(jobId);
     const c = this.d.checkpointDefs.find((x) => x.key === key);
-    if (!c || !canCheck(v, c, true)) throw new Error("That checkpoint belongs to someone else.");
+    if (!c || !canCheck(v, c, j)) throw new Error("That checkpoint belongs to someone else.");
     const i = this.d.jobCheckpoints.findIndex((x) => x.jobId === jobId && x.key === key);
     if (done && i < 0) this.d.jobCheckpoints.push({ jobId, key, by: v.name, at: new Date().toISOString() });
     if (!done && i >= 0) this.d.jobCheckpoints.splice(i, 1);

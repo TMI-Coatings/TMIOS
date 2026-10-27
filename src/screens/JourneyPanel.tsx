@@ -59,7 +59,7 @@ export function JourneyPanel({ ctx, job, open }: { ctx: Ctx; job: Job; open?: bo
                       )}
                     </span>
                   </span>
-                  {canCheck(viewer, c, true) && (
+                  {canCheck(viewer, c, job) && (
                     <button className="btn sec" onClick={() => run(() => repo.setCheckpoint(job.id, c.key, !done), done ? "Reopened." : "Marked done.")}>
                       {done ? "Undo" : "Mark done"}
                     </button>
