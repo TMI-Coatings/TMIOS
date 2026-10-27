@@ -261,10 +261,26 @@ export function BillingPanel({ ctx, job, open }: { ctx: Ctx; job: Job; open?: bo
           </div>
         </>
       )}
-      {st === "ret" && cb && (
+      {m.retainageOutstanding(job) > 0 && cb && (
         <div className="row" style={{ marginTop: 10 }}>
-          <button className="btn" onClick={() => run(() => repo.recordRetainageReceived(job.id), "Retainage received.")}>
-            Retainage received
+          <label className="field">
+            Retainage received ($)
+            <input
+              inputMode="decimal"
+              style={{ width: 120 }}
+              value={f("ret", String(m.retainageOutstanding(job) / 100))}
+              onChange={(e) => setForm({ ...form, ret: e.target.value })}
+            />
+          </label>
+          <button
+            className="btn"
+            onClick={() => {
+              const amt = toCents(f("ret", String(m.retainageOutstanding(job) / 100)));
+              if (!Number.isFinite(amt) || amt <= 0) return void run(() => Promise.reject(new Error("Enter the amount received in dollars.")));
+              void run(() => repo.recordRetainageReceived(job.id, amt), amt < m.retainageOutstanding(job) ? "Part of the retainage received." : "Retainage received.");
+            }}
+          >
+            Record retainage received
           </button>
           <span className="note">
             {usd(m.retainageOutstanding(job))} held. Released at{" "}

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type pg from "pg";
 import type { Viewer } from "../../src/domain/types";
 import { buildSample } from "../../src/sample/seed";
-import { asUser, freshDatabase, TEST_WEEK } from "./harness";
+import { asUser, freshDatabase, TEST_TODAY, TEST_WEEK } from "./harness";
 
 const sample = buildSample(TEST_WEEK);
 const user = (role: string) => sample.users.find((u) => u.role === role)!;
@@ -168,5 +168,68 @@ describe("hours nudge", () => {
     expect(x!.a).toEqual({ ...nudgeAlert(TEST_WEEK, miss.jobs, sched.name), recipients: [pmName] });
     const rep = await as(user("sales_rep"), (q) => q("select public.nudge_hours($1, $2)", [miss.pmCode, TEST_WEEK]));
     expect(rep.ok).toBe(false);
+  });
+});
+
+describe("reminders, retainage part payments and stages", () => {
+  const attempt = async (q: (s: string, p?: unknown[]) => Promise<pg.QueryResult>, sql: string, params: unknown[] = []) => {
+    await q("savepoint t");
+    try {
+      await q(sql, params);
+      await q("release savepoint t");
+      return "ok";
+    } catch (e: any) {
+      await q("rollback to savepoint t");
+      return e.message as string;
+    }
+  };
+  it("Lori reminds the person a stuck work order waits on, once a day, in the same words as the screen", async () => {
+    const { woReminder } = await import("../../src/domain/workOrders");
+    const { namesOf } = await import("../../src/domain/views");
+    const w = sample.workOrders.find((x) => x && !x.final && x.fileName && !x.returned && x.currentStep < 3)!;
+    const j = sample.jobs.find((x) => x.id === w.jobId)!;
+    const lori = user("job_setup");
+    const r = await as(lori, async (q) => {
+      const first = await attempt(q, "select public.wo_remind($1)", [j.id]);
+      const again = await attempt(q, "select public.wo_remind($1)", [j.id]);
+      await q("reset role");
+      const a = (await q("select title, body, recipients from public.alerts where title like 'Reminder: work order%'")).rows[0];
+      return { rows: { first, again, a } } as never;
+    });
+    expect(r.ok ? "" : r.error).toBe("");
+    const x = r.ok ? (r.rows as unknown as { first: string; again: string; a: unknown }) : null;
+    expect(x!.first).toBe("ok");
+    expect(x!.again).toBe("Already reminded today");
+    expect(x!.a).toEqual(woReminder(j, w, namesOf(sample), TEST_TODAY, lori.name));
+    const rep = await as(user("sales_rep"), (q) => q("select public.wo_remind($1)", [j.id]));
+    expect(rep.ok).toBe(false);
+  });
+  it("accounting records part of the retainage, never more than is outstanding", async () => {
+    const j = sample.jobs.find((x) => sample.invoices.some((i) => i.jobId === x.id && i.retainageCents > 0))!;
+    const r = await as(user("accounting"), async (q) => ({
+      rows: {
+        part: await attempt(q, "select public.record_retainage_received($1, 1000)", [j.id]),
+        tooMuch: await attempt(q, "select public.record_retainage_received($1, 999999999)", [j.id]),
+        rest: await attempt(q, "select public.record_retainage_received($1)", [j.id]),
+        none: await attempt(q, "select public.record_retainage_received($1)", [j.id]),
+      },
+    }) as never);
+    const x = r.ok ? (r.rows as unknown as Record<string, string>) : {};
+    expect(x.part).toBe("ok");
+    expect(x.tooMuch).toMatch(/^Enter an amount up to the \$/);
+    expect(x.rest).toBe("ok");
+    expect(x.none).toBe("No retainage outstanding on this job");
+  });
+  it("admins add and reorder stages; a stage in use can't be retired", async () => {
+    const r = await as(user("admin"), async (q) => ({
+      rows: {
+        add: await attempt(q, "insert into public.journey_stages (key, label, sort, startup) values ('safety', 'Pre-job safety review', 99, true)"),
+        retire: await attempt(q, "update public.journey_stages set active = false where key = 'sold'"),
+        empty: await attempt(q, "update public.journey_stages set active = false where key = 'safety'"),
+      },
+    }) as never);
+    expect(r.ok && r.rows).toEqual({ add: "ok", retire: "Move or retire this stage's checkpoints first", empty: "ok" });
+    const pm = await as(user("pm"), (q) => q("insert into public.journey_stages (key, label, sort, startup) values ('x', 'X', 98, true)"));
+    expect(pm.ok).toBe(false);
   });
 });

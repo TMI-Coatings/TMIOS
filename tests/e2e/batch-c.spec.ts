@@ -35,7 +35,7 @@ test("accounting records the final invoice for a signed-off job, then retainage"
   await page.keyboard.press("Escape");
   await expect(page.locator('[data-billcol="closed"]')).toContainText("4051 Dakota Ridge Ethanol");
   await page.locator('[data-billcol="ret"]').getByRole("button", { name: /4072 Mankato Water Treatment/ }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Retainage received" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Record retainage received" }).click();
   await expect(page.getByRole("status")).toHaveText("Retainage received.");
 });
 
@@ -102,4 +102,13 @@ test("the board pack shows the financial position", async ({ page }) => {
   await expect(fin.getByText(/Revenue landing in Q\d \d{4}/)).toBeVisible();
   await expect(fin.getByText("Retainage receivable")).toBeVisible();
   await expect(fin.getByText(/Margin fade on open jobs/)).toBeVisible();
+});
+
+test("accounting records part of the retainage", async ({ page }) => {
+  await viewAs(page, "accounting", "#billing");
+  await page.locator('[data-billcol="ret"]').getByRole("button", { name: /4072 Mankato Water Treatment/ }).click();
+  const dlg = page.getByRole("dialog");
+  await dlg.getByLabel("Retainage received ($)").fill("1000");
+  await dlg.getByRole("button", { name: "Record retainage received" }).click();
+  await expect(page.getByRole("status")).toHaveText("Part of the retainage received.");
 });

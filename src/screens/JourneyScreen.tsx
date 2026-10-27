@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { can, canSeeJob } from "../domain/permissions";
-import { AUTO_LABEL, OWNER_LABEL, canCheck, dueDate, leadText, ownerName, type CheckpointDef, type CheckpointOwner } from "../domain/journey";
+import { AUTO_LABEL, canCheck, type CheckpointDef, type CheckpointOwner, dueDate, type JourneyStage, leadText, OWNER_LABEL, ownerName } from "../domain/journey";
 import type { Job } from "../domain/types";
 import { journeyOf, namesOf } from "../domain/views";
 import { addDays, fmtShort, todayIn } from "../domain/weeks";
@@ -160,8 +160,99 @@ export function JourneyScreen({ ctx }: { ctx: Ctx }) {
           </p>
         </div>
       )}
+      {can.editJourney(ctx.viewer.role) && <Stages ctx={ctx} />}
       <Definitions ctx={ctx} />
       {openJob && <JobDialog ctx={ctx} jobId={openJob} onClose={() => setOpenJob(null)} journeyOpen />}
+    </>
+  );
+}
+
+/** Admin, CEO and CFO rename, reorder, add or retire stages (decision 23). */
+function Stages({ ctx }: { ctx: Ctx }) {
+  const { data, repo, run } = ctx;
+  const ds = data.ds;
+  const all = [...ds.stages].sort((a, b) => a.sort - b.sort);
+  const live = all.filter((s) => s.active);
+  const [name, setName] = useState("");
+  const [startup, setStartup] = useState(true);
+  const save = (s: JourneyStage, isNew = false, done = isNew ? "Stage added." : "Stage saved.") => run(() => repo.saveStage(s, isNew), done);
+  const move = async (i: number, d: -1 | 1) => {
+    const a = live[i];
+    const b = live[i + d];
+    if (!a || !b) return;
+    await run(async () => {
+      await repo.saveStage({ ...a, sort: b.sort }, false);
+      await repo.saveStage({ ...b, sort: a.sort }, false);
+    }, "Stages reordered.");
+  };
+  return (
+    <>
+      <h2>Stages</h2>
+      <p className="note">Stages before the job starts count toward readiness on the starting-soon list. A stage can only be retired once its checkpoints are moved or retired.</p>
+      <div className="scroll">
+        <table className="users" aria-label="Journey stages">
+          <thead>
+            <tr>
+              <th>Order</th>
+              <th>Stage</th>
+              <th>Before the job starts</th>
+              <th>In use</th>
+            </tr>
+          </thead>
+          <tbody>
+            {all.map((s) => {
+              const i = live.indexOf(s);
+              return (
+                <tr key={s.key} style={s.active ? undefined : { opacity: 0.55 }}>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    {s.active && (
+                      <>
+                        <button className="jl" disabled={i === 0} aria-label={`Move ${s.label} up`} onClick={() => move(i, -1)}>
+                          ↑
+                        </button>{" "}
+                        <button className="jl" disabled={i === live.length - 1} aria-label={`Move ${s.label} down`} onClick={() => move(i, 1)}>
+                          ↓
+                        </button>
+                      </>
+                    )}
+                  </td>
+                  <td>
+                    <input key={s.label} defaultValue={s.label} aria-label={`${s.label} stage name`} style={{ width: "100%" }} onBlur={(e) => e.target.value.trim() && e.target.value.trim() !== s.label && save({ ...s, label: e.target.value.trim() })} />
+                  </td>
+                  <td>
+                    <input type="checkbox" checked={s.startup} aria-label={`${s.label} before the job starts`} onChange={(e) => save({ ...s, startup: e.target.checked })} />
+                  </td>
+                  <td>
+                    <input type="checkbox" checked={s.active} aria-label={`${s.label} in use`} onChange={(e) => save({ ...s, active: e.target.checked }, false, e.target.checked ? "Stage back in use." : "Stage retired.")} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="row" style={{ marginTop: 8 }}>
+        <label className="field">
+          New stage
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Pre-job safety review" />
+        </label>
+        <label className="q">
+          <input type="checkbox" checked={startup} onChange={(e) => setStartup(e.target.checked)} /> Before the job starts
+        </label>
+        <button
+          className="btn"
+          disabled={!name.trim()}
+          onClick={async () => {
+            const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 36) || "stage";
+            let key = base;
+            for (let k = 2; ds.stages.some((s) => s.key === key); k++) key = `${base}-${k}`;
+            const sort = Math.max(0, ...ds.stages.map((s) => s.sort)) + 1;
+            if (await save({ key, label: name.trim(), sort, startup, active: true }, true)) setName("");
+          }}
+        >
+          Add stage
+        </button>
+      </div>
     </>
   );
 }

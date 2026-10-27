@@ -155,3 +155,21 @@ test("Nicole sees who hasn't entered hours and nudges them; the PM gets it", asy
   await viewAs(page, "pm", "#alerts");
   await expect(page.getByText(/^Hours needed: week ending/).first()).toBeVisible();
 });
+
+test("if a closed week's digest never went out, the close screen offers to send it", async ({ page }) => {
+  await viewAs(page, "admin", "#close");
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Reset sample" }).click();
+  await page.waitForLoadState("load");
+  await viewAs(page, "scheduler", "#close");
+  await page.evaluate(() => {
+    const k = "tmi-ops-sample-v6";
+    const s = JSON.parse(localStorage.getItem(k)!);
+    s.alerts = s.alerts.filter((a: { rule: string }) => a.rule !== "digest");
+    localStorage.setItem(k, JSON.stringify(s));
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Send it now" }).click();
+  await expect(page.getByText("Monday digest sent.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send it now" })).toHaveCount(0);
+});

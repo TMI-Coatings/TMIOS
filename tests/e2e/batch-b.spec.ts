@@ -66,3 +66,23 @@ test("the job window shows the journey and the work order", async ({ page }) => 
   await expect(dlg.getByText(/^Job journey:/)).toBeVisible();
   await expect(dlg.getByLabel("Work order", { exact: true })).toContainText("Acting for Rep Eric Rich");
 });
+
+test("Lori reminds the person a stuck work order waits on", async ({ page }) => {
+  await viewAs(page, "job_setup", "#wo");
+  await page.getByRole("button", { name: new RegExp(`^Remind .* about ${mva.number}$`) }).click();
+  await expect(page.getByText("Reminder sent.")).toBeVisible();
+  await page.getByRole("button", { name: new RegExp(`^Remind .* about ${mva.number}$`) }).click();
+  await expect(page.getByText("Already reminded today.")).toBeVisible();
+});
+
+test("admins rename, reorder and add journey stages", async ({ page }) => {
+  await viewAs(page, "admin", "#journey");
+  const stages = page.getByRole("table", { name: "Journey stages" });
+  await stages.getByRole("button", { name: "Move Paperwork up" }).click();
+  await expect(page.getByText("Stages reordered.")).toBeVisible();
+  await page.getByLabel("New stage").fill("Pre-job safety review");
+  await page.getByRole("button", { name: "Add stage" }).click();
+  await expect(page.getByText("Stage added.")).toBeVisible();
+  await stages.getByLabel("Sold and set up in use").click();
+  await expect(page.getByText("Move or retire this stage's checkpoints first.")).toBeVisible();
+});

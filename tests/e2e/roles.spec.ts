@@ -269,3 +269,11 @@ test("typing more than the hours left asks first", async ({ page }) => {
   await expect.poll(() => asked).toContain("more than the");
   await expect(page.locator(`tr[data-job-row="${job.number}"] td.ov`)).toHaveCount(0);
 });
+
+test("find a job on the schedule by number, customer or town", async ({ page }) => {
+  await viewAs(page, "scheduler", "#schedule");
+  const j = sample.jobs.find((x) => x.status === "active")!;
+  await page.getByLabel("Find a job").fill(j.number);
+  await expect(page.locator("tr[data-job-row]")).toHaveCount(1);
+  await expect(page.locator(`tr[data-job-row="${j.number}"]`)).toBeVisible();
+});

@@ -5,7 +5,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { can, seesCompanyTotals } from "../domain/permissions";
 import type { CloseInput, CloseResult } from "../domain/close";
-import type { CheckpointDef } from "../domain/journey";
+import type { CheckpointDef, JourneyStage } from "../domain/journey";
 import type { WorkOrder } from "../domain/workOrders";
 import type { ChangeOrder, InvoiceKind, WipSnapshotRow } from "../domain/money";
 import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Person, Settings, TimeOff, Viewer } from "../domain/types";
@@ -441,6 +441,10 @@ export class SupabaseRepo implements Repo {
     check(await this.sb.rpc("wo_return", { p_job: jobId, p_comment: comment }));
   }
 
+  async woRemind(jobId: string) {
+    check(await this.sb.rpc("wo_remind", { p_job: jobId }));
+  }
+
   async woMarkFiled(jobId: string) {
     check(await this.sb.rpc("wo_mark_filed", { p_job: jobId }));
   }
@@ -455,6 +459,12 @@ export class SupabaseRepo implements Repo {
 
   async setCheckpoint(jobId: string, key: string, done: boolean) {
     check(await this.sb.rpc("set_checkpoint", { p_job: jobId, p_key: key, p_done: done }));
+  }
+
+  async saveStage(s: JourneyStage, isNew: boolean) {
+    const row = { key: s.key, label: s.label, sort: s.sort, startup: s.startup, active: s.active };
+    if (isNew) check(await this.sb.from("journey_stages").insert(row));
+    else check(await this.sb.from("journey_stages").update(row).eq("key", s.key));
   }
 
   async saveCheckpointDef(d: CheckpointDef, isNew: boolean) {
@@ -518,8 +528,8 @@ export class SupabaseRepo implements Repo {
     return check(await this.sb.rpc("take_wip_snapshot", { p_month: month })) as number;
   }
 
-  async recordRetainageReceived(jobId: string) {
-    check(await this.sb.rpc("record_retainage_received", { p_job: jobId }));
+  async recordRetainageReceived(jobId: string, amountCents?: number) {
+    check(await this.sb.rpc("record_retainage_received", { p_job: jobId, p_amount: amountCents ?? null }));
   }
 
   async companyRevenueTotals() {

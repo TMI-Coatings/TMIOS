@@ -39,6 +39,7 @@ type Sort = "start" | "finish" | "rep" | "pm" | "customer";
 export function ScheduleScreen({ ctx }: { ctx: Ctx }) {
   const { viewer, week, data, repo, run } = ctx;
   const ds = data.ds;
+  const [q, setQ] = useState("");
   const [f, setF] = useState<{ rep: string; pm: string; firm: string; sort: Sort }>({ rep: "", pm: "", firm: "", sort: "start" });
   const [openJob, setOpenJob] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -66,7 +67,9 @@ export function ScheduleScreen({ ctx }: { ctx: Ctx }) {
     pm: (j) => pmName(j.pmCode),
     customer: (j) => j.customer,
   };
+  const find = q.trim().toLowerCase();
   const jobs = allJobs
+    .filter((j) => !find || [j.number, j.customer, j.location, j.jobType].some((x) => x.toLowerCase().includes(find)))
     .filter((j) => (!f.rep || j.repCode === f.rep) && (!f.pm || j.pmCode === f.pm) && (!f.firm || (f.firm === "hold" ? isOnHold(j) : !isOnHold(j) && j.firmness === f.firm)))
     .sort((a, b) => key[f.sort](a).localeCompare(key[f.sort](b)) || a.start.localeCompare(b.start));
   const reps = [...new Set(allJobs.map((j) => j.repCode))].sort((a, b) => repName(a).localeCompare(repName(b)));
@@ -181,6 +184,10 @@ export function ScheduleScreen({ ctx }: { ctx: Ctx }) {
       )}
       <div className="row" style={{ marginBottom: 12 }}>
         <label className="field">
+          Find a job
+          <input type="search" value={q} placeholder="Number, customer or town" onChange={(e) => setQ(e.target.value)} />
+        </label>
+        <label className="field">
           Sales rep
           <select value={f.rep} onChange={(e) => setF({ ...f, rep: e.target.value })}>
             <option value="">All reps</option>
@@ -226,10 +233,10 @@ export function ScheduleScreen({ ctx }: { ctx: Ctx }) {
         </label>
         <span className="note">
           Showing {jobs.length} of {allJobs.length} jobs.
-          {totals && (f.rep || f.pm || f.firm || data.totals) ? " Totals below stay company-wide." : ""}
+          {totals && (find || f.rep || f.pm || f.firm || data.totals) ? " Totals below stay company-wide." : ""}
         </span>
       </div>
-      <div className="scroll">
+      <div className="scroll sched-wrap">
         <table className="sched">
           <thead>
             <tr>

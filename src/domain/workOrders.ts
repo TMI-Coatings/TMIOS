@@ -4,7 +4,7 @@
  * wo_upload, wo_approve, wo_return and wo_mark_filed (batch B migration).
  */
 import type { IsoDate, Job, Viewer } from "./types";
-import { daysBetween } from "./weeks";
+import { daysBetween, fmtShort } from "./weeks";
 
 export const WO_STEPS = [
   { role: "Estimator", what: "Hours and scope" },
@@ -86,4 +86,28 @@ export function woInQueue(v: Viewer, j: Job, w: WorkOrder): boolean {
   const s = woStatus(w);
   if (v.role === "job_setup") return s === "Awaiting draft" || s === "Returned" || (s === "Final" && !w.filed);
   return (s === "Draft" || s === "In review") && woIsMine(v, j, w.currentStep);
+}
+
+/** Who may nudge the person a stuck work order is waiting on: job setup, the scheduler, the job's PM and admins. */
+export function woCanRemind(v: Viewer, j: Job, w: WorkOrder | undefined): boolean {
+  if (!w || !woOpen(j, w)) return false;
+  const lori = !w.fileName || !!w.returned;
+  if (!lori && woIsMine(v, j, w.currentStep)) return false;
+  if (lori && v.role === "job_setup") return false;
+  return ["admin", "ceo", "cfo", "scheduler", "job_setup"].includes(v.role) || (v.role === "pm" && v.pmCode === j.pmCode);
+}
+
+/** The reminder itself. Same words as the database's wo_remind. */
+export function woReminder(j: Job, w: WorkOrder, n: Names, today: IsoDate, by: string) {
+  const s = woStatus(w);
+  const lori = s === "Awaiting draft" || s === "Returned";
+  const days = woDaysWaiting(w, today);
+  const recipients = lori ? n.jobSetup : w.currentStep === 3 ? n.schedulers : [stepWho(j, w.currentStep, n)];
+  const who = lori ? n.jobSetup.join(", ") || "Job setup" : stepLabel(j, w.currentStep, n);
+  const what = s === "Awaiting draft" ? "the draft" : s === "Returned" ? "the revised draft" : WO_STEPS[w.currentStep].what.toLowerCase();
+  return {
+    title: `Reminder: work order for ${j.number} ${j.customer}`,
+    body: `Waiting ${days} day${days === 1 ? "" : "s"} on ${who} for ${what}. Job starts ${fmtShort(j.start)}.\nReminded by ${by}.`,
+    recipients,
+  };
 }

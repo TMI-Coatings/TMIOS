@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Job } from "../domain/types";
 import { namesOf } from "../domain/views";
-import { WO_STEPS, WO_TAG, woDaysWaiting, woInQueue, woLate, woOpen, woStatus, woWaiting, type WorkOrder } from "../domain/workOrders";
+import { WO_STEPS, WO_TAG, woCanRemind, woDaysWaiting, woInQueue, woLate, woOpen, woStatus, woWaiting, type WorkOrder } from "../domain/workOrders";
 import { daysBetween, fmtShort, todayIn } from "../domain/weeks";
 import type { Ctx } from "../Workspace";
 import { JobDialog } from "./JobDialog";
@@ -15,7 +15,7 @@ const QUEUE_TITLE: Record<string, string> = {
 };
 
 export function WorkOrdersScreen({ ctx }: { ctx: Ctx }) {
-  const { viewer, data } = ctx;
+  const { viewer, data, repo, run } = ctx;
   const ds = data.ds;
   const [openJob, setOpenJob] = useState<string | null>(null);
   const today = todayIn(new Date());
@@ -87,7 +87,17 @@ export function WorkOrdersScreen({ ctx }: { ctx: Ctx }) {
                     </span>
                   )}
                 </td>
-                <td>{woWaiting(j, w, n) || "–"}</td>
+                <td>
+                  {woWaiting(j, w, n) || "–"}
+                  {woCanRemind(viewer, j, w) && woDaysWaiting(w, today) > 0 && (
+                    <>
+                      {" "}
+                      <button className="jl" aria-label={`Remind ${woWaiting(j, w, n)} about ${j.number}`} onClick={() => run(() => repo.woRemind(j.id), "Reminder sent.")}>
+                        Remind
+                      </button>
+                    </>
+                  )}
+                </td>
                 <td className="r num" style={late ? { color: "var(--red)", fontWeight: 700 } : undefined}>
                   {isOpen ? `${woDaysWaiting(w, today)}${late ? " (late)" : ""}` : "–"}
                 </td>

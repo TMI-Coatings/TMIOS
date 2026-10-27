@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Job } from "../domain/types";
 import { namesOf } from "../domain/views";
-import { stepLabel, stepWho, WO_STEPS, WO_TAG, woCanFile, woCanSign, woCanUpload, woDaysWaiting, woIsMine, woLate, woStatus, woWaiting } from "../domain/workOrders";
+import { stepLabel, stepWho, WO_STEPS, WO_TAG, woCanFile, woCanRemind, woCanSign, woCanUpload, woDaysWaiting, woIsMine, woLate, woStatus, woWaiting } from "../domain/workOrders";
 import { todayIn } from "../domain/weeks";
 import { stamp } from "../format";
 import type { Ctx } from "../Workspace";
@@ -21,6 +21,9 @@ export function WorkOrderPanel({ ctx, job }: { ctx: Ctx; job: Job }) {
   const days = woDaysWaiting(w, today);
   const late = woLate(job, w, today, due);
   const sign = woCanSign(viewer, job, w);
+  // Every send-back across versions, so the reasons aren't lost once a revised draft goes up.
+  const backs = w.history.filter((h) => h.action.startsWith("Sent back") && h.note);
+  const earlier = w.returned ? backs.slice(1) : backs;
   const stateLine =
     s === "Final" ? (w.filed ? "Filed in Procore." : "Waiting on Lori to file it in Procore.") : `Waiting on ${woWaiting(job, w, n)}, ${days} day${days === 1 ? "" : "s"}${late ? "" : "."}`;
 
@@ -33,7 +36,12 @@ export function WorkOrderPanel({ ctx, job }: { ctx: Ctx; job: Job }) {
       <p className="note" style={{ margin: "6px 0 10px" }}>
         {w.fileName ? `${w.final ? "Final" : "Draft"} ${w.fileName}${w.version > 1 ? ` (version ${w.version})` : ""}. ` : "No draft yet. "}
         {stateLine}
-        {late && <b style={{ color: "var(--red)" }}>, past the {due}-day deadline.</b>} The job stays booked on the schedule either way.
+        {late && <b style={{ color: "var(--red)" }}>, past the {due}-day deadline.</b>} The job stays booked on the schedule either way.{" "}
+        {woCanRemind(viewer, job, w) && (
+          <button className="btn sec" onClick={() => run(() => repo.woRemind(job.id), "Reminder sent.")}>
+            Remind {woWaiting(job, w, n)}
+          </button>
+        )}
         {w.filePath && (
           <>
             {" "}
@@ -52,6 +60,21 @@ export function WorkOrderPanel({ ctx, job }: { ctx: Ctx; job: Job }) {
             </span>
           </li>
         </ul>
+      )}
+      {earlier.length > 0 && (
+        <details style={{ margin: "0 0 10px" }}>
+          <summary className="note">Earlier send-backs ({earlier.length})</summary>
+          <ul className="att" style={{ marginTop: 6 }}>
+            {earlier.map((h, i) => (
+              <li key={i}>
+                <span className="tag">{stamp(h.at)}</span>
+                <span>
+                  {h.who}, {h.action.replace(/^Sent back by the /, "").replace(/\.$/, "")} step: {h.note}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
       <ol className="chain">
         {WO_STEPS.map((d, i) => {

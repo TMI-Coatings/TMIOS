@@ -1,5 +1,5 @@
 import type { CloseInput, CloseResult } from "../domain/close";
-import type { CheckpointDef } from "../domain/journey";
+import type { CheckpointDef, JourneyStage } from "../domain/journey";
 import type { ChangeOrder, InvoiceKind, WipSnapshotRow } from "../domain/money";
 import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Person, Role, Settings, TimeOffType, Viewer } from "../domain/types";
 
@@ -102,10 +102,13 @@ export interface Repo {
   woApprove(jobId: string): Promise<void>;
   woReturn(jobId: string, comment: string): Promise<void>;
   woMarkFiled(jobId: string): Promise<void>;
+  /** Nudge whoever a stuck work order is waiting on; once a day per work order. */
+  woRemind(jobId: string): Promise<void>;
   /** A short-lived link to the current draft, or null when there is no file to open. */
   woFileUrl(jobId: string): Promise<string | null>;
   setCheckpoint(jobId: string, key: string, done: boolean): Promise<void>;
   saveCheckpointDef(def: CheckpointDef, isNew: boolean): Promise<void>;
+  saveStage(stage: JourneyStage, isNew: boolean): Promise<void>;
   /** Monday percent complete for this week, 0 to 100. */
   recordPercent(jobId: string, materialsPct: number, laborPct: number): Promise<void>;
   addChangeOrder(co: Omit<ChangeOrder, "id">): Promise<void>;
@@ -113,7 +116,8 @@ export interface Repo {
   saveMilestones(jobId: string, items: { id?: string; label: string; pct: number }[]): Promise<void>;
   markMilestoneReached(milestoneId: string): Promise<void>;
   recordInvoice(inv: { jobId: string; kind: InvoiceKind; period?: string; milestoneId?: string; number?: string; amountCents?: number }): Promise<void>;
-  recordRetainageReceived(jobId: string): Promise<void>;
+  /** Retainage the customer paid; all of what's outstanding when no amount is given, or part of it. */
+  recordRetainageReceived(jobId: string, amountCents?: number): Promise<void>;
   /** Accounting marks a customer's payment received; the date defaults to today. */
   recordPayment(invoiceId: string, paidOn?: IsoDate): Promise<void>;
   /** Month-end WIP snapshots locked for the books, newest month first. */

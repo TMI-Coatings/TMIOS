@@ -10,9 +10,9 @@ import { canSeeAlert, capacityAlerts, certAlerts, jobChangeAlerts, overrunAlert,
 import { closeRows, forecastAccuracy, missingHoursByPm, nudgeAlert, type CloseInput, type CloseResult } from "../domain/close";
 import { allPlans, buildIndex, capacity, firmnessLabel, hoursLeft, inWindow, isSold, materialRevenueCents } from "../domain/schedule";
 import { backlogCents, digestLines, digestTitle } from "../domain/insights";
-import { canCheck, type CheckpointDef } from "../domain/journey";
+import { canCheck, type CheckpointDef, type JourneyStage } from "../domain/journey";
 import { MILESTONE_TEMPLATE, Money, monthLabel, prevMonth, wipRows, type ChangeOrder, type InvoiceKind, type WipSnapshotRow } from "../domain/money";
-import { stepLabel, stepWho, type Names, type WorkOrder, WO_STEPS, woCanFile, woCanSign, woCanUpload, woIsMine, woStatus } from "../domain/workOrders";
+import { stepLabel, stepWho, type Names, type WorkOrder, WO_STEPS, woCanFile, woCanRemind, woCanSign, woCanUpload, woIsMine, woReminder, woStatus } from "../domain/workOrders";
 import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Role, Settings, Viewer } from "../domain/types";
 import { usd } from "../format";
 import { addDays, currentWeek, fmtShort, mondayOf, planningWeek, todayIn, weekList, weekToClose } from "../domain/weeks";
@@ -797,6 +797,20 @@ export class SampleRepo implements Repo {
     this.save();
   }
 
+  async woRemind(jobId: string) {
+    const v = this.me();
+    const { j, w } = this.wo(jobId);
+    if (!woCanRemind(v, j, w)) throw new Error("Only job setup, the scheduler, the job's PM or an admin sends reminders, and only while it's waiting on someone else.");
+    const today = todayIn(new Date());
+    const k = `wo-remind|${j.id}|${today}`;
+    if (this.s.alertState[k]) throw new Error("Already reminded today.");
+    this.s.alertState[k] = "sent";
+    const r = woReminder(j, w, this.names(), today, v.name);
+    this.push([{ rule: "wo", title: r.title, body: r.body, recipients: r.recipients, jobId: j.id, personId: null }]);
+    this.woEvent(w, "Reminder sent to " + r.recipients.join(", ") + ".");
+    this.save();
+  }
+
   async woMarkFiled(jobId: string) {
     const { j, w } = this.wo(jobId);
     if (!woCanFile(this.me(), w)) throw new Error("Only a final work order can be marked filed, by job setup, the scheduler or an admin.");
@@ -819,6 +833,25 @@ export class SampleRepo implements Repo {
     if (done && i < 0) this.d.jobCheckpoints.push({ jobId, key, by: v.name, at: new Date().toISOString() });
     if (!done && i >= 0) this.d.jobCheckpoints.splice(i, 1);
     this.log("job_checkpoints", jobId + "|" + key, `Job ${j.number} · ${c.label}`, "done", done ? "open" : "done", done ? "done" : "reopened");
+    this.save();
+  }
+
+  async saveStage(stage: JourneyStage, isNew: boolean) {
+    if (!["admin", "ceo", "cfo"].includes(this.me().role)) throw denied();
+    if (!stage.label.trim()) throw new Error("Give the stage a name.");
+    const i = this.d.stages.findIndex((x) => x.key === stage.key);
+    if (isNew) {
+      if (i >= 0) throw new Error("That stage already exists.");
+      this.d.stages.push({ ...stage });
+      this.log("journey_stages", stage.key, "Journey " + stage.label, "added", null, stage.label);
+    } else {
+      const before = this.d.stages[i];
+      if (before.active && !stage.active && this.d.checkpointDefs.some((c) => c.stageKey === stage.key && c.active))
+        throw new Error("Move or retire this stage's checkpoints first.");
+      for (const k of ["label", "sort", "startup", "active"] as const)
+        if (before[k] !== stage[k]) this.log("journey_stages", stage.key, "Journey " + stage.label, k, before[k], stage[k]);
+      this.d.stages[i] = { ...stage };
+    }
     this.save();
   }
 
@@ -988,11 +1021,13 @@ export class SampleRepo implements Repo {
     return rows.length;
   }
 
-  async recordRetainageReceived(jobId: string) {
+  async recordRetainageReceived(jobId: string, amountCents?: number) {
     if (!can.recordInvoices(this.me().role)) throw new Error("Only accounting or an admin records retainage.");
     const j = this.job(jobId);
-    const amt = this.money().retainageOutstanding(j);
-    if (amt <= 0) throw new Error("No retainage outstanding on this job.");
+    const out = this.money().retainageOutstanding(j);
+    if (out <= 0) throw new Error("No retainage outstanding on this job.");
+    const amt = amountCents ?? out;
+    if (!Number.isFinite(amt) || amt <= 0 || amt > out) throw new Error(`Enter an amount up to the ${usd(out)} outstanding.`);
     this.d.retainageReceipts.push({ id: uid(), jobId, amountCents: amt, receivedOn: todayIn(new Date()) });
     this.log("retainage_receipts", jobId, "Job " + j.number, "retainage", "outstanding", "received " + usd(amt));
     this.save();

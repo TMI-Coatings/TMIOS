@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CloseResult } from "../domain/close";
 import { closeRows, missingHoursByPm, parseHoursCsv, plannedFor, reviewFlag } from "../domain/close";
 import { digestLines, digestTitle } from "../domain/insights";
 import { can, canEditJob } from "../domain/permissions";
 import { allPlans, buildIndex, hoursLeft } from "../domain/schedule";
-import { fmtLong, fmtShort, todayIn } from "../domain/weeks";
+import { fmtLong, fmtShort, mondayOf, todayIn } from "../domain/weeks";
 import { n0 } from "../format";
 import type { Ctx } from "../Workspace";
 import { JobDialog } from "./JobDialog";
@@ -30,6 +30,14 @@ export function CloseScreen({ ctx }: { ctx: Ctx }) {
   const [note, setNote] = useState("");
   const [importRan, setImportRan] = useState(saved.size > 0);
   const [result, setResult] = useState<CloseResult | null>(null);
+  const [digestMissing, setDigestMissing] = useState(false);
+  useEffect(() => {
+    if (!closer || !data.ds.closes.length) return setDigestMissing(false);
+    repo.alerts().then(
+      (a) => setDigestMissing(!a.some((x) => x.rule === "digest" && x.title === digestTitle(data.week))),
+      () => setDigestMissing(false),
+    );
+  }, [repo, data, closer]);
   const [openJob, setOpenJob] = useState<string | null>(null);
 
   const banner = result && (
@@ -40,10 +48,25 @@ export function CloseScreen({ ctx }: { ctx: Ctx }) {
     </div>
   );
 
+  // The digest is sent right after the close; if that didn't happen (closed tab, lost connection), offer it here.
+  const sendDigest = () => {
+    const fi = buildIndex(ds);
+    return run(() => repo.postDigest(digestTitle(data.week), digestLines(ds, fi, allPlans(ds, fi, data.week), data.week, todayIn(new Date())).join("\n")), "Monday digest sent.");
+  };
+  const missedDigest = closer && digestMissing && (
+    <div className="banner" role="status">
+      <b>Monday’s digest for the week of {fmtShort(mondayOf(data.week))} hasn’t gone out.</b>{" "}
+      <button className="btn sec" onClick={sendDigest}>
+        Send it now
+      </button>
+    </div>
+  );
+
   if (!w)
     return (
       <>
         {banner}
+        {missedDigest}
         <h1>Weekly close</h1>
         <p className="lead">This week is closed. The next close opens on the week ending {fmtLong(data.week)}.</p>
       </>
@@ -127,6 +150,7 @@ export function CloseScreen({ ctx }: { ctx: Ctx }) {
   return (
     <>
       {banner}
+      {missedDigest}
       <h1>{closer ? "Close" : "Hours for"} week ending {fmtLong(w)}</h1>
       <p className="lead">
         {closer
