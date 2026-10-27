@@ -7,7 +7,6 @@ const openBilling = (dlg: Locator) => dlg.locator("details.wobox").first().evalu
 
 test("a PM enters this week's percent complete on the WIP schedule", async ({ page }) => {
   await viewAs(page, "pm", "#revenue");
-  await expect(page.getByText("Your jobs below; the totals in the strip are company-wide.")).toBeVisible();
   const j = sample.jobs.find((x) => x.pmCode === "JM" && x.status === "active")!;
   const box = page.getByLabel(`Labor percent complete ${j.customer}`);
   await box.fill("55");

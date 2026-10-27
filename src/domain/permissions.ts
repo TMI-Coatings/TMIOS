@@ -14,7 +14,7 @@ export type Tab = "me" | "dashboard" | "schedule" | "wo" | "journey" | "billing"
 export const TABS: { id: Tab; label: string; roles: Role[] }[] = [
   { id: "me", label: "My week", roles: ["superintendent", "field_crew"] },
   // Sales reps get a capacity-only version so they can sell into open weeks (Austin, Oct 27).
-  { id: "dashboard", label: "Dashboard", roles: [...OFFICE_ALL, "scheduler", "sales_rep"] },
+  { id: "dashboard", label: "Dashboard", roles: [...OFFICE_ALL, "scheduler", "pm", "sales_rep"] },
   {
     id: "schedule",
     label: "Schedule",
@@ -53,11 +53,12 @@ export function owns(v: Viewer, j: Pick<Job, "leaderId" | "repCode" | "pmCode">)
   }
 }
 
-const SEES_ALL_JOBS: Role[] = ["admin", "ceo", "scheduler", "job_setup", "estimator", "accounting", "cfo"];
+// Reps and PMs see every job, money included; they still change only their own (decision 6a).
+const SEES_ALL_JOBS: Role[] = ["admin", "ceo", "scheduler", "job_setup", "estimator", "pm", "sales_rep", "accounting", "cfo"];
 
 export function canSeeJob(v: Viewer, j: Job): boolean {
   if (SEES_ALL_JOBS.includes(v.role)) return true;
-  if (v.role === "superintendent" || v.role === "sales_rep" || v.role === "pm") return owns(v, j);
+  if (v.role === "superintendent") return owns(v, j);
   return false;
 }
 

@@ -173,9 +173,9 @@ export function canSeeAlert(v: Viewer, a: Pick<Alert, "rule" | "jobId" | "recipi
     case "estimator":
       return r === "wo" && a.recipients.includes(v.name);
     case "pm":
-      return r === "digest" || (r === "wo" && a.recipients.includes(v.name)) || (r !== "bill" && !!j && j.pmCode === v.pmCode);
+      return r === "digest" || (r === "wo" && a.recipients.includes(v.name)) || (!!j && j.pmCode === v.pmCode);
     case "sales_rep":
-      return r === "open" || r === "digest" || (r === "wo" && a.recipients.includes(v.name)) || (r !== "bill" && !!j && j.repCode === v.repCode);
+      return r === "open" || r === "digest" || (r === "wo" && a.recipients.includes(v.name)) || (!!j && j.repCode === v.repCode);
     case "superintendent":
       return r === "digest" || (r !== "bill" && r !== "wo" && !!j && j.leaderId === v.personId) || (r === "cert" && !!myPersonName && a.recipients.includes(myPersonName));
     case "field_crew":

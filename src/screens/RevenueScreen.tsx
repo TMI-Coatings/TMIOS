@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { StackedBars } from "../components/StackedBars";
 import { Money, revenueByPeriod } from "../domain/money";
 import { canEditJob } from "../domain/permissions";
@@ -17,14 +17,9 @@ export function RevenueScreen({ ctx }: { ctx: Ctx }) {
   const s = ds.settings;
   const [view, setView] = useState<"month" | "week">("month");
   const [openJob, setOpenJob] = useState<string | null>(null);
-  const [company, setCompany] = useState<{ remainingCents: number; netBillingCents: number; reviewCount: number } | null>(null);
   const idx = useMemo(() => buildIndex(ds), [ds]);
   const plans = useMemo(() => allPlans(ds, idx, week), [ds, idx, week]);
   const m = useMemo(() => new Money(ds, idx, week, todayIn(new Date())), [ds, idx, week]);
-  const partial = viewer.role === "pm" || viewer.role === "sales_rep";
-  useEffect(() => {
-    if (partial) repo.companyRevenueTotals().then(setCompany, () => setCompany(null));
-  }, [repo, data, partial]);
 
   const rows = revenueByPeriod(ds, m, plans, week, view);
   const months = view === "month" ? rows : revenueByPeriod(ds, m, plans, week, "month");
@@ -51,7 +46,7 @@ export function RevenueScreen({ ctx }: { ctx: Ctx }) {
     <>
       <h1>Revenue and WIP</h1>
       <p className="lead">
-        {partial ? "Your jobs below; the totals in the strip are company-wide. " : ""}Updated at the Monday job cost meeting (this week: {fmtShort(mondayOf(week))}). Each contract splits into materials and labor
+        Updated at the Monday job cost meeting (this week: {fmtShort(mondayOf(week))}). Each contract splits into materials and labor
         by the estimate’s costs. Materials and labor are both recognized by percent complete. The forecast spreads what’s left across the schedule, so moving a job moves its revenue.
       </p>
       <div className="kpis">
@@ -68,11 +63,11 @@ export function RevenueScreen({ ctx }: { ctx: Ctx }) {
           <div className="l">{months[1].label} forecast</div>
         </div>
         <div className="kpi">
-          <div className="v num">{usd(company?.remainingCents ?? visibleRemaining)}</div>
+          <div className="v num">{usd(visibleRemaining)}</div>
           <div className="l">Sold revenue not yet recognized</div>
         </div>
-        <div className={"kpi" + ((company?.reviewCount ?? visibleReview) ? " warn" : "")}>
-          <div className="v num">{company?.reviewCount ?? visibleReview}</div>
+        <div className={"kpi" + (visibleReview ? " warn" : "")}>
+          <div className="v num">{visibleReview}</div>
           <div className="l">Jobs for Monday’s review: stale %, % vs hours, or margin fade</div>
         </div>
       </div>
@@ -244,7 +239,7 @@ export function RevenueScreen({ ctx }: { ctx: Ctx }) {
                 <b>{usd(jobs.reduce((a, j) => a + m.billed(j), 0))}</b>
               </td>
               <td className="r num">
-                <b>{signed(company?.netBillingCents ?? net)}</b>
+                <b>{signed(net)}</b>
               </td>
               <td className="r num">
                 <b>{usd(jobs.reduce((a, j) => a + m.remaining(j), 0))}</b>
@@ -257,7 +252,7 @@ export function RevenueScreen({ ctx }: { ctx: Ctx }) {
       <p className="note">
         Review rows sort to the top: percentages not updated at this week’s meeting, a labor % {s.laborDivergencePts}+ points from what hours suggest, or margin down {s.marginFadePts}+ points from bid. GP now
         uses hours at completion at {usd(s.burdenedRateCents)}/hr labor cost plus the estimate’s material cost and change orders. Over-billed is cash ahead of the work; under-billed is work not yet
-        invoiced.{partial ? " The net billing total is company-wide." : ""}
+        invoiced.
       </p>
       {openJob && <JobDialog ctx={ctx} jobId={openJob} onClose={() => setOpenJob(null)} />}
     </>

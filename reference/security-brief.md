@@ -34,7 +34,7 @@ Everyone signs in with their existing TMI Microsoft 365 account. No separate pas
 1. Veracity registers TMI Ops as an app in TMI's Microsoft 365 (Entra ID) and limits it to TMI accounts.
 2. Existing Microsoft protections apply automatically, including multi-factor sign-in.
 3. When someone leaves, IT turns off their Microsoft account and their access to TMI Ops ends at the same moment.
-4. Inside the app, each person has a role that controls what they see: admin, scheduler, job setup (Lori), estimator, PM, CFO/finance, superintendent, sales rep (own jobs only), field crew (own week only), board (summary only).
+4. Inside the app, each person has a role that controls what they see: admin, scheduler, job setup (Lori), estimator, PM, CFO/finance, superintendent, sales rep (all jobs, edits own jobs only; changed by Austin Oct 27), field crew (own week only), board (summary only).
 
 **Open question:** field crew without TMI email accounts. Options are a TMI account per leader or a one-time code by text. To decide with HR and Veracity.
 

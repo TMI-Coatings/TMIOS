@@ -46,10 +46,11 @@ describe("crew checks", () => {
 
 describe("permissions", () => {
   const j = job({ leaderId: "p9", repCode: "ER", pmCode: "JM" });
-  it("limits reps, PMs and leaders to their own jobs", () => {
+  it("shows reps and PMs every job (decision 6a) and limits leaders to their own", () => {
     expect(canSeeJob(viewer("sales_rep", { repCode: "ER" }), j)).toBe(true);
-    expect(canSeeJob(viewer("sales_rep", { repCode: "DM" }), j)).toBe(false);
-    expect(canSeeJob(viewer("pm", { pmCode: "SS" }), j)).toBe(false);
+    expect(canSeeJob(viewer("sales_rep", { repCode: "KK" }), j)).toBe(true);
+    expect(canSeeJob(viewer("pm", { pmCode: "SS" }), j)).toBe(true);
+    expect(canSeeJob(viewer("superintendent", { personId: "p1" }), j)).toBe(false);
     expect(canSeeJob(viewer("superintendent", { personId: "p9" }), j)).toBe(true);
     expect(canSeeJob(viewer("field_crew"), j)).toBe(false);
     expect(canSeeJob(viewer("cfo"), j)).toBe(true);

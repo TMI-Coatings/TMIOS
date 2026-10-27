@@ -16,7 +16,7 @@ beforeAll(async () => {
 afterAll(async () => close?.());
 
 describe("leader scorecard", () => {
-  it("office roles see every leader; a leader sees only their own line; a PM only their jobs", async () => {
+  it("office roles and PMs see every leader; a leader sees only their own line", async () => {
     const all = (await db.query("select count(*)::int n from public.closeout_outcomes")).rows[0].n;
     expect(all).toBe(sample.outcomes.length);
     const sched = await as(user("scheduler"), (q) => q("select count(*)::int n from public.closeout_outcomes"));
@@ -24,8 +24,8 @@ describe("leader scorecard", () => {
     const supt = user("superintendent");
     const r = await as(supt, (q) => q("select distinct leader_id from public.closeout_outcomes"));
     expect(r.ok && r.rows.map((x) => x.leader_id)).toEqual([supt.personId]);
-    const pm = await as(user("pm"), (q) => q("select distinct pm_code from public.closeout_outcomes"));
-    expect(pm.ok && pm.rows.map((x) => x.pm_code)).toEqual(["JM"]);
+    const pm = await as(user("pm"), (q) => q("select count(*)::int n from public.closeout_outcomes"));
+    expect(pm.ok && pm.rows[0].n).toBe(all);
     const rep = await as(user("sales_rep"), (q) => q("select count(*)::int n from public.closeout_outcomes"));
     expect(rep.ok && rep.rows[0].n).toBe(0);
   });

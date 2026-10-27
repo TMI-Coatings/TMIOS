@@ -11,6 +11,8 @@ Answers to the open questions in `kickoff-analysis.md` section 3, decided by Aus
 5. **Work order files.** Private Supabase Storage bucket guarded by row-level security, opened through short-lived signed links. Add to Veracity's summary.
 6. **Company totals.** Reps and PMs see the full company totals, as in the demo (capacity, sold revenue not recognized, net over/under billing, review count). They are served through one summary function, so access can be narrowed later without a rebuild.
 
+6a. **Reps and PMs see every job (Austin, Oct 27).** Sales reps and PMs see all jobs, including contract value, margin, revenue and billing. Reps share customers across territories, so there is no privacy reason to split them. What they can change is unchanged: their own jobs only. Alerts stay routed to the people they concern, and PMs and reps now also get billing alerts on their own jobs, as in the demo. PMs get the Dashboard and the whole leader scorecard (they still tag causes on their own jobs). This replaces "sales rep (own jobs only)" in the security brief.
+
 ## Roles and permissions
 
 7. **CEO (Derrick).** Full admin powers, as in the demo.
@@ -20,7 +22,7 @@ Answers to the open questions in `kickoff-analysis.md` section 3, decided by Aus
 10. **Closeout cause tags.** The PM tags. Admin, ceo and scheduler can correct.
 11. **Finance.** A new `cfo` role for Jared, with full rights: the same powers as admin and CEO. Billing alerts go to the role, not to a hard-coded name.
 11a. **People and roles (Austin, Oct 26).** Full rights: Austin Lewis (admin), Derrick Gordon (ceo), Jared Wiese (cfo), Jason Jelinek, Director of Ops (admin), and Al Trenary (admin, Austin's backup). Project manager rights: Jake Moen (PM); Scott Salmon (estimator) and Lucas Kemmerer (purchaser), who work with PM rights, so each sees only the jobs where they are the PM. Estimators: Stephen Bazant, Juac Angoi, Sarah Louvar, Colicia Barnes, Jordan Strand. Sales reps: Ethan Miller, Keith Kubitschek, Phil Kick, Eric Rich, Gretchen Davies, Brent Elwood, Chris Monyhan. Scheduler: Nicole. Accounting: Patrick Leaon. Job setup stays Lori. Field leaders and crew in the sample are still invented. The sample site uses these names with @example.com addresses; live access is added on the Access screen with real TMI emails.
-11b. **Sales dashboard (Austin, Oct 27).** Sales reps get the Dashboard tab, as a capacity-to-sell view: company-wide scheduled vs available hours, open hours by week with the 4-to-8-week sell window marked, leader shortfalls, and date firmness. It runs on the anonymous company totals, so reps still see no other customers or dollars.
+11b. **Sales dashboard (Austin, Oct 27).** Sales reps get the Dashboard tab, as a capacity-to-sell view: company-wide scheduled vs available hours, open hours by week with the 4-to-8-week sell window marked, leader shortfalls, and date firmness. Capacity comes from the anonymous company totals, because reps can't read the crew's time off.
 12. **Board.** No board login and no board role. The board gets an exported PDF board pack, which admin, ceo or cfo can generate.
 
 ## Business rules

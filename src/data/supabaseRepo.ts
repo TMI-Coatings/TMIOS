@@ -254,7 +254,8 @@ export class SupabaseRepo implements Repo {
     const w = check(weeks) as { planningWeek: string; weekToClose: string | null };
 
     let totals: Dataset | null = null;
-    if (seesCompanyTotals(viewer.role) && !office && ["pm", "sales_rep"].includes(viewer.role)) {
+    // Roles that can't read the crew's time off get capacity from the anonymous company totals.
+    if (seesCompanyTotals(viewer.role) && !office) {
       totals = totalsDataset(check(await sb.rpc("company_load_inputs")) as CompanyInputs, s);
     }
     return { ds, totals, week: w.planningWeek, weekToClose: w.weekToClose };

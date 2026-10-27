@@ -46,11 +46,13 @@ for (const role of ROLES_WITH_SAMPLE_USER) {
   });
 }
 
-test("reps and PMs see company-wide totals over their own jobs", async ({ page }) => {
-  await viewAs(page, "sales_rep", "#schedule");
-  await expect(page.getByText("Totals below stay company-wide.")).toBeVisible();
-  const allSold = sample.jobs.filter((j) => isSold(j) && j.status !== "on_hold").length;
-  expect(allSold).toBeGreaterThan(await page.locator("tr[data-job-row]").count());
+test("reps and PMs see every job on the schedule, not only their own (decision 6a)", async ({ page }) => {
+  for (const role of ["sales_rep", "pm"] as const) {
+    await viewAs(page, role, "#schedule");
+    const u = userFor(role);
+    const other = sample.jobs.find((j) => isSold(j) && (role === "pm" ? j.pmCode !== u.pmCode : j.repCode !== u.repCode))!;
+    await expect(page.getByRole("button", { name: `${other.number} ${other.customer}` })).toBeVisible();
+  }
 });
 
 test("admin sets a week by hand, and it is logged", async ({ page }) => {
@@ -79,8 +81,12 @@ test("a PM can move their own job and not someone else's", async ({ page }) => {
   const own = sample.jobs.find((j) => j.pmCode === "JM" && isSold(j))!;
   await page.getByRole("button", { name: `${own.number} ${own.customer}` }).click();
   await expect(page.getByRole("dialog").getByLabel("Start", { exact: true })).toBeEnabled();
-  const others = sample.jobs.filter((j) => j.pmCode !== "JM");
-  for (const o of others) await expect(page.getByRole("button", { name: `${o.number} ${o.customer}` })).toHaveCount(0);
+  await page.getByRole("dialog").getByRole("button", { name: "Close" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const other = sample.jobs.find((j) => j.pmCode !== "JM" && isSold(j))!;
+  await page.getByRole("button", { name: `${other.number} ${other.customer}` }).click();
+  await expect(page.getByRole("dialog", { name: `${other.number} ${other.customer}` })).toBeVisible();
+  await expect(page.getByRole("dialog").getByLabel("Start", { exact: true })).toHaveCount(0);
 });
 
 test("moving a job off Locked needs a reason, which lands in pinned notes", async ({ page }) => {

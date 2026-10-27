@@ -276,16 +276,15 @@ export class SampleRepo implements Repo {
     ds.milestones = money ? d.milestones.filter((x) => visible.has(x.jobId)) : [];
     ds.invoices = money ? d.invoices.filter((x) => visible.has(x.jobId)) : [];
     ds.retainageReceipts = money ? d.retainageReceipts.filter((x) => visible.has(x.jobId)) : [];
-    ds.outcomes = ["admin", "ceo", "cfo", "scheduler"].includes(viewer.role)
+    ds.outcomes = ["admin", "ceo", "cfo", "scheduler", "pm"].includes(viewer.role)
       ? d.outcomes
-      : viewer.role === "pm"
-        ? d.outcomes.filter((o) => o.pmCode === viewer.pmCode)
-        : viewer.role === "superintendent"
+      : viewer.role === "superintendent"
           ? d.outcomes.filter((o) => o.leaderId === viewer.personId)
           : [];
     if (viewer.role === "field_crew") ds.closes = [];
+    // Roles that can't see every job or the crew's time off get the company totals separately.
     const sawAll = visible.size === d.jobs.length;
-    const totals = seesCompanyTotals(viewer.role) && !sawAll ? { ...d, jobs: d.jobs.filter((j) => j.status !== "complete") } : null;
+    const totals = seesCompanyTotals(viewer.role) && (!sawAll || !office) ? { ...d, jobs: d.jobs.filter((j) => j.status !== "complete") } : null;
     const closed = this.d.closes.map((c) => c.week);
     const today = todayIn(new Date());
     return { ds, totals, week: planningWeek(closed, today), weekToClose: weekToClose(closed, today) };
