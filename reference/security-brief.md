@@ -65,6 +65,7 @@ Each person has one role. **The database enforces every rule below, not just the
 
 Notes on these rules:
 - **Hours only** means the database won't return contract value, cost or margin to these people. It also hides dollar entries in the change log from them.
+- **Work order drafts** open only for office roles and estimators, through short-lived links. Job leaders and crew can't open them.
 - **Board:** there is no board login. Admin, the CEO or the CFO exports a PDF board pack.
 
 ## Precautions built in from the start
@@ -80,6 +81,8 @@ Notes on these rules:
 | Numbers don't match accounting | Job cost comes from Procore/Sage, not re-entered. Month-end WIP is locked in the database, can't be changed afterwards, and is checked against Sage. |
 | Who changed what | Every change to a job, crew, hours, status, firmness, work order, journey checkpoint, invoice or payment is logged with name, time, old value and new value |
 | Records deleted | Nothing with history is ever deleted; it's marked inactive |
+| The demo setting reaches the live site | A production build in demo mode fails unless it's explicitly allowed. The allowance is removed at go-live. |
+| Alerts reach the wrong person | No two people on the access list or the roster can share a name. Only Microsoft sign-ins link to the access list. |
 | Bad settings break the numbers | Every threshold has limits that the database enforces |
 | Lost data or vendor change | Daily backups; code and data held in TMI-owned accounts; data exportable anytime (including a WIP spreadsheet export) |
 | Single point of failure (Austin) | Al Trenary is the named backup admin; code and decisions documented in the TMI-owned repository |

@@ -31,6 +31,8 @@ export const SETTING_LIMITS: Record<NumericKey, { min: number; max: number; whol
   laborDivergencePts: { min: 1, max: 100 },
   marginFadePts: { min: 1, max: 100 },
   scorecardMonths: { min: 1, max: 60, whole: true },
+  gapWindowWeeks: { min: 1, max: 26, whole: true },
+  journeySoonDays: { min: 1, max: 60, whole: true },
 };
 
 /** Why a new setting value can't be saved, or null when it's fine. */
@@ -41,6 +43,12 @@ export function settingProblem<K extends keyof Settings>(key: K, value: Settings
     if (typeof n !== "number" || !Number.isFinite(n)) return "Enter a number.";
     if (n < lim.min || n > lim.max) return `Use a number from ${show(lim.min)} to ${show(lim.max)}.`;
     if (lim.whole && !Number.isInteger(n)) return "Use a whole number.";
+  }
+  if (key === "milestoneDefaults") {
+    const ms = value as Settings["milestoneDefaults"];
+    if (!Array.isArray(ms) || !ms.length) return "Keep at least one milestone.";
+    if (ms.some((m) => !m.label?.trim() || !Number.isFinite(m.pct) || m.pct <= 0 || m.pct > 100)) return "Each milestone needs a name and a percent from 1 to 100.";
+    if (ms.reduce((a, m) => a + m.pct, 0) > 100) return "The milestones add up to more than 100%.";
   }
   const next = { ...s, [key]: value };
   if (next.openWindowStartWeeks > next.openWindowEndWeeks) return "The open capacity window has to start before it ends.";

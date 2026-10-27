@@ -11,7 +11,7 @@ import { closeRows, forecastAccuracy, missingHoursByPm, nudgeAlert, type CloseIn
 import { allPlans, buildIndex, capacity, firmnessLabel, hoursLeft, inWindow, isSold, materialRevenueCents } from "../domain/schedule";
 import { backlogCents, digestLines, digestTitle } from "../domain/insights";
 import { canCheck, type CheckpointDef, type JourneyStage } from "../domain/journey";
-import { MILESTONE_TEMPLATE, Money, lockableMonths, monthLabel, wipRows, type ChangeOrder, type InvoiceKind, type WipSnapshotRow } from "../domain/money";
+import { Money, lockableMonths, monthLabel, wipRows, type ChangeOrder, type InvoiceKind, type WipSnapshotRow } from "../domain/money";
 import { stepLabel, stepWho, type Names, type WorkOrder, WO_STEPS, woCanFile, woCanRemind, woCanSign, woCanUpload, woIsMine, woReminder, woStatus } from "../domain/workOrders";
 import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Role, Settings, Viewer } from "../domain/types";
 import { ordinal, usd } from "../format";
@@ -466,9 +466,17 @@ export class SampleRepo implements Repo {
     this.save();
   }
 
+  /** No two people on the active roster share a name (the database's people_unique_name). */
+  private uniquePerson(name: string, id: string | null) {
+    const k = name.trim().toLowerCase();
+    if (this.d.people.some((x) => x.active && x.id !== id && x.name.trim().toLowerCase() === k))
+      throw new Error("Someone already has that name. Add a middle initial or a nickname so alerts reach the right person.");
+  }
+
   async addPerson(p: Parameters<Repo["addPerson"]>[0]) {
     if (!can.addPerson(this.me().role)) throw denied();
     if (!p.name.trim()) throw new Error("Name is required.");
+    this.uniquePerson(p.name, null);
     const id = uid();
     this.d.people.push({ ...p, id, active: true, quals: {} });
     this.log("people", id, p.name, "added", null, p.kind);
@@ -480,6 +488,7 @@ export class SampleRepo implements Repo {
     if (!can.editCrewRecords(role)) throw denied();
     if ("active" in patch && !can.setRosterActive(role)) throw new Error("Only an admin can change who is on the active roster.");
     const p = this.d.people.find((x) => x.id === id);
+    if (p && (patch.name !== undefined || patch.active)) this.uniquePerson(patch.name ?? p.name, id);
     if (!p) throw denied();
     for (const [k, v] of Object.entries(patch)) this.log("people", id, p.name, k, (p as unknown as Record<string, unknown>)[k], v);
     Object.assign(p, patch);
@@ -520,9 +529,13 @@ export class SampleRepo implements Repo {
     if (u.role === "sales_rep" && !u.repCode) throw new Error("Pick the rep code.");
     if (u.role === "pm" && !u.pmCode) throw new Error("Pick the PM code.");
     const existing = this.d.users.find((x) => x.userId === u.id);
+    const key = (n: string) => n.trim().toLowerCase();
+    if (u.active && this.d.users.some((x) => x.active && x.userId !== u.id && key(x.name) === key(u.name)))
+      throw new Error("Someone already has that name. Add a middle initial or a nickname so alerts reach the right person.");
     if (existing && existing.userId === this.me().userId && (existing.role !== u.role || !u.active)) throw new Error("You can't change your own access. Ask another admin.");
     if (existing) {
       this.log("app_users", existing.userId, "User " + existing.email, "access", `${existing.role}${existing.active ? "" : " (off)"}`, `${u.role}${u.active ? "" : " (off)"}`);
+      if (existing.name !== u.name) for (const j of this.d.jobs) if (j.estimator === existing.name) j.estimator = u.name;
       Object.assign(existing, { ...u, email, userId: existing.userId });
     } else {
       if (this.d.users.some((x) => x.email === email)) throw new Error("That email already has access.");
@@ -928,7 +941,7 @@ export class SampleRepo implements Repo {
     this.log("jobs", j.id, "Job " + j.number, "billingMethod", j.billingMethod, method);
     j.billingMethod = method;
     if (method === "milestone" && !this.d.milestones.some((m) => m.jobId === jobId))
-      MILESTONE_TEMPLATE.forEach(([label, pct], k) => this.d.milestones.push({ id: uid(), jobId, label, pct, sort: k + 1, reachedOn: null, reachedBy: null }));
+      this.d.settings.milestoneDefaults.map((x) => [x.label, x.pct] as const).forEach(([label, pct], k) => this.d.milestones.push({ id: uid(), jobId, label, pct, sort: k + 1, reachedOn: null, reachedBy: null }));
     this.save();
   }
 

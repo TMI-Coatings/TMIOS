@@ -24,7 +24,7 @@ npm install
 npm run dev:sample
 ```
 
-This opens the app on invented data held in your browser, with a "Viewing as" picker to switch roles. Netlify deploy previews and branch deploys build this way, so a link can be shared before Veracity signs off. The production build doesn't contain sample mode.
+This opens the app on invented data held in your browser, with a "Viewing as" picker to switch roles. While the public demo runs on the production site, Netlify needs `VITE_DATA_MODE = sample` and `ALLOW_DEMO_IN_PRODUCTION = yes`; without the second, the production build refuses demo mode. Remove both at go-live. Netlify deploy previews and branch deploys build this way, so a link can be shared before Veracity signs off. The production build doesn't contain sample mode.
 
 ## Tests
 

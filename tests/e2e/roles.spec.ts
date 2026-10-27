@@ -277,3 +277,22 @@ test("find a job on the schedule by number, customer or town", async ({ page }) 
   await expect(page.locator("tr[data-job-row]")).toHaveCount(1);
   await expect(page.locator(`tr[data-job-row="${j.number}"]`)).toBeVisible();
 });
+
+test("admins set the default milestones; the total can't pass 100%", async ({ page }) => {
+  await viewAs(page, "admin", "#settings");
+  const box = page.getByLabel("Default milestones for milestone billing");
+  await box.fill("Deposit 60, Mobilization 50");
+  await box.press("Enter");
+  await expect(page.getByText("The milestones add up to more than 100%.")).toBeVisible();
+  await box.fill("Deposit 10, Mobilization 30");
+  await box.press("Enter");
+  await expect(page.getByText("Setting saved.")).toBeVisible();
+});
+
+test("leaders don't get the work order draft link", async ({ page }) => {
+  await viewAs(page, "superintendent", "#schedule");
+  const u = userFor("superintendent");
+  const j = sample.jobs.find((x) => x.leaderId === u.personId)!;
+  await page.getByRole("button", { name: `${j.number} ${j.customer}` }).click();
+  await expect(page.getByRole("dialog").getByRole("button", { name: "Open the draft" })).toHaveCount(0);
+});

@@ -71,7 +71,7 @@ export function capacityAlerts(ds: Dataset, idx: Index, plans: Plans, week: IsoD
   if (gapKey && gapKey !== (state.gap ?? "")) {
     out.push({
       rule: "gap",
-      title: `Capacity gap in ${gaps.length} of the next 8 weeks`,
+      title: `Capacity gap in ${gaps.length} of the next ${ds.settings.gapWindowWeeks} weeks`,
       body: gaps
         .map((w) => {
           const L = loadForWeek(ds, plans, w);
@@ -222,6 +222,8 @@ export function ruleDesc(rule: AlertRule, s: Settings): string {
       return `DOT physical or certification expiring in ${s.certFirstDays} or ${s.certSecondDays} days`;
     case "overrun":
       return `Job on pace to beat its hours by ${s.overrunPct}% or more`;
+    case "gap":
+      return `Men or leaders short in the next ${s.gapWindowWeeks} weeks`;
     default:
       return ALERT_RULES.find((r) => r.id === rule)!.desc;
   }

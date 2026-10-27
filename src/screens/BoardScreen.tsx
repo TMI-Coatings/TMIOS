@@ -122,7 +122,7 @@ export function BoardScreen({ ctx }: { ctx: Ctx }) {
       </div>
       {mix.total > 0 && (
         <p className="note">
-          Next 8 weeks: {pct((mix.byFirmness.locked + mix.byFirmness.confirmed + mix.byFirmness.waiting) / mix.total)} of scheduled hours locked or confirmed with the customer,{" "}
+          Next {s.gapWindowWeeks} weeks: {pct((mix.byFirmness.locked + mix.byFirmness.confirmed + mix.byFirmness.waiting) / mix.total)} of scheduled hours locked or confirmed with the customer,{" "}
           {pct(mix.byFirmness.best_guess / mix.total)} TMI’s best guess, {pct((mix.byFirmness.flexible + mix.byFirmness.fill_in) / mix.total)} flexible or fill-in.
         </p>
       )}

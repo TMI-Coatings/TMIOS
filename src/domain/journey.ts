@@ -71,7 +71,14 @@ export class Journey {
   readonly stages: JourneyStage[];
   readonly defs: CheckpointDef[];
   private done: Map<string, JobCheckpoint>;
-  constructor(stages: JourneyStage[], defs: CheckpointDef[], marks: JobCheckpoint[], private facts: JourneyFacts, private today: IsoDate) {
+  constructor(
+    stages: JourneyStage[],
+    defs: CheckpointDef[],
+    marks: JobCheckpoint[],
+    private facts: JourneyFacts,
+    private today: IsoDate,
+    private soonDays = 7,
+  ) {
     this.stages = stages.filter((s) => s.active).sort((a, b) => a.sort - b.sort);
     const live = new Set(this.stages.map((s) => s.key));
     this.defs = defs.filter((d) => d.active && live.has(d.stageKey)).sort((a, b) => a.sort - b.sort);
@@ -81,7 +88,7 @@ export class Journey {
   mark = (j: Job, c: CheckpointDef) => this.done.get(j.id + "|" + c.key);
   isDone = (j: Job, c: CheckpointDef) => !applies(j, c) || (c.autoSource ? autoDone(j, c, this.facts) : this.done.has(j.id + "|" + c.key));
   isLate = (j: Job, c: CheckpointDef) => !this.isDone(j, c) && dueDate(j, c) < this.today;
-  isSoon = (j: Job, c: CheckpointDef) => !this.isDone(j, c) && !this.isLate(j, c) && dueDate(j, c) <= addDays(this.today, 7);
+  isSoon = (j: Job, c: CheckpointDef) => !this.isDone(j, c) && !this.isLate(j, c) && dueDate(j, c) <= addDays(this.today, this.soonDays);
   daysLate = (j: Job, c: CheckpointDef) => daysBetween(dueDate(j, c), this.today);
   /** The earliest stage with anything unfinished; stages.length once everything is done. */
   stageOf(j: Job): number {

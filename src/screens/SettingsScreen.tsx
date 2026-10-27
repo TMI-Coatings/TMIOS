@@ -2,7 +2,7 @@ import { settingProblem } from "../domain/settingsRules";
 import type { Settings } from "../domain/types";
 import type { Ctx } from "../Workspace";
 
-const FIELDS: { k: keyof Settings; label: string; kind: "num" | "money" | "mmdd" | "list"; note?: string }[] = [
+const FIELDS: { k: keyof Settings; label: string; kind: "num" | "money" | "mmdd" | "list" | "milestones"; note?: string }[] = [
   { k: "absencePct", label: "Absence rate (%)", kind: "num", note: "Taken off capacity every week." },
   { k: "hoursPerManWeek", label: "Hours per man-week", kind: "num" },
   { k: "dedicatedLeaderHrs", label: "Job size that needs a dedicated leader (hrs)", kind: "num", note: "Smaller jobs share a leader." },
@@ -26,6 +26,14 @@ const FIELDS: { k: keyof Settings; label: string; kind: "num" | "money" | "mmdd"
   { k: "overBilledFlagPct", label: "Over or under billing shown red past this % of contract", kind: "num" },
   { k: "laborDivergencePts", label: "Flag labor % this many points from what hours suggest", kind: "num" },
   { k: "marginFadePts", label: "Flag margin down this many points from bid", kind: "num" },
+  { k: "gapWindowWeeks", label: "Flag capacity gaps this many weeks ahead", kind: "num", note: "Also how far ahead the dashboard sums up date firmness." },
+  { k: "journeySoonDays", label: "Job journey: a checkpoint is due soon this many days ahead", kind: "num" },
+  {
+    k: "milestoneDefaults",
+    label: "Default milestones for milestone billing",
+    kind: "milestones",
+    note: "Name and percent, separated by commas, e.g. Mobilization 20, Coatings applied 40. The rest bills at customer sign-off.",
+  },
   { k: "scorecardMonths", label: "Leader scorecard looks back (months)", kind: "num" },
   { k: "closeoutCauses", label: "Overrun causes the PM can tag at closeout", kind: "list", note: "Separate with commas." },
   { k: "winterStart", label: "Winter window starts (MM-DD)", kind: "mmdd" },
@@ -38,7 +46,20 @@ export function SettingsScreen({ ctx }: { ctx: Ctx }) {
   const s = data.ds.settings;
   const commit = (k: keyof Settings, kind: string, raw: string) => {
     let v: number | string | string[];
-    if (kind === "list") {
+    if (kind === "milestones") {
+      const ms = raw
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .map((x) => {
+          const m = x.match(/^(.*?)\s+(\d+(?:\.\d+)?)\s*%?$/);
+          return m ? { label: m[1].trim(), pct: Number(m[2]) } : { label: x, pct: NaN };
+        });
+      const problem = settingProblem(k, ms as never, s);
+      if (problem) return void run(() => Promise.reject(new Error(problem)));
+      if (JSON.stringify(ms) === JSON.stringify(s[k])) return;
+      return void run(() => repo.updateSetting(k, ms as never), "Setting saved.");
+    } else if (kind === "list") {
       const list = raw.split(",").map((x) => x.trim()).filter(Boolean);
       if (!list.length) return void run(() => Promise.reject(new Error("Keep at least one cause.")));
       if (JSON.stringify(list) === JSON.stringify(s[k])) return;
@@ -66,8 +87,16 @@ export function SettingsScreen({ ctx }: { ctx: Ctx }) {
             <label className="field" key={f.k}>
               {f.label}
               <input
-                key={String(s[f.k])}
-                defaultValue={f.kind === "money" ? Number(s[f.k]) / 100 : f.kind === "list" ? (s[f.k] as string[]).join(", ") : String(s[f.k])}
+                key={JSON.stringify(s[f.k])}
+                defaultValue={
+                  f.kind === "money"
+                    ? Number(s[f.k]) / 100
+                    : f.kind === "list"
+                      ? (s[f.k] as string[]).join(", ")
+                      : f.kind === "milestones"
+                        ? (s[f.k] as Settings["milestoneDefaults"]).map((m) => `${m.label} ${m.pct}`).join(", ")
+                        : String(s[f.k])
+                }
                 inputMode={f.kind === "mmdd" ? "text" : "decimal"}
                 onBlur={(e) => commit(f.k, f.kind, e.target.value.trim())}
                 onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}

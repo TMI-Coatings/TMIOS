@@ -40,7 +40,7 @@ import { woDaysWaiting, woLate, woOpen, woStatus, woWaiting } from "./workOrders
 const n0 = (v: number) => Math.round(v).toLocaleString("en-US");
 const n1 = (v: number) => (Math.round(v * 10) / 10).toLocaleString("en-US");
 
-export function gapWeeks(ds: Dataset, idx: Index, plans: Plans, week: IsoDate, n = 8): IsoDate[] {
+export function gapWeeks(ds: Dataset, idx: Index, plans: Plans, week: IsoDate, n = ds.settings.gapWindowWeeks): IsoDate[] {
   return weekList(week, n).filter((w) => loadForWeek(ds, plans, w) > capacity(ds, idx, w) || leadersNeeded(ds, plans, w) > availableMen(ds, idx, w, true));
 }
 
@@ -78,7 +78,7 @@ export function backlogWeeks(ds: Dataset, idx: Index, week: IsoDate): number {
 }
 
 /** Scheduled hours in the next n weeks by firmness; on-hold hours kept apart. */
-export function firmnessMix(ds: Dataset, plans: Plans, week: IsoDate, n = 8) {
+export function firmnessMix(ds: Dataset, plans: Plans, week: IsoDate, n = ds.settings.gapWindowWeeks) {
   const t = Object.fromEntries(FIRMNESS.map((f) => [f.key, 0])) as Record<Firmness, number>;
   let hold = 0;
   for (const w of weekList(week, n))
@@ -267,7 +267,7 @@ export function digestLines(ds: Dataset, idx: Index, plans: Plans, week: IsoDate
     issues ? `${issues} crew issues in the next two weeks (double-booked, time off, qualifications).` : "No crew issues in the next two weeks.",
     lateRisk.length ? `Projected past must-finish: ${lateRisk.map((j) => `${j.customer} (${fmtShort(j.projectedFinish)} vs ${fmtShort(j.mustFinish!)})`).join(", ")}.` : "",
     open.length ? `Open to sell, ${s.openWindowStartWeeks} to ${s.openWindowEndWeeks} weeks out: ${open.map((x) => `${fmtShort(x.week)} (${n0(x.open)} hrs)`).join(", ")}.` : "",
-    gaps.length ? `Gaps ahead: ${gaps.map(fmtShort).join(", ")}.` : "No capacity gaps in the next 8 weeks.",
+    gaps.length ? `Gaps ahead: ${gaps.map(fmtShort).join(", ")}.` : `No capacity gaps in the next ${ds.settings.gapWindowWeeks} weeks.`,
     (() => {
       const open = ds.jobs.filter((j) => woOpen(j, ds.workOrders.find((w) => w.jobId === j.id)));
       if (!open.length) return "Every booked job has a final work order.";

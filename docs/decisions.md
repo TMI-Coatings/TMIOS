@@ -75,6 +75,13 @@ Austin asked for every review fix that didn't need his decision. Where a fix nee
 - **Journey stages.** Admins can rename, reorder, add and retire stages, and mark which ones come before the job starts. A stage with checkpoints still in use can't be retired.
 - **Missed digest.** If a closed week's Monday digest never went out, the close screen offers to send it. The scheduled digest replaces this once it's approved.
 
+## After the review (Austin, Oct 27)
+
+- **Demo mode can't slip into go-live.** A production build in demo mode now fails unless Netlify has `ALLOW_DEMO_IN_PRODUCTION = yes`. That setting stays while the public demo runs on the production site; remove it, along with `VITE_DATA_MODE`, at go-live.
+- **Work order drafts:** job leaders and crew can't open them, since they may carry contract terms. Estimators still can, because they sign off on hours and scope.
+- **New admin settings** (hard rule 8): how many weeks ahead capacity gaps are flagged (8), when a journey checkpoint counts as due soon (7 days), and the default milestones for milestone billing (20/30/40%).
+- **Names are unique.** No two people on the access list, and no two on the crew roster, can share a name, because alerts and sign-offs find people by name. Renaming an estimator on the Access screen moves their jobs to the new name.
+
 ## Independent review fixes (Oct 27)
 
 Four reviewers checked the code and a fifth confirmed each finding. These are the rules the fixes rest on:

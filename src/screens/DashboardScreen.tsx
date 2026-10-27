@@ -65,7 +65,7 @@ export function DashboardScreen({ ctx }: { ctx: Ctx }) {
         </div>
         <div className={"kpi" + (k.gaps ? " warn" : "")}>
           <div className="v num">{k.gaps}</div>
-          <div className="l">Gap weeks in the next 8</div>
+          <div className="l">Gap weeks in the next {s.gapWindowWeeks}</div>
         </div>
       </div>
 
@@ -139,7 +139,7 @@ function FirmnessMix({ ds, plans, week }: { ds: Dataset; plans: ReturnType<typeo
   if (!mix.total) return null;
   return (
     <>
-      <h2>How firm the next 8 weeks are</h2>
+      <h2>How firm the next {ds.settings.gapWindowWeeks} weeks are</h2>
       <div className="panel">
         <p className="note" style={{ margin: 0 }}>
           {pct(share("locked") + share("confirmed") + share("waiting"))} of scheduled hours are locked or confirmed with the customer. {pct(share("best_guess"))} are TMI’s best guess.
@@ -213,7 +213,7 @@ function SalesDashboard({ ctx }: { ctx: Ctx }) {
         </div>
         <div className={"kpi" + (gaps ? " warn" : "")}>
           <div className="v num">{gaps}</div>
-          <div className="l">Over-capacity weeks in the next 8</div>
+          <div className="l">Over-capacity weeks in the next {s.gapWindowWeeks}</div>
         </div>
       </div>
 

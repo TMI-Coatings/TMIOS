@@ -172,6 +172,12 @@ export interface Settings {
   marginFadePts: number;
   closeoutCauses: string[];
   scorecardMonths: number;
+  /** How far ahead capacity gaps are flagged and firmness is summarized. */
+  gapWindowWeeks: number;
+  /** A journey checkpoint counts as "due soon" this many days ahead. */
+  journeySoonDays: number;
+  /** The milestones a job starts with when it switches to milestone billing; the rest bills at sign-off. */
+  milestoneDefaults: { label: string; pct: number }[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -202,6 +208,13 @@ export const DEFAULT_SETTINGS: Settings = {
   marginFadePts: 3,
   closeoutCauses: ["Field", "Estimate", "Change order not captured", "Customer delay", "Weather"],
   scorecardMonths: 12,
+  gapWindowWeeks: 8,
+  journeySoonDays: 7,
+  milestoneDefaults: [
+    { label: "Mobilization", pct: 20 },
+    { label: "Surface prep complete", pct: 30 },
+    { label: "Coatings applied", pct: 40 },
+  ],
 };
 
 export interface Lookup {

@@ -142,5 +142,6 @@ export function friendlyError(e: unknown): string {
   if (/hold_reason|hold_until/i.test(msg)) return "Jobs on hold need a reason and an expected restart date.";
   if (/retainage_release/i.test(msg)) return "Jobs with retainage need release terms.";
   if (/actual_hours_job_id_week|hour_entries_pkey/i.test(msg)) return "Hours for that job and week are already in.";
+  if (/app_users_unique_name|people_unique_name/i.test(msg)) return "Someone already has that name. Add a middle initial or a nickname so alerts reach the right person.";
   return msg.replace(/^.*?: /, "");
 }

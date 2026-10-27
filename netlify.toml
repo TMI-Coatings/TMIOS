@@ -3,7 +3,8 @@
 # Netlify UI (Site configuration > Environment variables), never in this file (hard rule 3).
 
 [build]
-  command = "npm run build"
+  # The mode check refuses a production build in demo mode unless ALLOW_DEMO_IN_PRODUCTION=yes.
+  command = "node scripts/check-build-mode.mjs && npm run build"
   publish = "dist"
 
 [build.environment]

@@ -127,3 +127,21 @@ describe("independent review: app-side fixes", () => {
     expect(backlogCents(withCo, buildIndex(withCo))).toBeGreaterThan(backlogCents(ds, buildIndex(ds)));
   });
 });
+
+describe("build mode check", () => {
+  it("refuses a production build in demo mode unless it's explicitly allowed", async () => {
+    const { spawnSync } = await import("node:child_process");
+    const run = (env: Record<string, string>) => spawnSync(process.execPath, ["scripts/check-build-mode.mjs"], { env: { ...process.env, CONTEXT: "", VITE_DATA_MODE: "", ALLOW_DEMO_IN_PRODUCTION: "", ...env } }).status;
+    expect(run({ CONTEXT: "production", VITE_DATA_MODE: "sample" })).toBe(1);
+    expect(run({ CONTEXT: "production", VITE_DATA_MODE: "sample", ALLOW_DEMO_IN_PRODUCTION: "yes" })).toBe(0);
+    expect(run({ CONTEXT: "production" })).toBe(0);
+    expect(run({ CONTEXT: "deploy-preview", VITE_DATA_MODE: "sample" })).toBe(0);
+  });
+  it("checks the default milestones", async () => {
+    const { settingProblem } = await import("../../src/domain/settingsRules");
+    const { DEFAULT_SETTINGS } = await import("../../src/domain/types");
+    expect(settingProblem("milestoneDefaults", [{ label: "A", pct: 80 }, { label: "B", pct: 40 }], DEFAULT_SETTINGS)).toBe("The milestones add up to more than 100%.");
+    expect(settingProblem("milestoneDefaults", [{ label: "Deposit", pct: 10 }], DEFAULT_SETTINGS)).toBeNull();
+    expect(settingProblem("gapWindowWeeks", 30, DEFAULT_SETTINGS)).toBe("Use a number from 1 to 26.");
+  });
+});

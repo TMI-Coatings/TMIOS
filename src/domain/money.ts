@@ -3,7 +3,7 @@
  * change orders, invoices, retainage held per invoice, billing state and the pay-app calendar.
  */
 import { type Index, type Plans, actualToDate, eac, isSold } from "./schedule";
-import type { Dataset, IsoDate, Job } from "./types";
+import { DEFAULT_SETTINGS, type Dataset, type IsoDate, type Job } from "./types";
 import { addDays, mondayOf } from "./weeks";
 
 export interface PercentEntry {
@@ -59,11 +59,8 @@ export interface RetainageReceipt {
   receivedOn: IsoDate;
 }
 
-export const MILESTONE_TEMPLATE: [string, number][] = [
-  ["Mobilization", 20],
-  ["Surface prep complete", 30],
-  ["Coatings applied", 40],
-];
+/** The default milestones as shipped; the admin setting milestoneDefaults holds TMI's own. */
+export const MILESTONE_TEMPLATE: [string, number][] = DEFAULT_SETTINGS.milestoneDefaults.map((m) => [m.label, m.pct]);
 export const BILLING_METHOD_LABEL = { final: "Final invoice only", monthly: "Monthly progress billing", milestone: "Milestone billing" } as const;
 
 export class Money {

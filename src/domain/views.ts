@@ -21,4 +21,5 @@ export const journeyOf = (ds: Dataset, today: IsoDate, finalInvoiced: (jobId: st
       finalInvoiced,
     },
     today,
+    ds.settings.journeySoonDays,
   );

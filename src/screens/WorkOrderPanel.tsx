@@ -42,7 +42,7 @@ export function WorkOrderPanel({ ctx, job }: { ctx: Ctx; job: Job }) {
             Remind {woWaiting(job, w, n)}
           </button>
         )}
-        {w.filePath && (
+        {w.filePath && !["superintendent", "field_crew"].includes(viewer.role) && (
           <>
             {" "}
             <button className="jl" onClick={() => repo.woFileUrl(job.id).then((u) => u && window.open(u, "_blank", "noopener"))}>

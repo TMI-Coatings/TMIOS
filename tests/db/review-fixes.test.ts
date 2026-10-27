@@ -437,3 +437,52 @@ describe("independent review: money and rule fixes", () => {
     expect(s.crew).toMatch(/is closed$/);
   });
 });
+
+describe("Austin's calls after the review", () => {
+  const attempt = async (q: (s: string, p?: unknown[]) => Promise<pg.QueryResult>, sql: string, params: unknown[] = []) => {
+    await q("savepoint t");
+    try {
+      await q(sql, params);
+      await q("release savepoint t");
+      return "ok";
+    } catch (e: any) {
+      await q("rollback to savepoint t");
+      return e.message as string;
+    }
+  };
+  it("milestone billing starts from the admin's default milestones, which are checked", async () => {
+    const j = sample.jobs.find((x) => x.billingMethod === "final" && x.status === "scheduled")!;
+    const r = await as(user("admin"), async (q) => {
+      const bad = await attempt(q, `update public.settings set value = '[{"label":"A","pct":80},{"label":"B","pct":40}]' where key = 'milestoneDefaults'`);
+      await q(`update public.settings set value = '[{"label":"Deposit","pct":10},{"label":"Half done","pct":50}]' where key = 'milestoneDefaults'`);
+      await q("select public.set_billing_method($1, 'milestone')", [j.id]);
+      const ms = (await q("select label, pct::int pct from public.milestones where job_id = $1 order by sort", [j.id])).rows;
+      return { rows: { bad, ms } } as never;
+    });
+    expect(r.ok ? "" : r.error).toBe("");
+    expect(r.ok && r.rows).toEqual({
+      bad: "Each milestone needs a name and a percent from 1 to 100, adding up to no more than 100",
+      ms: [
+        { label: "Deposit", pct: 10 },
+        { label: "Half done", pct: 50 },
+      ],
+    });
+  });
+  it("no two people share a name, and renaming an estimator carries their jobs along", async () => {
+    const est = user("estimator");
+    const other = sample.users.find((u) => u.role === "estimator" && u.userId !== est.userId)!;
+    const r = await as(user("admin"), async (q) => {
+      const dupe = await attempt(q, "update public.app_users set name = $2 where id = $1", [other.userId, est.name]);
+      await q("update public.app_users set name = $2 where id = $1", [est.userId, est.name + " Jr"]);
+      await q("reset role");
+      const left = (await q("select count(*)::int n from public.jobs where estimator = $1", [est.name])).rows[0].n;
+      const moved = (await q("select count(*)::int n from public.jobs where estimator = $1", [est.name + " Jr"])).rows[0].n;
+      return { rows: { dupe, left, moved } } as never;
+    });
+    expect(r.ok ? "" : r.error).toBe("");
+    const x = (r.ok ? r.rows : []) as unknown as { dupe: string; left: number; moved: number };
+    expect(x.dupe).toMatch(/app_users_unique_name/);
+    expect(x.left).toBe(0);
+    expect(x.moved).toBe(sample.jobs.filter((j) => j.estimator === est.name).length);
+  });
+});
