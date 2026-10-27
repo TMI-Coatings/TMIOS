@@ -538,6 +538,8 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
       retainageCents: Math.round((amountCents * (jobs.find((x) => x.id === jobId)?.retainagePct ?? 0)) / 100),
       invoicedOn: on,
       recordedBy: "Patrick Leaon",
+      // Customers pay about four weeks after the invoice; anything newer is still owed.
+      paidOn: kind !== "skip" && addDays(on, 28) <= today ? addDays(on, 28) : null,
       ...extra,
     });
   {

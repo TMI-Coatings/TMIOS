@@ -10,8 +10,8 @@ Crew scheduling and forecasting for TMI Coatings. It replaces the 2026 Schedule 
 | Schedule | Schedule grid with the job window, Add job from estimate, Crew (availability, time off, roster, auto-fill with preview) |
 | The week | Weekly close (PM hours, CSV import, review, close in the database), Dashboard, Alerts with per-person mutes and the Monday digest, My week, Confirm my crews |
 | Jobs | Work orders (draft upload, four sign-offs in order, send-back, filed in Procore), Job journey (admin-editable checkpoints) |
-| Money | Revenue and WIP (Monday percent complete, recognized revenue, margin), Billing (final, monthly, milestone; retainage held per invoice), change orders |
-| Reporting | Leader scorecard (PM tags overrun causes), Board view with the PDF board pack |
+| Money | Revenue and WIP (Monday percent complete, recognized revenue, margin, CSV export, month-end WIP locked for the books), Billing (final, monthly, milestone; retainage held per invoice; payments received, AR aging, retainage by release trigger), change orders |
+| Reporting | Leader scorecard (PM tags overrun causes), Board view with the financial position and the PDF board pack |
 
 **Still to come (needs outside approvals):** Teams and email delivery of alerts, the Monday 6 AM digest as a scheduled Netlify function, Procore read-only sync, and the time-system import. Until then alerts show in the app and hours come in by CSV.
 

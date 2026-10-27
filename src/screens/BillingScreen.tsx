@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { BILLING_METHOD_LABEL, Money, monthLabel } from "../domain/money";
+import { BILLING_METHOD_LABEL, Money, arAging, monthLabel, netDue, retainageByTrigger } from "../domain/money";
+import { can } from "../domain/permissions";
 import { buildIndex, isSold } from "../domain/schedule";
 import type { Job } from "../domain/types";
 import { fmtShort, todayIn } from "../domain/weeks";
@@ -10,7 +11,7 @@ import { JobDialog } from "./JobDialog";
 
 /** Billing: what's due by method, the final and milestone board, retainage, and final-only jobs running ahead. */
 export function BillingScreen({ ctx }: { ctx: Ctx }) {
-  const { data, week } = ctx;
+  const { data, week, repo, run } = ctx;
   const ds = data.ds;
   const s = ds.settings;
   const [openJob, setOpenJob] = useState<string | null>(null);
@@ -22,6 +23,9 @@ export function BillingScreen({ ctx }: { ctx: Ctx }) {
   const ret = by("ret");
   // Retainage receivable includes what customers hold on progress and milestone invoices, not just finished jobs.
   const held = ds.jobs.filter((j) => m.retainageOutstanding(j) > 0);
+  const ar = arAging(ds, today);
+  const byTrigger = retainageByTrigger(ds, m);
+  const canBill = can.recordInvoices(ctx.viewer.role);
   const closed = by("closed")
     .sort((a, b) => (m.finalInvoice(b)?.invoicedOn ?? "").localeCompare(m.finalInvoice(a)?.invoicedOn ?? ""))
     .slice(0, 8);
@@ -212,6 +216,97 @@ export function BillingScreen({ ctx }: { ctx: Ctx }) {
         <div className="panel">
           <p className="note" style={{ margin: 0 }}>
             None.
+          </p>
+        </div>
+      )}
+      <h2>Cash: billed but not collected</h2>
+      <p className="note">Invoices less the retainage customers hold. Accounting marks each one paid when the money lands; nothing here comes from Sage.</p>
+      <div className="kpis" style={{ gridTemplateColumns: "repeat(5,1fr)" }}>
+        {ar.buckets.map((b, k) => (
+          <div key={b.label} className={"kpi" + (k >= 2 && b.cents > 0 ? " warn" : "")}>
+            <div className="v num">{usd(b.cents)}</div>
+            <div className="l">{b.label}</div>
+          </div>
+        ))}
+        <div className="kpi">
+          <div className="v num">{usd(ar.total)}</div>
+          <div className="l">Owed to TMI</div>
+        </div>
+      </div>
+      {ar.open.length > 0 && (
+        <div className="scroll" style={{ marginTop: 10 }}>
+          <table aria-label="Open invoices">
+            <thead>
+              <tr>
+                <th>Invoice</th>
+                <th>Job</th>
+                <th>Billed</th>
+                <th className="r">Days out</th>
+                <th className="r">Owed</th>
+                {canBill && <th />}
+              </tr>
+            </thead>
+            <tbody>
+              {ar.open.map((i) => {
+                const j = ds.jobs.find((x) => x.id === i.jobId);
+                return (
+                  <tr key={i.id}>
+                    <td>{i.number}</td>
+                    <td>
+                      {j && (
+                        <button className="jl" onClick={() => open(j.id)}>
+                          {j.number} {j.customer}
+                        </button>
+                      )}
+                    </td>
+                    <td>{fmtShort(i.invoicedOn)}</td>
+                    <td className="r num" style={ar.age(i) > 60 ? { color: "var(--red)" } : undefined}>
+                      {ar.age(i)}
+                    </td>
+                    <td className="r num">{usd(netDue(i))}</td>
+                    {canBill && (
+                      <td>
+                        <button className="btn sec" onClick={() => run(() => repo.recordPayment(i.id), `Invoice ${i.number} marked paid.`)}>
+                          Mark paid
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <h2>Retainage by what releases it</h2>
+      {byTrigger.length ? (
+        <div className="scroll">
+          <table aria-label="Retainage by release trigger">
+            <thead>
+              <tr>
+                <th>Released at</th>
+                <th className="r">Jobs</th>
+                <th className="r">Of them complete</th>
+                <th className="r">Held</th>
+              </tr>
+            </thead>
+            <tbody>
+              {byTrigger.map((t) => (
+                <tr key={t.key}>
+                  <td>{t.label}</td>
+                  <td className="r num">{t.jobs.length}</td>
+                  <td className="r num">{t.complete}</td>
+                  <td className="r num">{usd(t.cents)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="panel">
+          <p className="note" style={{ margin: 0 }}>
+            No retainage held.
           </p>
         </div>
       )}

@@ -68,7 +68,7 @@ describe("money fixes", () => {
     const { Money } = await import("../../src/domain/money");
     const { buildIndex } = await import("../../src/domain/schedule");
     const j = job({ retainagePct: 10, billingMethod: "monthly" });
-    const inv = { id: "i", jobId: j.id, kind: "progress" as const, period: "2026-09", milestoneId: null, number: "26-1", amountCents: 1_000_000, retainageCents: 50_000, invoicedOn: "2026-09-25", recordedBy: "x" };
+    const inv = { id: "i", jobId: j.id, kind: "progress" as const, period: "2026-09", milestoneId: null, number: "26-1", amountCents: 1_000_000, retainageCents: 50_000, invoicedOn: "2026-09-25", recordedBy: "x", paidOn: null };
     const ds = dataset({ jobs: [j], invoices: [inv], retainageReceipts: [{ id: "r", jobId: j.id, amountCents: 20_000, receivedOn: "2026-10-01" }] });
     expect(new Money(ds, buildIndex(ds), "2026-10-30", "2026-10-27").retainageOutstanding(j)).toBe(30_000);
   });
@@ -85,5 +85,19 @@ describe("settings limits", () => {
     expect(settingProblem("openWindowStartWeeks", 10, s)).toBe("The open capacity window has to start before it ends.");
     expect(settingProblem("certSecondDays", 90, s)).toMatch(/second certification reminder/);
     expect(settingProblem("absencePct", 12, s)).toBeNull();
+  });
+});
+
+describe("cash and WIP export", () => {
+  it("ages unpaid invoices net of retainage and writes a WIP CSV", async () => {
+    const { arAging, wipCsv } = await import("../../src/domain/money");
+    const j = job({ retainagePct: 5 });
+    const mk = (id: string, on: string, paidOn: string | null) => ({ id, jobId: j.id, kind: "progress" as const, period: on.slice(0, 7), milestoneId: null, number: id, amountCents: 100_000, retainageCents: 5_000, invoicedOn: on, recordedBy: "x", paidOn });
+    const ds = dataset({ jobs: [j], invoices: [mk("a", "2026-10-20", null), mk("b", "2026-08-01", null), mk("c", "2026-07-01", "2026-07-30")] });
+    const ar = arAging(ds, "2026-10-27");
+    expect(ar.total).toBe(190_000);
+    expect(ar.buckets.map((b) => b.cents)).toEqual([95_000, 0, 95_000, 0]);
+    const csv = wipCsv([{ jobId: "j", number: "4112", customer: 'Acme, "North"', pmCode: "JM", contractCents: 123456, materialsPct: 50, laborPct: 40, recognizedCents: 1000, billedCents: 500, overUnderCents: -500, costToCompleteCents: 200, gpBid: 0.4, gpNow: 0.35, retainageCents: 25 }], () => "Jake Moen");
+    expect(csv.split("\r\n")[1]).toBe('4112,"Acme, ""North""",Jake Moen,1234.56,50,40,10.00,5.00,-5.00,2.00,40.0,35.0,0.25');
   });
 });

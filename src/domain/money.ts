@@ -49,6 +49,8 @@ export interface Invoice {
   retainageCents: number;
   invoicedOn: IsoDate;
   recordedBy: string;
+  /** When accounting marked the customer's payment received (net of retainage). */
+  paidOn: IsoDate | null;
 }
 export interface RetainageReceipt {
   id: string;
@@ -105,6 +107,9 @@ export class Money {
   gpBid = (j: Job) => 1 - this.budgetCost(j) / Math.max(1, this.contract(j));
   gpNow = (j: Job) => 1 - (this.materialCost(j) + eac(this.idx, j) * j.burdenedRateCents) / Math.max(1, this.contract(j));
   fade = (j: Job) => this.gpNow(j) - this.gpBid(j);
+  /** What's left to spend: labor hours to go at the job's rate, plus the materials not yet in. */
+  costToComplete = (j: Job) =>
+    j.status === "complete" ? 0 : Math.max(0, eac(this.idx, j) - actualToDate(this.idx, j)) * j.burdenedRateCents + this.materialCost(j) * (1 - this.matDone(j));
   forReview = (j: Job) => isSold(j) && (this.stale(j) || this.diverges(j) || this.fade(j) < -this.ds.settings.marginFadePts / 100);
 
   /** What's left to recognize, spread across the job's planned weeks (materials with labor, decision 16). */
@@ -219,3 +224,120 @@ export function revenueByPeriod(ds: Dataset, m: Money, plans: Plans, week: IsoDa
 }
 
 export const meetingMonday = (week: IsoDate) => mondayOf(week);
+
+// ---------------------------------------------------------------- cash, WIP and the board
+
+/** What the customer owes on an invoice once retainage is held back. */
+export const netDue = (i: Invoice) => i.amountCents - i.retainageCents;
+
+export const AGING = ["0–30 days", "31–60 days", "61–90 days", "Over 90 days"] as const;
+
+/** Billed but not collected, by days since the invoice. */
+export function arAging(ds: Dataset, today: IsoDate) {
+  const open = ds.invoices.filter((i) => i.kind !== "skip" && !i.paidOn && netDue(i) > 0);
+  const bucket = (i: Invoice) => {
+    const d = Math.round((Date.parse(today) - Date.parse(i.invoicedOn)) / 864e5);
+    return d <= 30 ? 0 : d <= 60 ? 1 : d <= 90 ? 2 : 3;
+  };
+  const buckets = AGING.map((label, k) => ({ label, cents: open.filter((i) => bucket(i) === k).reduce((a, i) => a + netDue(i), 0) }));
+  return { open: open.sort((a, b) => a.invoicedOn.localeCompare(b.invoicedOn)), buckets, total: open.reduce((a, i) => a + netDue(i), 0), age: (i: Invoice) => Math.round((Date.parse(today) - Date.parse(i.invoicedOn)) / 864e5) };
+}
+
+export const RELEASE_LABEL = { substantial_completion: "Substantial completion", final_completion: "Final completion", other: "Other terms" } as const;
+
+/** Retainage receivable grouped by what releases it. */
+export function retainageByTrigger(ds: Dataset, m: Money) {
+  return (Object.keys(RELEASE_LABEL) as (keyof typeof RELEASE_LABEL)[])
+    .map((k) => {
+      const jobs = ds.jobs.filter((j) => j.retainageRelease === k && m.retainageOutstanding(j) > 0);
+      return { key: k, label: RELEASE_LABEL[k], jobs, cents: jobs.reduce((a, j) => a + m.retainageOutstanding(j), 0), complete: jobs.filter((j) => j.status === "complete").length };
+    })
+    .filter((x) => x.jobs.length);
+}
+
+/** One WIP line per job: open jobs, plus jobs finished in the given month. Same columns as the database's month-end snapshot. */
+export function wipRows(ds: Dataset, m: Money, month: string) {
+  return ds.jobs
+    .filter((j) => j.active && (isSold(j) || (j.status === "complete" && (j.actualFinish ?? "").slice(0, 7) === month)))
+    .sort((a, b) => a.number.localeCompare(b.number))
+    .map((j) => ({
+      jobId: j.id,
+      number: j.number,
+      customer: j.customer,
+      pmCode: j.pmCode,
+      contractCents: m.contract(j),
+      materialsPct: Math.round(m.matDone(j) * 100),
+      laborPct: Math.round(m.labDone(j) * 100),
+      recognizedCents: Math.round(m.recognized(j)),
+      billedCents: m.billed(j),
+      overUnderCents: Math.round(m.overUnder(j)),
+      costToCompleteCents: Math.round(m.costToComplete(j)),
+      gpBid: m.gpBid(j),
+      gpNow: m.gpNow(j),
+      retainageCents: m.retainageOutstanding(j),
+    }));
+}
+export type WipRow = ReturnType<typeof wipRows>[number];
+
+/** A month-end WIP snapshot row, locked for the books. */
+export interface WipSnapshotRow extends WipRow {
+  month: string;
+  takenAt: string;
+  takenBy: string;
+}
+
+const csvCell = (v: unknown) => {
+  const s = String(v ?? "");
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+const dollars = (c: number) => (c / 100).toFixed(2);
+
+/** The WIP schedule as a CSV file for Jared's spreadsheet. */
+export function wipCsv(rows: WipRow[], pmName: (code: string) => string): string {
+  const head = ["Job", "Customer", "PM", "Contract", "Materials %", "Labor %", "Recognized", "Billed", "Over (under) billed", "Cost to complete", "Bid GP %", "Now GP %", "Retainage held"];
+  const body = rows.map((r) => [
+    r.number,
+    r.customer,
+    pmName(r.pmCode),
+    dollars(r.contractCents),
+    r.materialsPct,
+    r.laborPct,
+    dollars(r.recognizedCents),
+    dollars(r.billedCents),
+    dollars(r.overUnderCents),
+    dollars(r.costToCompleteCents),
+    (r.gpBid * 100).toFixed(1),
+    (r.gpNow * 100).toFixed(1),
+    dollars(r.retainageCents),
+  ]);
+  return [head, ...body].map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+}
+
+/** The board pack's money page. */
+export function financialSummary(ds: Dataset, m: Money, plans: Plans, week: IsoDate, today: IsoDate) {
+  const open = ds.jobs.filter((j) => j.active && isSold(j));
+  const remaining = open.reduce((a, j) => a + m.remaining(j), 0);
+  const backlogGp = open.reduce((a, j) => a + m.remaining(j) * m.gpNow(j), 0);
+  const q = Math.floor((Number(today.slice(5, 7)) - 1) / 3);
+  const qStart = `${today.slice(0, 4)}-${String(q * 3 + 1).padStart(2, "0")}-01`;
+  const qMonths = [0, 1, 2].map((k) => `${today.slice(0, 4)}-${String(q * 3 + 1 + k).padStart(2, "0")}`);
+  const jobs = ds.jobs.filter((j) => j.active);
+  const qRecognized = jobs.reduce((a, j) => a + m.recognizedAsOf(j, week) - m.recognizedAsOf(j, addDays(qStart, -1)), 0);
+  const qForecast = revenueByPeriod(ds, m, plans, week, "month")
+    .filter((r) => qMonths.includes(r.key))
+    .reduce((a, r) => a + r.lab + r.mat, 0);
+  const ar = arAging(ds, today);
+  return {
+    netOverUnderCents: jobs.filter((j) => m.billed(j) > 0 || m.recognized(j) > 0).reduce((a, j) => a + m.overUnder(j), 0),
+    fadeCents: open.reduce((a, j) => a + m.contract(j) * (m.gpNow(j) - m.gpBid(j)), 0),
+    retainageCents: jobs.reduce((a, j) => a + m.retainageOutstanding(j), 0),
+    backlogCents: remaining,
+    backlogGpCents: backlogGp,
+    backlogGpPct: remaining ? backlogGp / remaining : 0,
+    quarterLabel: `Q${q + 1} ${today.slice(0, 4)}`,
+    quarterRecognizedCents: qRecognized,
+    quarterForecastCents: qForecast,
+    arCents: ar.total,
+    arOver60Cents: ar.buckets[2].cents + ar.buckets[3].cents,
+  };
+}

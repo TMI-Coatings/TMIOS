@@ -121,8 +121,8 @@ export function seedSql(week: string): string {
   out.push(
     rows(
       "invoices",
-      ["id", "job_id", "kind", "period", "milestone_id", "number", "amount_cents", "retainage_cents", "invoiced_on", "recorded_by"],
-      s.invoices.map((i) => [i.id, i.jobId, i.kind, i.period, i.milestoneId, i.number, i.amountCents, i.retainageCents, i.invoicedOn, i.recordedBy]),
+      ["id", "job_id", "kind", "period", "milestone_id", "number", "amount_cents", "retainage_cents", "invoiced_on", "recorded_by", "paid_on"],
+      s.invoices.map((i) => [i.id, i.jobId, i.kind, i.period, i.milestoneId, i.number, i.amountCents, i.retainageCents, i.invoicedOn, i.recordedBy, i.paidOn]),
     ),
   );
   out.push(rows("retainage_receipts", ["id", "job_id", "amount_cents", "received_on", "recorded_by"], s.retainageReceipts.map((r) => [r.id, r.jobId, r.amountCents, r.receivedOn, "Accounting"])));

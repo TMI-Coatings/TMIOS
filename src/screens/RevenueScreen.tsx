@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StackedBars } from "../components/StackedBars";
-import { Money, revenueByPeriod } from "../domain/money";
-import { canEditJob } from "../domain/permissions";
+import { Money, monthLabel, revenueByPeriod, wipCsv, wipRows, type WipRow, type WipSnapshotRow } from "../domain/money";
+import { can, canEditJob } from "../domain/permissions";
 import { allPlans, buildIndex, isSold } from "../domain/schedule";
 import { fmtShort, mondayOf, todayIn } from "../domain/weeks";
 import { pct, usd } from "../format";
@@ -19,7 +19,9 @@ export function RevenueScreen({ ctx }: { ctx: Ctx }) {
   const [openJob, setOpenJob] = useState<string | null>(null);
   const idx = useMemo(() => buildIndex(ds), [ds]);
   const plans = useMemo(() => allPlans(ds, idx, week), [ds, idx, week]);
-  const m = useMemo(() => new Money(ds, idx, week, todayIn(new Date())), [ds, idx, week]);
+  const today = todayIn(new Date());
+  const m = useMemo(() => new Money(ds, idx, week, today), [ds, idx, week, today]);
+  const pmName = (c: string) => ds.pms.find((p) => p.code === c)?.name ?? c;
 
   const rows = revenueByPeriod(ds, m, plans, week, view);
   const months = view === "month" ? rows : revenueByPeriod(ds, m, plans, week, "month");
@@ -146,7 +148,12 @@ export function RevenueScreen({ ctx }: { ctx: Ctx }) {
         </div>
       </div>
 
-      <h2>WIP schedule</h2>
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
+        <h2>WIP schedule</h2>
+        <button className="btn sec" onClick={() => download(`TMI WIP ${today.slice(0, 7)}.csv`, wipCsv(wipRows(ds, m, today.slice(0, 7)), pmName))}>
+          Export WIP (CSV)
+        </button>
+      </div>
       <div className="scroll">
         <table>
           <thead>
@@ -267,7 +274,135 @@ export function RevenueScreen({ ctx }: { ctx: Ctx }) {
         uses hours at completion at the burdened labor rate the job was set up with, plus material cost; both include approved change orders. Over-billed is cash ahead of the work; under-billed is work not yet
         invoiced.
       </p>
+      {can.recordInvoices(viewer.role) && <MonthEnd ctx={ctx} pmName={pmName} />}
       {openJob && <JobDialog ctx={ctx} jobId={openJob} onClose={() => setOpenJob(null)} />}
+    </>
+  );
+}
+
+function download(name: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Month-end WIP: lock the month for the books, then compare it with the month before. */
+function MonthEnd({ ctx, pmName }: { ctx: Ctx; pmName: (c: string) => string }) {
+  const { repo, run, data } = ctx;
+  const [snaps, setSnaps] = useState<WipSnapshotRow[] | null>(null);
+  const [pick, setPick] = useState<string | null>(null);
+  useEffect(() => {
+    repo.wipSnapshots().then(setSnaps, () => setSnaps([]));
+  }, [repo, data]);
+  if (!snaps) return null;
+  const cur = todayIn(new Date()).slice(0, 7);
+  const months = [...new Set(snaps.map((x) => x.month))].sort().reverse();
+  const shown = pick ?? months[0] ?? null;
+  const rows = snaps.filter((x) => x.month === shown);
+  const prior = months[months.indexOf(shown ?? "") + 1];
+  const before = new Map(snaps.filter((x) => x.month === prior).map((x) => [x.jobId, x]));
+  const sum = (rs: WipRow[], k: keyof WipRow) => rs.reduce((a, r) => a + (r[k] as number), 0);
+  const priorRows = [...before.values()];
+  return (
+    <>
+      <h2>Month-end WIP</h2>
+      <div className="panel">
+        <div className="row">
+          {!months.includes(cur) && (
+            <button className="btn" onClick={() => run(() => repo.takeWipSnapshot(cur), `WIP for ${monthLabel(cur)} locked.`)}>
+              Lock WIP for {monthLabel(cur)}
+            </button>
+          )}
+          {months.length > 0 && (
+            <label className="field">
+              Month
+              <select value={shown ?? ""} onChange={(e) => setPick(e.target.value)}>
+                {months.map((mo) => (
+                  <option key={mo} value={mo}>
+                    {monthLabel(mo)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {shown && (
+            <button className="btn sec" onClick={() => download(`TMI WIP ${shown} locked.csv`, wipCsv(rows, pmName))}>
+              Download {monthLabel(shown)} (CSV)
+            </button>
+          )}
+        </div>
+        {!shown ? (
+          <p className="note">No month locked yet. Lock the WIP at month end; once locked, a month can’t change, so the books and the board see the same numbers.</p>
+        ) : (
+          <>
+            <p className="note">
+              Locked {new Date(rows[0].takenAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} by {rows[0].takenBy}. {rows.length} jobs.
+              {prior ? ` Changes are against ${monthLabel(prior)}.` : " The next month will compare against this one."}
+            </p>
+            <div className="scroll">
+              <table aria-label="Month-end WIP">
+                <thead>
+                  <tr>
+                    <th>Job</th>
+                    <th className="r">Contract</th>
+                    <th className="r">Recognized</th>
+                    <th className="r">This month</th>
+                    <th className="r">Billed</th>
+                    <th className="r">Over (under)</th>
+                    <th className="r">Cost to complete</th>
+                    <th className="r">GP bid → now</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.jobId}>
+                      <td>
+                        {r.number} {r.customer}
+                      </td>
+                      <td className="r num">{usd(r.contractCents)}</td>
+                      <td className="r num">{usd(r.recognizedCents)}</td>
+                      <td className="r num">{prior ? usd(r.recognizedCents - (before.get(r.jobId)?.recognizedCents ?? 0)) : ""}</td>
+                      <td className="r num">{usd(r.billedCents)}</td>
+                      <td className="r num">{signed(r.overUnderCents)}</td>
+                      <td className="r num">{usd(r.costToCompleteCents)}</td>
+                      <td className="r num">
+                        {pct(r.gpBid)} → {pct(r.gpNow)}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td>
+                      <b>Total</b>
+                    </td>
+                    <td className="r num">
+                      <b>{usd(sum(rows, "contractCents"))}</b>
+                    </td>
+                    <td className="r num">
+                      <b>{usd(sum(rows, "recognizedCents"))}</b>
+                    </td>
+                    <td className="r num">
+                      <b>{prior ? usd(sum(rows, "recognizedCents") - sum(priorRows.filter((p) => rows.some((r) => r.jobId === p.jobId)), "recognizedCents")) : ""}</b>
+                    </td>
+                    <td className="r num">
+                      <b>{usd(sum(rows, "billedCents"))}</b>
+                    </td>
+                    <td className="r num">
+                      <b>{signed(sum(rows, "overUnderCents"))}</b>
+                    </td>
+                    <td className="r num">
+                      <b>{usd(sum(rows, "costToCompleteCents"))}</b>
+                    </td>
+                    <td />
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
     </>
   );
 }

@@ -233,3 +233,57 @@ describe("money fixes from the demo review", () => {
     if (late) expect(late.body).toMatch(/recognized but not billed\.$/);
   });
 });
+
+describe("finance views", () => {
+  it("the database's WIP lines match the screen's for every job", async () => {
+    const { wipRows } = await import("../../src/domain/money");
+    const month = TEST_TODAY.slice(0, 7);
+    const ts = wipRows(sample, money, month);
+    const { rows } = await db.query("select * from app.wip_rows($1)", [month]);
+    expect(rows.map((r) => r.number)).toEqual(ts.map((r) => r.number));
+    for (const r of rows) {
+      const t = ts.find((x) => x.number === r.number)!;
+      expect(Number(r.contract_cents), r.number).toBe(t.contractCents);
+      expect(r.materials_pct, r.number).toBe(t.materialsPct);
+      expect(r.labor_pct, r.number).toBe(t.laborPct);
+      expect(Number(r.recognized_cents), r.number).toBeCloseTo(t.recognizedCents, -1);
+      expect(Number(r.billed_cents), r.number).toBe(t.billedCents);
+      expect(Number(r.over_under_cents), r.number).toBeCloseTo(t.overUnderCents, -1);
+      expect(Number(r.cost_to_complete_cents), r.number).toBeCloseTo(t.costToCompleteCents, -1);
+      expect(Number(r.gp_now), r.number).toBeCloseTo(t.gpNow, 6);
+      expect(Number(r.retainage_cents), r.number).toBe(t.retainageCents);
+    }
+  });
+  it("accounting locks the month-end WIP once; PMs can't take or read it", async () => {
+    const month = TEST_TODAY.slice(0, 7);
+    const r = await as(user("accounting"), async (q) => ({
+      rows: {
+        n: (await q("select public.take_wip_snapshot($1) n", [month])).rows[0].n,
+        again: await attempt(q, "select public.take_wip_snapshot($1)", [month]),
+        old: await attempt(q, "select public.take_wip_snapshot('2025-01')"),
+        seen: (await q("select count(*)::int n from public.wip_snapshots")).rows[0].n,
+      },
+    }) as never);
+    expect(r.ok ? "" : r.error).toBe("");
+    const x = r.ok ? (r.rows as unknown as { n: number; again: string; old: string; seen: number }) : null;
+    expect(x!.n).toBeGreaterThan(0);
+    expect(x!.seen).toBe(x!.n);
+    expect(x!.again).toBe("That month is already locked");
+    expect(x!.old).toBe("Take the snapshot for this month or last month");
+    const pm = await as(user("pm"), (q) => q("select public.take_wip_snapshot($1)", [month]));
+    expect(pm.ok).toBe(false);
+  });
+  it("accounting marks an invoice paid, once, on a sensible date", async () => {
+    const inv = sample.invoices.find((i) => i.kind !== "skip" && !i.paidOn)!;
+    const r = await as(user("accounting"), async (q) => ({
+      rows: {
+        early: await attempt(q, "select public.record_payment($1, '2020-01-01')", [inv.id]),
+        ok: await attempt(q, "select public.record_payment($1)", [inv.id]),
+        twice: await attempt(q, "select public.record_payment($1)", [inv.id]),
+      },
+    }) as never);
+    expect(r.ok && r.rows).toEqual({ early: "The payment date has to be between the invoice date and today", ok: "ok", twice: "Already marked paid" });
+    const rep = await as(user("sales_rep"), (q) => q("select public.record_payment($1)", [inv.id]));
+    expect(rep.ok).toBe(false);
+  });
+});

@@ -1,5 +1,5 @@
 import { expect, test, type Locator } from "@playwright/test";
-import { sample, viewAs } from "./helpers";
+import { sample, tab, viewAs } from "./helpers";
 
 const byNum = (n: string) => sample.jobs.find((j) => j.number === n)!;
 // The billing section is the first collapsible section in the job window.
@@ -76,4 +76,30 @@ test("finished jobs stay off the schedule", async ({ page }) => {
   await viewAs(page, "admin", "#schedule");
   await expect(page.getByRole("button", { name: /4079 Ag Partners Co-op/ })).toHaveCount(0);
   expect(byNum("4079").status).toBe("complete");
+});
+
+test("accounting sees what's owed, marks a payment, and locks the month-end WIP", async ({ page }) => {
+  await viewAs(page, "accounting", "#billing");
+  const open = page.getByRole("table", { name: "Open invoices" });
+  const before = await open.locator("tbody tr").count();
+  await open.getByRole("button", { name: "Mark paid" }).first().click();
+  await expect(page.getByText(/marked paid\./)).toBeVisible();
+  await expect(open.locator("tbody tr")).toHaveCount(before - 1);
+  await expect(page.getByRole("table", { name: "Retainage by release trigger" })).toBeVisible();
+  await tab(page, "Revenue").click();
+  const dl = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export WIP (CSV)" }).click();
+  expect((await dl).suggestedFilename()).toMatch(/^TMI WIP \d{4}-\d{2}\.csv$/);
+  await page.getByRole("button", { name: /^Lock WIP for / }).click();
+  await expect(page.getByText(/^WIP for .* locked\.$/)).toBeVisible();
+  await expect(page.getByRole("table", { name: "Month-end WIP" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Lock WIP for / })).toHaveCount(0);
+});
+
+test("the board pack shows the financial position", async ({ page }) => {
+  await viewAs(page, "cfo", "#board");
+  const fin = page.getByLabel("Financial position");
+  await expect(fin.getByText(/Revenue landing in Q\d \d{4}/)).toBeVisible();
+  await expect(fin.getByText("Retainage receivable")).toBeVisible();
+  await expect(fin.getByText(/Margin fade on open jobs/)).toBeVisible();
 });

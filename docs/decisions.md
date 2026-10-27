@@ -68,6 +68,19 @@ Austin asked for every review fix that didn't need his decision. Where a fix nee
 - **Settings have limits**, for example absence 0–50%, hours per man-week 1–80, pay-app day 1–28. The limits live in `src/domain/settingsRules.ts` and the database.
 - **The estimator is picked from the Access list.** The estimate's dollars and hours stay as bid when intake details are corrected.
 
+## Finance views (Austin, Oct 27)
+
+- **Payments received.** Accounting marks each invoice paid when the money lands, so TMI Ops can show what's owed. What's owed is the invoice less retainage held, aged 0–30, 31–60, 61–90 and 90+ days. Sage stays the book of record; nothing is read from or written to it (hard rule 2).
+- **Month-end WIP.** Accounting, Jared or an admin locks the WIP for this month or last month. The database computes it, it can't be retaken or changed once locked, and each month shows recognized revenue against the month before. Only admin, CEO, CFO and accounting see the snapshots.
+- **WIP export.** The current WIP downloads as CSV from the Revenue tab. It covers open jobs plus jobs finished this month.
+- **Board financial position**, all from TMI Ops data:
+  - revenue landing this quarter, recognized plus forecast
+  - backlog gross margin at today's estimates
+  - margin fade on open jobs
+  - net over (under) billing
+  - retainage receivable
+  - billed but not collected
+
 ## Still open
 
 - Time-system name and a sample export layout (deferred).

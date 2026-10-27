@@ -1,6 +1,6 @@
 import type { CloseInput, CloseResult } from "../domain/close";
 import type { CheckpointDef } from "../domain/journey";
-import type { ChangeOrder, InvoiceKind } from "../domain/money";
+import type { ChangeOrder, InvoiceKind, WipSnapshotRow } from "../domain/money";
 import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Person, Role, Settings, TimeOffType, Viewer } from "../domain/types";
 
 export interface NewJobInput {
@@ -114,6 +114,12 @@ export interface Repo {
   markMilestoneReached(milestoneId: string): Promise<void>;
   recordInvoice(inv: { jobId: string; kind: InvoiceKind; period?: string; milestoneId?: string; number?: string; amountCents?: number }): Promise<void>;
   recordRetainageReceived(jobId: string): Promise<void>;
+  /** Accounting marks a customer's payment received; the date defaults to today. */
+  recordPayment(invoiceId: string, paidOn?: IsoDate): Promise<void>;
+  /** Month-end WIP snapshots locked for the books, newest month first. */
+  wipSnapshots(): Promise<WipSnapshotRow[]>;
+  /** Lock this month's (or last month's) WIP. Returns how many jobs it holds. */
+  takeWipSnapshot(month: string): Promise<number>;
   /** Company revenue totals for reps and PMs, who only see their own jobs (decision 6). */
   companyRevenueTotals(): Promise<{ remainingCents: number; netBillingCents: number; reviewCount: number } | null>;
   /** The PM tags why a finished job ran over (decision 10); null clears it. */

@@ -7,7 +7,7 @@ import { can, seesCompanyTotals } from "../domain/permissions";
 import type { CloseInput, CloseResult } from "../domain/close";
 import type { CheckpointDef } from "../domain/journey";
 import type { WorkOrder } from "../domain/workOrders";
-import type { ChangeOrder, InvoiceKind } from "../domain/money";
+import type { ChangeOrder, InvoiceKind, WipSnapshotRow } from "../domain/money";
 import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Person, Settings, TimeOff, Viewer } from "../domain/types";
 import { DEFAULT_SETTINGS } from "../domain/types";
 import type { AccessUser, LoadResult, NewJobInput, Repo } from "./repo";
@@ -241,6 +241,7 @@ export class SupabaseRepo implements Repo {
         number: r.number,
         amountCents: Number(r.amount_cents),
         retainageCents: Number(r.retainage_cents),
+        paidOn: r.paid_on ?? null,
         invoicedOn: r.invoiced_on,
         recordedBy: r.recorded_by,
       })),
@@ -484,6 +485,37 @@ export class SupabaseRepo implements Repo {
 
   async recordInvoice(inv: { jobId: string; kind: InvoiceKind; period?: string; milestoneId?: string; number?: string; amountCents?: number }) {
     check(await this.sb.rpc("record_invoice", { p: inv }));
+  }
+
+  async recordPayment(invoiceId: string, paidOn?: IsoDate) {
+    check(await this.sb.rpc("record_payment", { p_invoice: invoiceId, p_paid_on: paidOn ?? null }));
+  }
+
+  async wipSnapshots(): Promise<WipSnapshotRow[]> {
+    const rows = check(await this.sb.from("wip_snapshots").select("*").order("month", { ascending: false }).order("number")) as Row[];
+    return rows.map((r) => ({
+      month: r.month,
+      jobId: r.job_id,
+      number: r.number,
+      customer: r.customer,
+      pmCode: r.pm_code,
+      contractCents: Number(r.contract_cents),
+      materialsPct: r.materials_pct,
+      laborPct: r.labor_pct,
+      recognizedCents: Number(r.recognized_cents),
+      billedCents: Number(r.billed_cents),
+      overUnderCents: Number(r.over_under_cents),
+      costToCompleteCents: Number(r.cost_to_complete_cents),
+      gpBid: Number(r.gp_bid),
+      gpNow: Number(r.gp_now),
+      retainageCents: Number(r.retainage_cents),
+      takenAt: r.taken_at,
+      takenBy: r.taken_by,
+    }));
+  }
+
+  async takeWipSnapshot(month: string) {
+    return check(await this.sb.rpc("take_wip_snapshot", { p_month: month })) as number;
   }
 
   async recordRetainageReceived(jobId: string) {

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { StackedBars } from "../components/StackedBars";
 import { TrendChart } from "../components/TrendChart";
 import { backlogCents, backlogWeeks, firmnessMix } from "../domain/insights";
-import { Money, revenueByPeriod } from "../domain/money";
+import { Money, financialSummary, revenueByPeriod } from "../domain/money";
 import { allPlans, buildIndex } from "../domain/schedule";
 import { fmtLong, fmtShort, todayIn } from "../domain/weeks";
 import { n1, pct, usd } from "../format";
@@ -23,6 +23,8 @@ export function BoardScreen({ ctx }: { ctx: Ctx }) {
   const plans = useMemo(() => allPlans(ds, idx, week), [ds, idx, week]);
   const m = useMemo(() => new Money(ds, idx, week, todayIn(new Date())), [ds, idx, week]);
   const months = revenueByPeriod(ds, m, plans, week, "month");
+  const fin = financialSummary(ds, m, plans, week, todayIn(new Date()));
+  const signed = (v: number) => (v < 0 ? `(${usd(-v)})` : usd(v));
 
   // Illustrative weeks carry backlog in weeks only; fill dollars at today's dollars-per-week.
   const bw = backlogWeeks(ds, idx, week);
@@ -124,6 +126,39 @@ export function BoardScreen({ ctx }: { ctx: Ctx }) {
           {pct(mix.byFirmness.best_guess / mix.total)} TMI’s best guess, {pct((mix.byFirmness.flexible + mix.byFirmness.fill_in) / mix.total)} flexible or fill-in.
         </p>
       )}
+      <h2>Financial position</h2>
+      <div className="kpis" aria-label="Financial position" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
+        <div className="kpi">
+          <div className="v num">{usd(fin.quarterRecognizedCents + fin.quarterForecastCents)}</div>
+          <div className="l">
+            Revenue landing in {fin.quarterLabel}: {usd(fin.quarterRecognizedCents)} recognized, {usd(fin.quarterForecastCents)} forecast
+          </div>
+        </div>
+        <div className="kpi">
+          <div className="v num">
+            {usd(fin.backlogGpCents)} <small>{pct(fin.backlogGpPct)}</small>
+          </div>
+          <div className="l">Gross margin in the {usd(fin.backlogCents)} sold backlog, at today’s estimates</div>
+        </div>
+        <div className={"kpi" + (fin.fadeCents < 0 ? " warn" : "")}>
+          <div className="v num">{signed(fin.fadeCents)}</div>
+          <div className="l">Margin fade on open jobs, now vs. bid (change orders included)</div>
+        </div>
+        <div className="kpi">
+          <div className="v num">{signed(fin.netOverUnderCents)}</div>
+          <div className="l">Net over (under) billing: cash ahead of (behind) the work</div>
+        </div>
+        <div className="kpi">
+          <div className="v num">{usd(fin.retainageCents)}</div>
+          <div className="l">Retainage receivable</div>
+        </div>
+        <div className={"kpi" + (fin.arOver60Cents > 0 ? " warn" : "")}>
+          <div className="v num">{usd(fin.arCents)}</div>
+          <div className="l">Billed, not collected; {usd(fin.arOver60Cents)} over 60 days</div>
+        </div>
+      </div>
+      <p className="note">From the WIP schedule and invoices recorded in TMI Ops. The books of record stay in Sage.</p>
+
       <h2>Revenue by month</h2>
       <div className="panel">
         <StackedBars

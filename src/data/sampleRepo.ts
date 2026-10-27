@@ -11,7 +11,7 @@ import { closeRows, forecastAccuracy, missingHoursByPm, nudgeAlert, type CloseIn
 import { allPlans, buildIndex, capacity, firmnessLabel, hoursLeft, inWindow, isSold, materialRevenueCents } from "../domain/schedule";
 import { backlogCents, digestLines, digestTitle } from "../domain/insights";
 import { canCheck, type CheckpointDef } from "../domain/journey";
-import { MILESTONE_TEMPLATE, Money, monthLabel, type ChangeOrder, type InvoiceKind } from "../domain/money";
+import { MILESTONE_TEMPLATE, Money, monthLabel, prevMonth, wipRows, type ChangeOrder, type InvoiceKind, type WipSnapshotRow } from "../domain/money";
 import { stepLabel, stepWho, type Names, type WorkOrder, WO_STEPS, woCanFile, woCanSign, woCanUpload, woIsMine, woStatus } from "../domain/workOrders";
 import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Role, Settings, Viewer } from "../domain/types";
 import { usd } from "../format";
@@ -19,7 +19,7 @@ import { addDays, currentWeek, fmtShort, mondayOf, planningWeek, todayIn, weekLi
 import { buildSample, type SampleData } from "../sample/seed";
 import type { AccessUser, LoadResult, NewJobInput, Repo } from "./repo";
 
-const KEY = "tmi-ops-sample-v5";
+const KEY = "tmi-ops-sample-v6";
 
 const uid = () => crypto.randomUUID();
 const denied = () => new Error("You don't have permission to make that change.");
@@ -33,6 +33,7 @@ interface Stored {
   alertState: Record<string, string>;
   mutes: Record<string, AlertRule[]>;
   acks: Record<string, string>;
+  wip: WipSnapshotRow[];
 }
 
 export class SampleRepo implements Repo {
@@ -58,7 +59,7 @@ export class SampleRepo implements Repo {
 
   private fresh(): Stored {
     const week = currentWeek();
-    const s: Stored = { week, data: buildSample(week, todayIn(new Date())), log: [], alerts: [], alertState: {}, mutes: {}, acks: {} };
+    const s: Stored = { week, data: buildSample(week, todayIn(new Date())), log: [], alerts: [], alertState: {}, mutes: {}, acks: {}, wip: [] };
     this.s = s;
     this.checks();
     this.push(certAlerts(s.data, this.week(), s.alertState));
@@ -926,7 +927,7 @@ export class SampleRepo implements Repo {
       if (!Number.isFinite(amt) || amt <= 0) throw new Error("Enter the invoice amount in dollars.");
       if (amt > m.toBill(j)) throw new Error(`That's more than the ${usd(m.toBill(j))} left to bill on this job.`);
     }
-    const base = { id: uid(), jobId: j.id, number: num, invoicedOn: today, recordedBy: v.name, period: null as string | null, milestoneId: null as string | null };
+    const base = { id: uid(), jobId: j.id, number: num, invoicedOn: today, recordedBy: v.name, period: null as string | null, milestoneId: null as string | null, paidOn: null };
     const held = (a: number) => Math.round((a * j.retainagePct) / 100);
     const to = ["CFO", "PM " + n.pm(j.pmCode), n.rep(j.repCode)];
     if (inv.kind === "final") {
@@ -951,6 +952,40 @@ export class SampleRepo implements Repo {
     }
     this.log("invoices", j.id, "Job " + j.number, inv.kind + " invoice", null, inv.kind === "skip" ? "nothing to bill" : `${num}, ${usd(amt)}`);
     this.save();
+  }
+
+  async recordPayment(invoiceId: string, paidOn?: IsoDate) {
+    const v = this.me();
+    if (!can.recordInvoices(v.role)) throw new Error("Only accounting or an admin records payments.");
+    const i = this.d.invoices.find((x) => x.id === invoiceId);
+    if (!i || i.kind === "skip") throw new Error("That invoice isn't on file.");
+    if (i.paidOn) throw new Error("Already marked paid.");
+    const today = todayIn(new Date());
+    const on = paidOn ?? today;
+    if (on < i.invoicedOn || on > today) throw new Error("The payment date has to be between the invoice date and today.");
+    const j = this.job(i.jobId);
+    this.log("invoices", j.id, "Job " + j.number, "paid_on", null, on);
+    i.paidOn = on;
+    this.save();
+  }
+
+  async wipSnapshots() {
+    if (!can.recordInvoices(this.me().role)) return [];
+    return [...this.s.wip].sort((a, b) => b.month.localeCompare(a.month) || a.number.localeCompare(b.number));
+  }
+
+  async takeWipSnapshot(month: string) {
+    const v = this.me();
+    if (!can.recordInvoices(v.role)) throw new Error("Only accounting or an admin takes the month-end WIP.");
+    const today = todayIn(new Date());
+    const cur = today.slice(0, 7);
+    if (month !== cur && month !== prevMonth(cur)) throw new Error("Take the snapshot for this month or last month.");
+    if (this.s.wip.some((x) => x.month === month)) throw new Error("That month is already locked.");
+    const rows = wipRows(this.d, this.money(), month);
+    const takenAt = new Date().toISOString();
+    this.s.wip.push(...rows.map((r) => ({ ...r, month, takenAt, takenBy: v.name })));
+    this.save();
+    return rows.length;
   }
 
   async recordRetainageReceived(jobId: string) {
