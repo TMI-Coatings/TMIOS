@@ -3,6 +3,7 @@
  * It applies the same permission rules as the database, so what a role can do here is what
  * it can do in production. It never talks to a server.
  */
+import { settingProblem } from "../domain/settingsRules";
 import { JOB_COLUMNS, can, canEditJob, canSeeJob, seesCompanyTotals, type JobField } from "../domain/permissions";
 import { jobProblem } from "../domain/jobRules";
 import { canSeeAlert, capacityAlerts, certAlerts, jobChangeAlerts, overrunAlert, type NewAlert } from "../domain/alerts";
@@ -485,6 +486,8 @@ export class SampleRepo implements Repo {
 
   async updateSetting<K extends keyof Settings>(key: K, value: Settings[K]) {
     if (!can.editSettings(this.me().role)) throw denied();
+    const problem = settingProblem(key, value, this.d.settings);
+    if (problem) throw new Error(problem);
     this.log("settings", key, "Setting " + key, "value", this.d.settings[key], value);
     this.d.settings[key] = value;
     this.save();
@@ -500,9 +503,11 @@ export class SampleRepo implements Repo {
     const email = u.email.trim().toLowerCase();
     if (!email.includes("@")) throw new Error("Enter the person's Microsoft email address.");
     if (u.role === "superintendent" && !u.personId) throw new Error("Link a leader to their person on the roster.");
+    if (u.role === "field_crew" && !u.personId) throw new Error("Link the crew member to their person on the roster.");
     if (u.role === "sales_rep" && !u.repCode) throw new Error("Pick the rep code.");
     if (u.role === "pm" && !u.pmCode) throw new Error("Pick the PM code.");
     const existing = this.d.users.find((x) => x.userId === u.id);
+    if (existing && existing.userId === this.me().userId && (existing.role !== u.role || !u.active)) throw new Error("You can't change your own access. Ask another admin.");
     if (existing) {
       this.log("app_users", existing.userId, "User " + existing.email, "access", `${existing.role}${existing.active ? "" : " (off)"}`, `${u.role}${u.active ? "" : " (off)"}`);
       Object.assign(existing, { ...u, email, userId: existing.userId });

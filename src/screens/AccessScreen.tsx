@@ -4,15 +4,21 @@ import { friendlyError } from "../data/repo";
 import { ROLES, ROLE_LABEL, type Role } from "../domain/types";
 import type { Ctx } from "../Workspace";
 
+/** Roles that only work once linked to a leader, a rep code or a PM code. */
+const needsLink = (u: { role: Role; personId: string | null; repCode: string | null; pmCode: string | null }) =>
+  (u.role === "superintendent" || u.role === "field_crew") && !u.personId ? true : u.role === "sales_rep" ? !u.repCode : u.role === "pm" ? !u.pmCode : false;
+
 const blank = { email: "", name: "", role: "estimator" as Role, personId: null as string | null, repCode: null as string | null, pmCode: null as string | null, active: true };
 
 /** Who can sign in and as what. People sign in with Microsoft; access only works for emails listed here. */
 export function AccessScreen({ ctx }: { ctx: Ctx }) {
-  const { repo, run, data } = ctx;
+  const { repo, run, data, viewer } = ctx;
   const ds = data.ds;
   const [users, setUsers] = useState<AccessUser[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState(blank);
+  // A role change waiting for its link (leader, rep or PM code) before it can be saved.
+  const [pending, setPending] = useState<Record<string, typeof blank>>({});
 
   const load = () => repo.listUsers().then(setUsers, (e) => setError(friendlyError(e)));
   useEffect(() => {
@@ -29,11 +35,11 @@ export function AccessScreen({ ctx }: { ctx: Ctx }) {
   };
 
   const links = (u: { role: Role; personId: string | null; repCode: string | null; pmCode: string | null }, change: (p: Partial<typeof blank>) => void) =>
-    u.role === "superintendent" ? (
-      <select value={u.personId ?? ""} onChange={(e) => change({ personId: e.target.value || null })} aria-label="Leader on the roster">
-        <option value="">Pick the leader…</option>
+    u.role === "superintendent" || u.role === "field_crew" ? (
+      <select value={u.personId ?? ""} onChange={(e) => change({ personId: e.target.value || null })} aria-label={u.role === "field_crew" ? "Person on the roster" : "Leader on the roster"}>
+        <option value="">{u.role === "field_crew" ? "Pick the person…" : "Pick the leader…"}</option>
         {ds.people
-          .filter((p) => p.kind === "leader")
+          .filter((p) => (u.role === "field_crew" ? p.kind !== "leadership" : p.kind === "leader"))
           .map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
@@ -124,13 +130,28 @@ export function AccessScreen({ ctx }: { ctx: Ctx }) {
             </thead>
             <tbody>
               {users.map((u) => {
-                const change = (p: Partial<typeof blank>) => void save({ ...u, ...p }, `${u.name} updated.`);
+                const p = pending[u.id];
+                const shown = p ? { ...u, ...p } : u;
+                const self = u.email.toLowerCase() === viewer.email.toLowerCase();
+                const clear = () => setPending(({ [u.id]: _, ...rest }) => rest);
+                const change = (c: Partial<typeof blank>) => {
+                  const next = { ...shown, ...c };
+                  if (needsLink(next)) return setPending({ ...pending, [u.id]: { ...blank, ...next } });
+                  clear();
+                  void save(next, `${u.name} updated.`);
+                };
                 return (
                   <tr key={u.id}>
                     <td>{u.name}</td>
                     <td>{u.email}</td>
                     <td>
-                      <select value={u.role} aria-label={`${u.name} role`} onChange={(e) => change({ role: e.target.value as Role, personId: u.personId, repCode: u.repCode, pmCode: u.pmCode })}>
+                      <select
+                        value={shown.role}
+                        aria-label={`${u.name} role`}
+                        disabled={self}
+                        title={self ? "Ask another admin to change your own access." : undefined}
+                        onChange={(e) => change({ role: e.target.value as Role, personId: null, repCode: null, pmCode: null })}
+                      >
                         {ROLES.map((r) => (
                           <option key={r} value={r}>
                             {ROLE_LABEL[r]}
@@ -138,10 +159,28 @@ export function AccessScreen({ ctx }: { ctx: Ctx }) {
                         ))}
                       </select>
                     </td>
-                    <td>{links(u, change)}</td>
+                    <td>
+                      {links(shown, change)}
+                      {p && (
+                        <>
+                          {" "}
+                          <span className="q">Pick a link to save the new role.</span>{" "}
+                          <button className="jl" onClick={clear}>
+                            Cancel
+                          </button>
+                        </>
+                      )}
+                    </td>
                     <td>{u.linked ? "Yes" : "Not yet"}</td>
                     <td>
-                      <input type="checkbox" checked={u.active} aria-label={`${u.name} access on`} onChange={(e) => change({ active: e.target.checked })} />
+                      <input
+                        type="checkbox"
+                        checked={u.active}
+                        disabled={self}
+                        title={self ? "Ask another admin to change your own access." : undefined}
+                        aria-label={`${u.name} access on`}
+                        onChange={(e) => change({ active: e.target.checked })}
+                      />
                     </td>
                   </tr>
                 );

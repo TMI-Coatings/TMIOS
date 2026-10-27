@@ -33,7 +33,7 @@ test("the scheduler imports, reviews and closes the week; the schedule rolls for
   await page.getByRole("button", { name: "Import from time system" }).click();
   await expect(page.getByText(/Not on the schedule: 4999/)).toBeVisible();
   await expect(page.locator("tr.exc").first()).toBeVisible();
-  page.once("dialog", (d) => d.accept());
+  page.on("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Close week and roll forward" }).click();
   await expect(page.getByText(/closed\..*jobs entered/)).toBeVisible();
   await expect(page.getByText(/Schedule rolled to week ending/)).toBeVisible();
@@ -104,4 +104,23 @@ test("sales reps see company capacity to sell into, without other reps' jobs or 
   const others = sample.jobs.filter((j) => j.repCode !== userFor("sales_rep").repCode);
   await expect(page.getByText(others[0].customer)).toHaveCount(0);
   await expect(page.getByText("$")).toHaveCount(0);
+});
+
+test("the import asks before replacing hours a PM typed in", async ({ page }) => {
+  await viewAs(page, "pm", "#close");
+  const first = page.locator("tr[data-close-row]").first();
+  const num = (await first.getAttribute("data-close-row"))!;
+  await first.getByRole("spinbutton").fill("123");
+  await page.getByRole("button", { name: "Save hours" }).click();
+  await expect(page.getByText("Hours saved.")).toBeVisible();
+  await viewAs(page, "scheduler", "#close");
+  let asked = "";
+  page.once("dialog", (d) => {
+    asked = d.message();
+    void d.dismiss();
+  });
+  await page.getByRole("button", { name: "Import from time system" }).click();
+  await expect(page.getByText(/jobs matched/)).toBeVisible();
+  expect(asked).toContain(`${num} (123 hrs)`);
+  await expect(page.locator(`tr[data-close-row="${num}"]`).getByRole("spinbutton")).toHaveValue("123");
 });

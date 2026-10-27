@@ -18,9 +18,13 @@ beforeAll(async () => {
   await db.query(`insert into auth.users (id, email) values
     ('00000000-0000-4000-8fff-000000000001', 'crew@example.com'),
     ('00000000-0000-4000-8fff-000000000002', 'otherpm@example.com')`);
-  await db.query(`insert into public.app_users (id, auth_user_id, email, name, role, pm_code) values
-    ('00000000-0000-4000-8fff-000000000001', '00000000-0000-4000-8fff-000000000001', 'crew@example.com', 'Crew', 'field_crew', null),
-    ('00000000-0000-4000-8fff-000000000002', '00000000-0000-4000-8fff-000000000002', 'otherpm@example.com', 'Other PM', 'pm', 'SS')`);
+  const crewPerson = sample.people.find((p) => p.kind === "field")!.id;
+  await db.query(
+    `insert into public.app_users (id, auth_user_id, email, name, role, pm_code, person_id) values
+    ('00000000-0000-4000-8fff-000000000001', '00000000-0000-4000-8fff-000000000001', 'crew@example.com', 'Crew', 'field_crew', null, $1),
+    ('00000000-0000-4000-8fff-000000000002', '00000000-0000-4000-8fff-000000000002', 'otherpm@example.com', 'Other PM', 'pm', 'SS', null)`,
+    [crewPerson],
+  );
 });
 afterAll(async () => close?.());
 

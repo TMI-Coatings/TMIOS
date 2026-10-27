@@ -73,3 +73,17 @@ describe("money fixes", () => {
     expect(new Money(ds, buildIndex(ds), "2026-10-30", "2026-10-27").retainageOutstanding(j)).toBe(30_000);
   });
 });
+
+describe("settings limits", () => {
+  it("refuses values that would break capacity or the alerts", async () => {
+    const { settingProblem } = await import("../../src/domain/settingsRules");
+    const { DEFAULT_SETTINGS } = await import("../../src/domain/types");
+    const s = DEFAULT_SETTINGS;
+    expect(settingProblem("absencePct", 150, s)).toBe("Use a number from 0 to 50.");
+    expect(settingProblem("hoursPerManWeek", 0, s)).toBe("Use a number from 1 to 80.");
+    expect(settingProblem("payAppDay", 12.5, s)).toBe("Use a whole number.");
+    expect(settingProblem("openWindowStartWeeks", 10, s)).toBe("The open capacity window has to start before it ends.");
+    expect(settingProblem("certSecondDays", 90, s)).toMatch(/second certification reminder/);
+    expect(settingProblem("absencePct", 12, s)).toBeNull();
+  });
+});

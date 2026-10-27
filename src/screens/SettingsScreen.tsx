@@ -1,3 +1,4 @@
+import { settingProblem } from "../domain/settingsRules";
 import type { Settings } from "../domain/types";
 import type { Ctx } from "../Workspace";
 
@@ -51,6 +52,8 @@ export function SettingsScreen({ ctx }: { ctx: Ctx }) {
       v = kind === "money" ? Math.round(n * 100) : n;
     }
     if (v === s[k]) return;
+    const problem = settingProblem(k, v as never, s, kind === "money" ? (c) => "$" + (c / 100).toLocaleString("en-US") : String);
+    if (problem) return void run(() => Promise.reject(new Error(problem)));
     void run(() => repo.updateSetting(k, v as never), "Setting saved.");
   };
   return (

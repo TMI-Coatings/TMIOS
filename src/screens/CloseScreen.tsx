@@ -34,7 +34,7 @@ export function CloseScreen({ ctx }: { ctx: Ctx }) {
     <div className="banner">
       <b>Week ending {fmtShort(result.week)} closed.</b> {result.entered} jobs entered, {n0(result.total)} hrs.{" "}
       {result.missing ? `${result.missing} missing, named in Monday’s digest. ` : ""}
-      {result.alerts} alerts sent. Schedule rolled to week ending {fmtShort(result.nextWeek)}.
+      {result.alerts + 1} alerts sent, including Monday’s digest. Schedule rolled to week ending {fmtShort(result.nextWeek)}.
     </div>
   );
 
@@ -51,8 +51,15 @@ export function CloseScreen({ ctx }: { ctx: Ctx }) {
     const nums = new Set(rows.map((j) => j.number));
     const nv = { ...vals };
     const ns = { ...src };
+    // Hours a PM typed in aren't replaced without asking.
+    const typed = rows.filter((j) => map.has(j.number) && (vals[j.id] ?? "").trim() !== "" && (src[j.id] ?? "typed") === "typed" && Number(vals[j.id]) !== Math.round(map.get(j.number)! * 10) / 10);
+    const keep =
+      typed.length > 0 &&
+      !confirm(
+        `${typed.length} job${typed.length > 1 ? "s already have" : " already has"} hours typed in: ${typed.map((j) => `${j.number} (${vals[j.id]} hrs)`).join(", ")}. Replace ${typed.length > 1 ? "them" : "it"} with the ${SOURCE_LABEL[label].toLowerCase()}? Cancel keeps the typed hours.`,
+      );
     for (const j of rows)
-      if (map.has(j.number)) {
+      if (map.has(j.number) && !(keep && typed.includes(j))) {
         nv[j.id] = String(Math.round(map.get(j.number)! * 10) / 10);
         ns[j.id] = label;
       }
@@ -95,6 +102,7 @@ export function CloseScreen({ ctx }: { ctx: Ctx }) {
 
   const close = async () => {
     if (bad) return void run(() => Promise.reject(new Error(`Hours for ${bad.number} must be a number zero or above.`)));
+    if (todayIn(new Date()) < w && !confirm(`The week ending ${fmtShort(w)} isn’t over yet. Close it anyway?`)) return;
     const blank = rows.length - entered.length;
     if (blank && !confirm(`${blank} job${blank > 1 ? "s have" : " has"} no hours. Close anyway? They’ll be named in Monday’s digest.`)) return;
     let res: CloseResult | null = null;

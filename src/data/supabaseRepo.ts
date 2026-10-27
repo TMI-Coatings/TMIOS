@@ -277,8 +277,10 @@ export class SupabaseRepo implements Repo {
       if (k === "requirements" || k === "id" || k === "baselineFinish") continue;
       row[JOB_MAP[k as keyof typeof JOB_MAP]] = v;
     }
-    const res = check(await this.sb.from("jobs").update(row).eq("id", jobId).select("id"));
-    if (!res?.length) throw new Error("You don't have permission to make that change.");
+    if (Object.keys(row).length) {
+      const res = check(await this.sb.from("jobs").update(row).eq("id", jobId).select("id"));
+      if (!res?.length) throw new Error("You don't have permission to make that change.");
+    }
     if (patch.requirements) {
       const cur = check(await this.sb.from("job_requirements").select("qualification, active").eq("job_id", jobId)) as Row[];
       for (const q of new Set([...patch.requirements, ...cur.map((r) => r.qualification)])) {

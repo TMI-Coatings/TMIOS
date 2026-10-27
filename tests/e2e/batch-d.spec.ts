@@ -38,7 +38,7 @@ test("the board view shows the four trends and exports the pack", async ({ page 
 test("closing a week lands on the board as a real data point", async ({ page }) => {
   await viewAs(page, "scheduler", "#close");
   await page.getByRole("button", { name: "Import from time system" }).click();
-  page.once("dialog", (d) => d.accept());
+  page.on("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Close week and roll forward" }).click();
   await expect(page.getByText(/Schedule rolled to week ending/)).toBeVisible();
   await viewAs(page, "admin", "#board");

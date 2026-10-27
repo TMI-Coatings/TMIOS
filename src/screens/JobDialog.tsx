@@ -100,7 +100,7 @@ export function JobDialog({ ctx, jobId, onClose, journeyOpen, billingOpen }: { c
         <>
           {job.jobType}, {job.location}
           {job.exterior ? ", exterior" : ""}. Rep {repName}, PM {pmName}, estimator {job.estimator}. Contract {usd(job.contractCents)}. Estimate: {n0(job.estimateHrs)} hrs,{" "}
-          {usd(job.materialCostCents)} materials, {pct(bidMargin(job.contractCents, job.materialCostCents, job.estimateHrs, ds.settings.burdenedRateCents))} GP. Materials revenue{" "}
+          {usd(job.materialCostCents)} materials, {pct(bidMargin(job.contractCents, job.materialCostCents, job.estimateHrs, job.burdenedRateCents))} GP. Materials revenue{" "}
           {usd(job.materialRevenueCents)}, labor {usd(job.contractCents - job.materialRevenueCents)}.
           {job.retainagePct > 0 &&
             ` Retainage ${job.retainagePct}%, released at ${job.retainageRelease === "substantial_completion" ? "substantial completion" : job.retainageRelease === "final_completion" ? "final completion" : job.retainageReleaseNote || "terms in contract"}.`}
@@ -292,6 +292,83 @@ export function JobDialog({ ctx, jobId, onClose, journeyOpen, billingOpen }: { c
       <p className="note" style={{ marginTop: 8 }}>
         Baseline finish {fmtLong(job.baselineFinish)}. Dates, crew and status changes are logged with your name.
       </p>
+
+      {ed("intake") && (
+        <details className="panel" style={{ marginTop: 12 }}>
+          <summary>
+            <b>Job details from intake</b> <span className="q">Correct the customer, people, contract terms and requirements. The estimate’s dollars and hours stay as bid.</span>
+          </summary>
+          <div className="fg" style={{ marginTop: 10 }}>
+            {field("Job number", "intake", <input value={form.number} inputMode="numeric" maxLength={4} onChange={(e) => set("number", e.target.value.trim())} />)}
+            {field("Customer", "intake", <input value={form.customer} onChange={(e) => set("customer", e.target.value)} />)}
+            {field("Job type", "intake", <input value={form.jobType} onChange={(e) => set("jobType", e.target.value)} />)}
+            {field("Location", "intake", <input value={form.location} onChange={(e) => set("location", e.target.value)} />)}
+            {field(
+              "Sales rep",
+              "intake",
+              <select value={form.repCode} onChange={(e) => set("repCode", e.target.value)}>
+                {ds.reps.map((r) => (
+                  <option key={r.code} value={r.code}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>,
+            )}
+            {field(
+              "Project manager",
+              "intake",
+              <select value={form.pmCode} onChange={(e) => set("pmCode", e.target.value)}>
+                {ds.pms.map((r) => (
+                  <option key={r.code} value={r.code}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>,
+            )}
+            {field(
+              "Estimator",
+              "intake",
+              <select value={form.estimator} onChange={(e) => set("estimator", e.target.value)}>
+                {[...new Set([form.estimator, ...ds.staff.estimators])].filter(Boolean).map((n) => (
+                  <option key={n}>{n}</option>
+                ))}
+              </select>,
+            )}
+            {field("Customer PO", "intake", <input value={form.customerPo} onChange={(e) => set("customerPo", e.target.value)} />)}
+            {field("Bill to", "intake", <input value={form.billTo} onChange={(e) => set("billTo", e.target.value)} />)}
+            {field("Retainage %", "intake", <input value={form.retainagePct} inputMode="decimal" onChange={(e) => set("retainagePct", Number(e.target.value) || 0)} />)}
+            {field(
+              "Retainage released at",
+              "intake",
+              <select value={form.retainageRelease ?? ""} onChange={(e) => set("retainageRelease", (e.target.value || null) as Job["retainageRelease"])}>
+                <option value="">No retainage</option>
+                <option value="substantial_completion">Substantial completion</option>
+                <option value="final_completion">Final completion</option>
+                <option value="other">Other (note)</option>
+              </select>,
+            )}
+            {form.retainageRelease === "other" && field("Release terms", "intake", <input value={form.retainageReleaseNote ?? ""} onChange={(e) => set("retainageReleaseNote", e.target.value || null)} />)}
+          </div>
+          <div className="row" style={{ marginTop: 10 }}>
+            <label className="q">
+              <input type="checkbox" checked={form.exterior} onChange={(e) => set("exterior", e.target.checked)} /> Exterior work
+            </label>
+            <label className="q">
+              <input type="checkbox" checked={form.lienWaivers} onChange={(e) => set("lienWaivers", e.target.checked)} /> Lien waivers
+            </label>
+            <label className="q">
+              <input type="checkbox" checked={form.certifiedPayroll} onChange={(e) => set("certifiedPayroll", e.target.checked)} /> Certified payroll
+            </label>
+            {ds.qualifications.map((q) => (
+              <label className="q" key={q}>
+                <input type="checkbox" checked={form.requirements.includes(q)} onChange={(e) => set("requirements", e.target.checked ? [...form.requirements, q] : form.requirements.filter((x) => x !== q))} /> Needs{" "}
+                {q.toLowerCase()}
+              </label>
+            ))}
+          </div>
+          <p className="note">Changes to the rep, PM or estimator move this job’s open work order and journey steps to the new person.</p>
+        </details>
+      )}
 
       <h2 style={{ fontSize: 15, margin: "18px 0 8px" }}>Notes</h2>
       {notes.length ? (

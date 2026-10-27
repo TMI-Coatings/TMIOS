@@ -190,3 +190,40 @@ test("entering an actual finish marks the job complete", async ({ page }) => {
   await dlg.getByLabel("Actual finish").fill(j.projectedFinish);
   await expect(dlg.getByLabel("Status")).toHaveValue("complete");
 });
+
+test("settings refuse values that would break the numbers", async ({ page }) => {
+  await viewAs(page, "admin", "#settings");
+  const box = page.getByLabel("Absence rate (%)");
+  await box.fill("150");
+  await box.press("Enter");
+  await expect(page.getByText("Use a number from 0 to 50.")).toBeVisible();
+});
+
+test("changing someone to PM asks for their PM code first, and you can't change your own access", async ({ page }) => {
+  await viewAs(page, "admin", "#access");
+  const est = sample.users.find((u) => u.role === "estimator")!;
+  await page.getByLabel(`${est.name} role`).selectOption("pm");
+  await expect(page.getByText("Pick a link to save the new role.")).toBeVisible();
+  const row = page.locator("tr", { has: page.getByLabel(`${est.name} role`) });
+  await row.getByLabel("PM code").selectOption(sample.pms[1].code);
+  await expect(page.getByText(`${est.name} updated.`)).toBeVisible();
+  await expect(page.getByLabel(`${est.name} role`)).toHaveValue("pm");
+  const me = userFor("admin");
+  await expect(page.getByLabel(`${me.name} role`)).toBeDisabled();
+});
+
+test("Lori corrects a job's PO and PM after it's added", async ({ page }) => {
+  await viewAs(page, "job_setup", "#schedule");
+  const j = sample.jobs.find((x) => x.status === "scheduled")!;
+  await page.getByRole("button", { name: `${j.number} ${j.customer}` }).click();
+  const dlg = page.getByRole("dialog");
+  await dlg.getByText("Job details from intake").click();
+  await dlg.getByLabel("Customer PO").fill("PO-77812");
+  const other = sample.pms.find((p) => p.code !== j.pmCode)!;
+  await dlg.getByLabel("Project manager").selectOption(other.code);
+  await dlg.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: `${j.number} ${j.customer}` }).click();
+  await expect(page.getByRole("dialog").getByText(`Customer PO ${j.customerPo || "blank"} → PO-77812`)).toBeVisible();
+  await expect(page.getByRole("dialog").getByText(`PM ${sample.pms.find((p) => p.code === j.pmCode)!.name} → ${other.name}`)).toBeVisible();
+});

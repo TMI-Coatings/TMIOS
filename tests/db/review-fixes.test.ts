@@ -52,3 +52,52 @@ describe("fixes from the demo review", () => {
     expect(r.ok && r.rows[0].a).not.toBeNull();
   });
 });
+
+describe("controls from the demo review", () => {
+  const attempt = async (q: (s: string, p?: unknown[]) => Promise<pg.QueryResult>, sql: string, params: unknown[] = []) => {
+    await q("savepoint t");
+    try {
+      await q(sql, params);
+      await q("release savepoint t");
+      return "ok";
+    } catch (e: any) {
+      await q("rollback to savepoint t");
+      return e.message as string;
+    }
+  };
+  it("the database holds the same setting limits as the screens", async () => {
+    const { SETTING_LIMITS } = await import("../../src/domain/settingsRules");
+    const { rows } = await db.query("select key, min::float8 min, max::float8 max, whole from app.setting_limits()");
+    const sql = Object.fromEntries(rows.map((r) => [r.key, { min: r.min, max: r.max, whole: r.whole }]));
+    const ts = Object.fromEntries(Object.entries(SETTING_LIMITS).map(([k, l]) => [k, { min: l.min, max: l.max, whole: !!l.whole }]));
+    expect(sql).toEqual(ts);
+  });
+  it("refuses settings outside their range or out of order", async () => {
+    const r = await as(user("admin"), async (q) => ({
+      rows: {
+        absence: await attempt(q, "update public.settings set value = '150' where key = 'absencePct'"),
+        window: await attempt(q, "update public.settings set value = '10' where key = 'openWindowStartWeeks'"),
+        ok: await attempt(q, "update public.settings set value = '12' where key = 'absencePct'"),
+      },
+    }) as never);
+    expect(r.ok && r.rows).toEqual({ absence: "Use a number from 0 to 50", window: "The open capacity window has to start before it ends", ok: "ok" });
+  });
+  it("nobody changes their own access, and someone keeps full rights", async () => {
+    const admin = user("admin");
+    const r = await as(admin, async (q) => ({
+      rows: {
+        self: await attempt(q, "update public.app_users set role = 'estimator' where id = $1", [admin.userId]),
+        other: await attempt(q, "update public.app_users set active = false where id = $1", [user("estimator").userId]),
+      },
+    }) as never);
+    expect(r.ok && r.rows).toEqual({ self: "You can't change your own access. Ask another admin", other: "ok" });
+    const full = sample.users.filter((u) => ["admin", "ceo", "cfo"].includes(u.role));
+    const last = await as(admin, async (q) => {
+      await q("reset role");
+      await q("select set_config('request.jwt.claims', '{}', true)");
+      for (const u of full.slice(0, -1)) await q("update public.app_users set active = false where id = $1", [u.userId]);
+      return { rows: { last: await attempt(q, "update public.app_users set active = false where id = $1", [full[full.length - 1].userId]) } } as never;
+    });
+    expect(last.ok && last.rows).toEqual({ last: "Someone has to keep full rights" });
+  });
+});
