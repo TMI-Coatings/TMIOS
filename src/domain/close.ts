@@ -4,6 +4,7 @@
  */
 import { type Index, type Plans, isSold } from "./schedule";
 import type { Dataset, IsoDate, Job } from "./types";
+import { fmtShort } from "./weeks";
 
 /** Every sold job that has started by the week being closed. */
 export const closeRows = (ds: Dataset, week: IsoDate): Job[] =>
@@ -56,3 +57,17 @@ export function forecastAccuracy(snapshot: { jobId: string; hours: number }[], a
 }
 
 export type { Index };
+
+/** Jobs still waiting on hours for the week, grouped by PM, for the scheduler's nudge list. */
+export function missingHoursByPm(ds: Dataset, week: IsoDate): { pmCode: string; jobs: Job[] }[] {
+  const have = new Set(ds.hourEntries.filter((e) => e.week === week).map((e) => e.jobId));
+  const by = new Map<string, Job[]>();
+  for (const j of closeRows(ds, week).filter((x) => !have.has(x.id))) by.set(j.pmCode, [...(by.get(j.pmCode) ?? []), j]);
+  return [...by].map(([pmCode, jobs]) => ({ pmCode, jobs })).sort((a, b) => b.jobs.length - a.jobs.length || a.pmCode.localeCompare(b.pmCode));
+}
+
+/** The nudge a PM gets. Same words as the database's nudge_hours. */
+export const nudgeAlert = (week: IsoDate, jobs: Pick<Job, "number" | "customer">[], who: string) => ({
+  title: `Hours needed: week ending ${fmtShort(week)}`,
+  body: `Enter this week’s hours before the close: ${jobs.map((j) => `${j.number} ${j.customer}`).join(", ")}.\nSent by ${who}.`,
+});

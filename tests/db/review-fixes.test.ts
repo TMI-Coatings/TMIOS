@@ -149,3 +149,24 @@ describe("permission changes (Oct 27)", () => {
     expect(r.ok && r.rows[0].n).toBe(0);
   });
 });
+
+describe("hours nudge", () => {
+  it("the scheduler nudges a PM with the same words as the screen; the PM sees it, other PMs don't", async () => {
+    const { missingHoursByPm, nudgeAlert } = await import("../../src/domain/close");
+    const sched = user("scheduler");
+    const miss = missingHoursByPm(sample, TEST_WEEK)[0];
+    const r = await as(sched, async (q) => {
+      const n = (await q("select public.nudge_hours($1, $2) n", [miss.pmCode, TEST_WEEK])).rows[0].n;
+      await q("reset role");
+      const a = (await q("select title, body, recipients from public.alerts where rule = 'hours'")).rows[0];
+      return { rows: { n, a } } as never;
+    });
+    expect(r.ok ? "" : r.error).toBe("");
+    const x = r.ok ? (r.rows as unknown as { n: number; a: { title: string; body: string; recipients: string[] } }) : null;
+    const pmName = sample.pms.find((p) => p.code === miss.pmCode)!.name;
+    expect(x!.n).toBe(miss.jobs.length);
+    expect(x!.a).toEqual({ ...nudgeAlert(TEST_WEEK, miss.jobs, sched.name), recipients: [pmName] });
+    const rep = await as(user("sales_rep"), (q) => q("select public.nudge_hours($1, $2)", [miss.pmCode, TEST_WEEK]));
+    expect(rep.ok).toBe(false);
+  });
+});

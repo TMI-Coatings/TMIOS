@@ -406,6 +406,10 @@ export class SupabaseRepo implements Repo {
     check(await this.sb.rpc("post_digest", { p_title: title, p_body: body }));
   }
 
+  async nudgeHours(pmCode: string, week: IsoDate) {
+    return check(await this.sb.rpc("nudge_hours", { p_pm: pmCode, p_week: week })) as number;
+  }
+
   async confirmMyCrews(): Promise<number> {
     return check(await this.sb.rpc("confirm_my_crews")) as number;
   }

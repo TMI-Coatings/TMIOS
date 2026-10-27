@@ -263,6 +263,7 @@ export const ALERT_RULES = [
   { id: "crew", name: "Crew change", desc: "Crew size or leader changes" },
   { id: "gap", name: "Capacity gap", desc: "Men or leaders short in the next 8 weeks" },
   { id: "digest", name: "Monday digest", desc: "Week ahead, gaps, missing hours, accuracy" },
+  { id: "hours", name: "Hours reminder", desc: "A nudge from the scheduler to enter this week’s hours" },
   { id: "cert", name: "Certification reminder", desc: "DOT physical or certification expiring in 60 or 30 days" },
 ] as const;
 export type AlertRule = (typeof ALERT_RULES)[number]["id"];

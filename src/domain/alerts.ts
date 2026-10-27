@@ -172,7 +172,7 @@ export function canSeeAlert(v: Viewer, a: Pick<Alert, "rule" | "jobId" | "recipi
     case "estimator":
       return r === "wo" && a.recipients.includes(v.name);
     case "pm":
-      return r === "digest" || (r === "wo" && a.recipients.includes(v.name)) || (!!j && j.pmCode === v.pmCode);
+      return r === "digest" || ((r === "wo" || r === "hours") && a.recipients.includes(v.name)) || (r !== "hours" && !!j && j.pmCode === v.pmCode);
     case "sales_rep":
       return r === "open" || r === "digest" || (r === "wo" && a.recipients.includes(v.name)) || (!!j && j.repCode === v.repCode);
     case "superintendent":
@@ -203,7 +203,7 @@ export function rulesFor(role: Role): AlertRule[] {
     case "estimator":
       return ["wo"];
     case "pm":
-      return ["wo", "bill", "date", "overrun", "crew", "digest"];
+      return ["wo", "bill", "date", "overrun", "crew", "digest", "hours"];
     case "sales_rep":
       return ["wo", "bill", "open", "date", "overrun", "crew", "digest"];
     case "superintendent":

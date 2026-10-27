@@ -144,3 +144,14 @@ test("the scheduler enters a real expiry date for a certification", async ({ pag
   await box.blur();
   await expect(page.getByLabel(`${p.name} ${q} expires`)).toHaveValue("2027-03-31");
 });
+
+test("Nicole sees who hasn't entered hours and nudges them; the PM gets it", async ({ page }) => {
+  await viewAs(page, "scheduler", "#close");
+  const list = page.getByRole("list", { name: "Waiting on hours" });
+  const pm = userFor("pm");
+  const row = list.getByRole("listitem").filter({ hasText: `PM ${pm.name}:` });
+  await row.getByRole("button", { name: "Nudge" }).click();
+  await expect(page.getByText(`${pm.name} nudged.`)).toBeVisible();
+  await viewAs(page, "pm", "#alerts");
+  await expect(page.getByText(/^Hours needed: week ending/).first()).toBeVisible();
+});

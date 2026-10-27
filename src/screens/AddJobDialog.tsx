@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Modal } from "../components/Modal";
 import type { NewJobInput } from "../data/repo";
+import { leaderConflicts } from "../domain/crew";
 import { jobProblem, ppeFor } from "../domain/jobRules";
 import { FIRMNESS, bidMargin, materialRevenueCents } from "../domain/schedule";
 import type { Job } from "../domain/types";
@@ -51,6 +52,7 @@ export function AddJobDialog({ ctx, onClose }: { ctx: Ctx; onClose: () => void }
     sitePpe: "",
     note: "",
   });
+  const clash = f.start && f.projectedFinish ? leaderConflicts(ds, f.leaderId || null, f.start, f.projectedFinish) : [];
   const [problem, setProblem] = useState<string | null>(null);
   const set = (k: keyof typeof f, v: unknown) => setF({ ...f, [k]: v });
 
@@ -270,6 +272,11 @@ export function AddJobDialog({ ctx, onClose }: { ctx: Ctx; onClose: () => void }
               </option>
             ))}
           </select>
+          {clash.length > 0 && (
+            <span className="err-text" role="status">
+              Already leads {clash.map((o) => `${o.number} ${o.customer}`).join(", ")} in those weeks.
+            </span>
+          )}
         </label>
         {text("crewSize", "Crew size", { type: "number", min: 1, max: 40 })}
         {text("start", "Start", { type: "date" })}

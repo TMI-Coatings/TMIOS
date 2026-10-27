@@ -6,6 +6,7 @@ import {
   allPlans,
   buildIndex,
   firmnessLabel,
+  hoursLeft,
   isOnHold,
   isOverrun,
   isPastFinish,
@@ -73,9 +74,15 @@ export function ScheduleScreen({ ctx }: { ctx: Ctx }) {
   const anyPlanEdit = jobs.some((j) => canEditJob(viewer, j, "plan"));
   const pinned = (j: Job) => ds.notes.filter((n) => n.jobId === j.id && n.pinned);
 
-  const commit = (j: Job, w: IsoDate, raw: string, current: number) => {
+  const commit = (j: Job, w: IsoDate, input: HTMLInputElement, current: number) => {
+    const raw = input.value;
     const v = raw.trim() === "" ? null : Math.max(0, Math.round(Number(raw)));
     if (v !== null && (Number.isNaN(v) || v === current)) return;
+    const left = Math.max(0, hoursLeft(idx, j));
+    if (v !== null && v > left && !confirm(`${n0(v)} hrs is more than the ${n0(left)} hrs left on ${j.number} ${j.customer}. Its other weeks drop to zero unless projected hours go up. Keep ${n0(v)}?`)) {
+      input.value = String(current);
+      return;
+    }
     void run(() => repo.setPlanCell(j.id, w, v));
   };
 
@@ -287,7 +294,7 @@ export function ScheduleScreen({ ctx }: { ctx: Ctx }) {
                             step={10}
                             defaultValue={h}
                             aria-label={`${j.customer} hours week ending ${fmtShort(w)}`}
-                            onBlur={(e) => commit(j, w, e.target.value, h)}
+                            onBlur={(e) => commit(j, w, e.target, h)}
                             onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
                           />
                         ) : (

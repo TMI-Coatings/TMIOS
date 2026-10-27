@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { CloseResult } from "../domain/close";
-import { closeRows, parseHoursCsv, plannedFor, reviewFlag } from "../domain/close";
+import { closeRows, missingHoursByPm, parseHoursCsv, plannedFor, reviewFlag } from "../domain/close";
 import { digestLines, digestTitle } from "../domain/insights";
 import { can, canEditJob } from "../domain/permissions";
 import { allPlans, buildIndex, hoursLeft } from "../domain/schedule";
@@ -21,6 +21,8 @@ export function CloseScreen({ ctx }: { ctx: Ctx }) {
   const idx = useMemo(() => buildIndex(ds), [ds]);
   const plans = useMemo(() => (w ? allPlans(ds, idx, w) : new Map()), [ds, idx, w]);
   const rows = w ? closeRows(ds, w).filter((j) => closer || canEditJob(viewer, j, "actuals")) : [];
+  const waiting = w ? missingHoursByPm(ds, w) : [];
+  const pmName = (c: string) => ds.pms.find((p) => p.code === c)?.name ?? c;
   const saved = new Map(ds.hourEntries.filter((e) => e.week === w).map((e) => [e.jobId, e]));
   const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries([...saved].map(([id, e]) => [id, String(e.hours)])));
   const [src, setSrc] = useState<Record<string, Source>>(() => Object.fromEntries([...saved].map(([id, e]) => [id, e.source])));
@@ -131,6 +133,27 @@ export function CloseScreen({ ctx }: { ctx: Ctx }) {
           ? "Import the week’s hours from the time system, review the exceptions, then close. Closing archives the week, recalculates hours left and forecasts, fires any alerts, and rolls the schedule forward."
           : "Enter this week’s hours for your jobs and save. The scheduler reviews them and closes the week on Friday."}
       </p>
+      {closer && waiting.length > 0 && (
+        <div className="panel" style={{ marginBottom: 14 }}>
+          <h2 style={{ marginTop: 0, fontSize: 15 }}>Waiting on hours</h2>
+          <ul className="att" aria-label="Waiting on hours">
+            {waiting.map((x) => (
+              <li key={x.pmCode}>
+                <span className="tag yel">
+                  {x.jobs.length} job{x.jobs.length > 1 ? "s" : ""}
+                </span>
+                <span>
+                  PM {pmName(x.pmCode)}: {x.jobs.map((j) => `${j.number} ${j.customer}`).join(", ")}{" "}
+                  <button className="btn sec" onClick={() => run(() => repo.nudgeHours(x.pmCode, w), `${pmName(x.pmCode)} nudged.`)}>
+                    Nudge
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="note" style={{ margin: 0 }}>Saved hours count; the list updates as PMs save. A nudge goes to the PM’s alerts, and by email once delivery is approved.</p>
+        </div>
+      )}
       <div className="panel" style={{ marginBottom: 14 }}>
         <div className="row">
           {closer && repo.mode === "sample" && (

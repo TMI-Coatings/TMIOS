@@ -92,6 +92,8 @@ export interface Repo {
   mutedRules(): Promise<AlertRule[]>;
   setMuted(rule: AlertRule, muted: boolean): Promise<void>;
   postDigest(title: string, body: string): Promise<void>;
+  /** The scheduler nudges a PM whose jobs still need hours for the open week. Returns how many jobs. */
+  nudgeHours(pmCode: string, week: IsoDate): Promise<number>;
   confirmMyCrews(): Promise<number>;
   myWeek(): Promise<MyWeek | null>;
   acknowledgeWeek(week: IsoDate): Promise<void>;

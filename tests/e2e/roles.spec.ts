@@ -244,3 +244,28 @@ test("Lori corrects a job's PO and PM after it's added", async ({ page }) => {
   await expect(page.getByRole("dialog").getByText(`Customer PO ${j.customerPo || "blank"} → PO-77812`)).toBeVisible();
   await expect(page.getByRole("dialog").getByText(`PM ${sample.pms.find((p) => p.code === j.pmCode)!.name} → ${other.name}`)).toBeVisible();
 });
+
+test("the job window warns when a leader is already leading another job those weeks", async ({ page }) => {
+  await viewAs(page, "scheduler", "#schedule");
+  const j = sample.jobs.find((x) => x.status === "scheduled" && x.leaderId)!;
+  const other = sample.jobs.find((o) => o.id !== j.id && o.leaderId && o.leaderId !== j.leaderId && o.status !== "complete" && o.start <= j.projectedFinish && o.projectedFinish >= j.start)!;
+  await page.getByRole("button", { name: `${j.number} ${j.customer}` }).click();
+  const dlg = page.getByRole("dialog");
+  await dlg.getByLabel("Job leader").selectOption(other.leaderId!);
+  await expect(dlg.getByText(new RegExp(`already leads .*${other.number} ${other.customer}`))).toBeVisible();
+});
+
+test("typing more than the hours left asks first", async ({ page }) => {
+  await viewAs(page, "admin", "#schedule");
+  const job = sample.jobs.find((j) => j.status === "active")!;
+  const cell = page.locator(`tr[data-job-row="${job.number}"] input`).first();
+  let asked = "";
+  page.once("dialog", (d) => {
+    asked = d.message();
+    void d.dismiss();
+  });
+  await cell.fill("99999");
+  await cell.press("Enter");
+  await expect.poll(() => asked).toContain("more than the");
+  await expect(page.locator(`tr[data-job-row="${job.number}"] td.ov`)).toHaveCount(0);
+});

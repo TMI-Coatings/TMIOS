@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Modal } from "../components/Modal";
-import { CREW_ISSUE_LABEL, assignedIds, crewIssues, missingQuals, proposeCrew } from "../domain/crew";
+import { assignedIds, CREW_ISSUE_LABEL, crewIssues, leaderConflicts, missingQuals, proposeCrew } from "../domain/crew";
 import { jobProblem } from "../domain/jobRules";
 import { type JobField, JOB_COLUMNS, can, canEditJob } from "../domain/permissions";
 import { Money } from "../domain/money";
@@ -69,6 +69,7 @@ export function JobDialog({ ctx, jobId, onClose, journeyOpen, billingOpen }: { c
   const elapsed = Math.min(1, Math.max(0, (Date.parse(week) - Date.parse(job.start)) / 864e5 / span));
   const used = Math.min(1.2, act / Math.max(1, job.projectedHrs));
   const leaders = ds.people.filter((p) => p.kind === "leader" && (p.active || p.id === job.leaderId));
+  const leaderClash = leaderConflicts(ds, form.leaderId, form.start, form.projectedFinish, job.id);
   const others = ds.jobs.filter((o) => o.id !== job.id && o.active && o.status !== "complete").sort((a, b) => a.number.localeCompare(b.number));
   const repName = ds.reps.find((r) => r.code === job.repCode)?.name ?? job.repCode;
   const pmName = ds.pms.find((r) => r.code === job.pmCode)?.name ?? job.pmCode;
@@ -255,6 +256,11 @@ export function JobDialog({ ctx, jobId, onClose, journeyOpen, billingOpen }: { c
               </option>
             ))}
           </select>,
+        )}
+        {ed("leaderId") && leaderClash.length > 0 && (
+          <p className="err-text" role="status" style={{ gridColumn: "1 / -1", margin: 0 }}>
+            {leaders.find((p) => p.id === form.leaderId)?.name} already leads {leaderClash.map((o) => `${o.number} ${o.customer} (${fmtShort(o.start)}–${fmtShort(o.projectedFinish)})`).join(", ")}.
+          </p>
         )}
         {field(
           "Crew size",

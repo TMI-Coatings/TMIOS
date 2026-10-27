@@ -7,7 +7,7 @@ import { settingProblem } from "../domain/settingsRules";
 import { JOB_COLUMNS, can, canEditJob, canSeeJob, seesCompanyTotals, type JobField } from "../domain/permissions";
 import { jobProblem } from "../domain/jobRules";
 import { canSeeAlert, capacityAlerts, certAlerts, jobChangeAlerts, overrunAlert, type NewAlert } from "../domain/alerts";
-import { closeRows, forecastAccuracy, type CloseInput, type CloseResult } from "../domain/close";
+import { closeRows, forecastAccuracy, missingHoursByPm, nudgeAlert, type CloseInput, type CloseResult } from "../domain/close";
 import { allPlans, buildIndex, capacity, firmnessLabel, hoursLeft, inWindow, isSold, materialRevenueCents } from "../domain/schedule";
 import { backlogCents, digestLines, digestTitle } from "../domain/insights";
 import { canCheck, type CheckpointDef } from "../domain/journey";
@@ -631,6 +631,17 @@ export class SampleRepo implements Repo {
     if (!["admin", "ceo", "cfo", "scheduler"].includes(this.me().role)) throw new Error("Only the scheduler or an admin sends the digest.");
     this.push([{ rule: "digest", title, body, recipients: ["Leadership team"], jobId: null, personId: null }]);
     this.save();
+  }
+
+  async nudgeHours(pmCode: string, week: IsoDate) {
+    const v = this.me();
+    if (!can.closeWeek(v.role)) throw new Error("Only the scheduler or an admin sends hours reminders.");
+    const jobs = missingHoursByPm(this.d, week).find((x) => x.pmCode === pmCode)?.jobs ?? [];
+    if (!jobs.length) throw new Error("That PM's hours are all in.");
+    const pm = this.names().pm(pmCode);
+    this.push([{ rule: "hours", ...nudgeAlert(week, jobs, v.name), recipients: [pm], jobId: null, personId: null }]);
+    this.save();
+    return jobs.length;
   }
 
   async confirmMyCrews(): Promise<number> {

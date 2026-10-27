@@ -102,3 +102,9 @@ export function proposeWeek(ds: Dataset, idx: Index, week: IsoDate): { job: Job;
   }
   return out;
 }
+
+/** Other open jobs this leader already leads whose dates overlap, so a double booking is caught at the picker. */
+export function leaderConflicts(ds: Dataset, leaderId: string | null, start: IsoDate, finish: IsoDate, exceptJobId: string | null = null): Job[] {
+  if (!leaderId) return [];
+  return ds.jobs.filter((o) => o.id !== exceptJobId && o.active && o.status !== "complete" && o.leaderId === leaderId && o.start <= finish && o.projectedFinish >= start);
+}
