@@ -32,7 +32,8 @@ export const TABS: { id: Tab; label: string; roles: Role[] }[] = [
   // The board gets the exported pack; no board login (decision 12).
   { id: "board", label: "Board view", roles: OFFICE_ALL },
   { id: "alerts", label: "Alerts", roles: ["admin", "ceo", "cfo", "scheduler", "job_setup", "estimator", "pm", "superintendent", "sales_rep", "field_crew", "accounting"] },
-  { id: "log", label: "Change log", roles: [...OFFICE_ALL, "scheduler"] },
+  // Office staff see the whole log; PMs, reps, job setup and estimators see job changes (Austin, Oct 27).
+  { id: "log", label: "Change log", roles: [...OFFICE_ALL, "scheduler", "job_setup", "estimator", "pm", "sales_rep"] },
   { id: "access", label: "Access", roles: OFFICE_ALL },
   { id: "settings", label: "Settings", roles: OFFICE_ALL },
 ];
@@ -94,9 +95,10 @@ export const JOB_FIELD_RULES: Record<JobField, Rule> = {
   plan: { any: [...OFFICE_ALL, "scheduler"], own: ["pm"] },
   start: { any: [...OFFICE_ALL, "scheduler"], own: ["pm"] },
   projectedFinish: { any: [...OFFICE_ALL, "scheduler"], own: ["pm", "superintendent"] },
-  crewSize: { any: OFFICE_ALL, own: ["superintendent"] },
-  leaderId: { any: OFFICE_ALL },
-  projectedHrs: { any: OFFICE_ALL },
+  // The scheduler runs the schedule day to day, so she sets leaders, crew size and hours too (Austin, Oct 27).
+  crewSize: { any: [...OFFICE_ALL, "scheduler"], own: ["superintendent"] },
+  leaderId: { any: [...OFFICE_ALL, "scheduler"] },
+  projectedHrs: { any: [...OFFICE_ALL, "scheduler"] },
   mustFinish: { any: OFFICE_ALL },
   firmness: { any: [...OFFICE_ALL, "scheduler"], own: ["pm", "sales_rep"] },
   status: { any: [...OFFICE_ALL, "scheduler"] },
@@ -166,7 +168,9 @@ export const can = {
   setRosterActive: (r: Role) => OFFICE_ALL.includes(r),
   editSettings: (r: Role) => OFFICE_ALL.includes(r),
   manageAccess: (r: Role) => OFFICE_ALL.includes(r),
-  readChangeLog: (r: Role) => ([...OFFICE_ALL, "scheduler"] as Role[]).includes(r),
+  readChangeLog: (r: Role) => ([...OFFICE_ALL, "scheduler", "job_setup", "estimator", "pm", "sales_rep"] as Role[]).includes(r),
+  /** Settings, access and roster changes stay with the office. */
+  readWholeChangeLog: (r: Role) => ([...OFFICE_ALL, "scheduler"] as Role[]).includes(r),
   closeWeek: (r: Role) => ([...OFFICE_ALL, "scheduler"] as Role[]).includes(r),
   sendDigest: (r: Role) => ([...OFFICE_ALL, "scheduler"] as Role[]).includes(r),
   editJourney: (r: Role) => OFFICE_ALL.includes(r),

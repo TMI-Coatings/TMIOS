@@ -51,6 +51,8 @@ export interface AccessUser {
   pmCode: string | null;
   active: boolean;
   linked: boolean;
+  /** Listed as an estimator on Add job even though their role is something else. */
+  alsoEstimator: boolean;
 }
 
 export interface LoadResult {

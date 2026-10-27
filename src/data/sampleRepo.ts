@@ -19,7 +19,7 @@ import { addDays, currentWeek, fmtShort, mondayOf, planningWeek, todayIn, weekLi
 import { buildSample, type SampleData } from "../sample/seed";
 import type { AccessUser, LoadResult, NewJobInput, Repo } from "./repo";
 
-const KEY = "tmi-ops-sample-v4";
+const KEY = "tmi-ops-sample-v5";
 
 const uid = () => crypto.randomUUID();
 const denied = () => new Error("You don't have permission to make that change.");
@@ -256,9 +256,11 @@ export class SampleRepo implements Repo {
     const d = structuredClone(this.d);
     const office = can.editCrewRecords(viewer.role);
     const visible = new Set(d.jobs.filter((j) => canSeeJob(viewer, j)).map((j) => j.id));
+    // Roles that don't see money get no dollar figures on jobs, as in the database's job_money().
+    const noMoney = (j: Job): Job => (can.seeMoney(viewer.role) ? j : { ...j, contractCents: 0, materialCostCents: 0, materialRevenueCents: 0, burdenedRateCents: 0 });
     const ds: Dataset = {
       ...d,
-      jobs: d.jobs.filter((j) => visible.has(j.id)),
+      jobs: d.jobs.filter((j) => visible.has(j.id)).map(noMoney),
       overrides: d.overrides.filter((o) => visible.has(o.jobId)),
       actuals: d.actuals.filter((a) => visible.has(a.jobId)),
       assignments: d.assignments.filter((a) => visible.has(a.jobId)),
@@ -267,7 +269,7 @@ export class SampleRepo implements Repo {
       people: viewer.role === "field_crew" ? [] : d.people.map((p) => (office ? p : { ...p, phone: "", dotExpires: null })),
     };
     // Staff lists come from the Access list, like the database's staff_names.
-    const staffOf = (r: Role) => this.s.data.users.filter((u) => u.active && u.role === r).map((u) => u.name).sort();
+    const staffOf = (r: Role) => this.s.data.users.filter((u) => u.active && (u.role === r || (r === "estimator" && u.alsoEstimator))).map((u) => u.name).sort();
     ds.staff = { schedulers: staffOf("scheduler"), jobSetup: staffOf("job_setup"), estimators: staffOf("estimator") };
     const office2 = ["admin", "ceo", "cfo", "scheduler"].includes(viewer.role);
     ds.hourEntries = d.hourEntries.filter((e) => visible.has(e.jobId));
@@ -496,7 +498,7 @@ export class SampleRepo implements Repo {
 
   async listUsers(): Promise<AccessUser[]> {
     if (!can.manageAccess(this.me().role)) throw denied();
-    return this.d.users.map((u) => ({ id: u.userId, email: u.email, name: u.name, role: u.role, personId: u.personId, repCode: u.repCode, pmCode: u.pmCode, active: u.active, linked: true }));
+    return this.d.users.map((u) => ({ id: u.userId, email: u.email, name: u.name, role: u.role, personId: u.personId, repCode: u.repCode, pmCode: u.pmCode, active: u.active, linked: true, alsoEstimator: !!u.alsoEstimator }));
   }
 
   async saveUser(u: Parameters<Repo["saveUser"]>[0]) {
@@ -528,7 +530,8 @@ export class SampleRepo implements Repo {
       return this.s.log.filter((e) => e.recordId === j.id || e.recordId.startsWith(j.id + "|") || e.recordLabel.startsWith("Job " + j.number)).slice(0, 50);
     }
     if (!can.readChangeLog(v.role)) throw denied();
-    return this.s.log.slice(0, 300);
+    if (can.readWholeChangeLog(v.role)) return this.s.log.slice(0, 300);
+    return this.s.log.filter((e) => e.recordLabel.startsWith("Job ")).slice(0, 300);
   }
 
   async saveHourEntry(jobId: string, week: IsoDate, hours: number | null, source: "typed" | "csv" | "import") {

@@ -68,8 +68,8 @@ export function seedSql(week: string): string {
   out.push(
     rows(
       "app_users",
-      ["id", "email", "name", "role", "person_id", "rep_code", "pm_code"],
-      s.users.map((u) => [u.userId, u.email, u.name, u.role, u.personId, u.repCode, u.pmCode]),
+      ["id", "email", "name", "role", "person_id", "rep_code", "pm_code", "also_estimator"],
+      s.users.map((u) => [u.userId, u.email, u.name, u.role, u.personId, u.repCode, u.pmCode, !!u.alsoEstimator]),
     ),
   );
   out.push(

@@ -60,10 +60,15 @@ const JOB_MAP: Record<keyof Omit<Job, "requirements">, string> = {
   active: "active",
 };
 const NUMERIC: (keyof Job)[] = ["contractCents", "materialCostCents", "materialRevenueCents", "burdenedRateCents", "retainagePct"];
+/** Dollar columns on jobs. The database only serves them through job_money(), to the roles that see money. */
+const MONEY_COLS = ["contract_cents", "material_cost_cents", "material_revenue_cents", "burdened_rate_cents"];
+const JOB_SELECT = Object.values(JOB_MAP)
+  .filter((c) => !MONEY_COLS.includes(c))
+  .join(", ");
 
 function rowToJob(r: Row, reqs: string[]): Job {
   const j = Object.fromEntries(Object.entries(JOB_MAP).map(([k, col]) => [k, r[col]])) as unknown as Job;
-  for (const k of NUMERIC) (j as unknown as Record<string, number>)[k] = Number(r[JOB_MAP[k as keyof typeof JOB_MAP]]);
+  for (const k of NUMERIC) (j as unknown as Record<string, number>)[k] = Number(r[JOB_MAP[k as keyof typeof JOB_MAP]] ?? 0);
   j.requirements = reqs;
   return j;
 }
@@ -87,7 +92,7 @@ export class SupabaseRepo implements Repo {
     this.viewer = viewer;
     const officeRole = can.editCrewRecords(viewer.role);
     const [jobs, reqs, people, priv, quals, timeOff, overrides, actuals, assignments, notes, settings, reps, pms, qualList] = await Promise.all([
-      sb.from("jobs").select("*").eq("active", true),
+      sb.from("jobs").select(JOB_SELECT).eq("active", true),
       sb.from("job_requirements").select("job_id, qualification").eq("active", true),
       sb.from("people").select("id, name, kind, state, driver, active").order("name"),
       officeRole ? sb.from("people_private").select("person_id, phone, dot_expires") : Promise.resolve({ data: [], error: null }),
@@ -135,6 +140,9 @@ export class SupabaseRepo implements Repo {
     for (const r of check(signoffs) as Row[]) signBy.set(r.job_id, [...(signBy.get(r.job_id) ?? []), r]);
     const evBy = new Map<string, Row[]>();
     for (const r of check(woEvents) as Row[]) evBy.set(r.job_id, [...(evBy.get(r.job_id) ?? []), r]);
+    const moneyBy = new Map<string, Row>(
+      can.seeMoney(viewer.role) ? ((check(await sb.rpc("job_money")) as Row[]) ?? []).map((r) => [r.job_id, r]) : [],
+    );
     const reqsBy = new Map<string, string[]>();
     for (const r of check(reqs) as Row[]) reqsBy.set(r.job_id, [...(reqsBy.get(r.job_id) ?? []), r.qualification]);
     const privBy = new Map((check(priv) as Row[]).map((r) => [r.person_id, r]));
@@ -144,7 +152,7 @@ export class SupabaseRepo implements Repo {
     for (const r of check(settings) as Row[]) if (r.key in s) (s as unknown as Record<string, unknown>)[r.key] = r.value;
 
     const ds: Dataset = {
-      jobs: (check(jobs) as Row[]).map((r) => rowToJob(r, reqsBy.get(r.id) ?? [])),
+      jobs: (check(jobs) as Row[]).map((r) => rowToJob({ ...r, ...moneyBy.get(r.id) }, reqsBy.get(r.id) ?? [])),
       people: (check(people) as Row[]).map(
         (r): Person => ({
           id: r.id,
@@ -347,11 +355,11 @@ export class SupabaseRepo implements Repo {
 
   async listUsers(): Promise<AccessUser[]> {
     const rows = check(await this.sb.from("app_users").select("*").order("name")) as Row[];
-    return rows.map((r) => ({ id: r.id, email: r.email, name: r.name, role: r.role, personId: r.person_id, repCode: r.rep_code, pmCode: r.pm_code, active: r.active, linked: !!r.auth_user_id }));
+    return rows.map((r) => ({ id: r.id, email: r.email, name: r.name, role: r.role, personId: r.person_id, repCode: r.rep_code, pmCode: r.pm_code, active: r.active, linked: !!r.auth_user_id, alsoEstimator: !!r.also_estimator }));
   }
 
   async saveUser(u: Parameters<Repo["saveUser"]>[0]) {
-    const row = { email: u.email.trim().toLowerCase(), name: u.name, role: u.role, person_id: u.personId, rep_code: u.repCode, pm_code: u.pmCode, active: u.active };
+    const row = { email: u.email.trim().toLowerCase(), name: u.name, role: u.role, person_id: u.personId, rep_code: u.repCode, pm_code: u.pmCode, active: u.active, also_estimator: u.alsoEstimator };
     if (u.id) check(await this.sb.from("app_users").update(row).eq("id", u.id));
     else check(await this.sb.from("app_users").insert(row));
   }

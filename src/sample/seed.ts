@@ -104,7 +104,7 @@ const FIRM = ["confirmed", "locked", "confirmed", "confirmed", "flexible", "conf
 
 
 export interface SampleData extends Dataset {
-  users: (Viewer & { active: boolean })[];
+  users: (Viewer & { active: boolean; alsoEstimator?: boolean })[];
   snapshots: ForecastSnapshot[];
 }
 
@@ -329,6 +329,7 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
   U("Lori", "job_setup");
   ESTIMATORS.forEach((n) => U(n, "estimator"));
   PMS.forEach((p) => U(p.name, "pm", { pmCode: p.code }));
+  users.find((u) => u.name === "Scott Salmon")!.alsoEstimator = true;
   // Leaders are still invented until the crew list comes in.
   U("Mike Ramirez", "superintendent", { personId: leaderId("Mike Ramirez") });
   REPS.forEach((r) => U(r.name, "sales_rep", { repCode: r.code }));

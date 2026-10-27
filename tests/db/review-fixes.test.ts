@@ -41,7 +41,7 @@ describe("fixes from the demo review", () => {
 
   it("lists estimators from the Access list for the Add job pick list", async () => {
     const r = await as(user("job_setup"), (q) => q("select public.staff_names() x"));
-    expect(r.ok && r.rows[0].x.estimators).toEqual(sample.users.filter((u) => u.role === "estimator").map((u) => u.name).sort());
+    expect(r.ok && r.rows[0].x.estimators).toEqual(sample.users.filter((u) => u.role === "estimator" || u.alsoEstimator).map((u) => u.name).sort());
   });
 
   it("a checkpoint added now applies only where it is still ahead", async () => {
@@ -107,5 +107,45 @@ describe("wording from the demo review", () => {
     const { rows } = await db.query("select body from public.alerts where title like 'Work order review late%'");
     expect(rows.length).toBeGreaterThan(0);
     for (const r of rows) expect(r.body).toMatch(/^Waiting \d+ days on (Estimator|Rep|PM|Scheduler) \S|^Waiting \d+ days on Lori /);
+  });
+});
+
+describe("permission changes (Oct 27)", () => {
+  it("leaders, crew and estimators can't read the dollar columns on jobs; money roles get them through job_money", async () => {
+    for (const role of ["superintendent", "estimator"]) {
+      const r = await as(user(role), (q) => q("select contract_cents from public.jobs limit 1"));
+      expect(r.ok, role).toBe(false);
+      const m = await as(user(role), (q) => q("select count(*)::int n from public.job_money()"));
+      expect(m.ok && m.rows[0].n, role).toBe(0);
+    }
+    const pm = await as(user("pm"), (q) => q("select count(*)::int n from public.job_money()"));
+    expect(pm.ok && pm.rows[0].n).toBe(sample.jobs.length);
+  });
+  it("the scheduler sets job leader, crew size and projected hours", async () => {
+    const j = sample.jobs.find((x) => x.status === "scheduled")!;
+    const r = await as(user("scheduler"), (q) => q("update public.jobs set crew_size = crew_size + 1, projected_hrs = projected_hrs + 10 where id = $1 returning id", [j.id]));
+    expect(r.ok ? "" : r.error).toBe("");
+  });
+  it("the job's named estimator signs the estimator step whatever their role", async () => {
+    const scott = sample.users.find((u) => u.name === "Scott Salmon")!;
+    const w = sample.workOrders.find((x) => x && !x.final && x.currentStep === 0 && x.fileName)!;
+    const r = await as(scott, async (q) => {
+      await q("reset role");
+      await q("select set_config('request.jwt.claims', '{}', true)");
+      await q("update public.jobs set estimator = 'Scott Salmon' where id = $1", [w.jobId]);
+      await q("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: scott.userId, email: scott.email, role: "authenticated" })]);
+      await q("set local role authenticated");
+      await q("select public.wo_approve($1)", [w.jobId]);
+      return q("select current_step from public.work_orders where job_id = $1", [w.jobId]);
+    });
+    expect(r.ok ? "" : r.error).toBe("");
+    expect(r.ok && r.rows[0].current_step).toBe(1);
+    const staff = await as(user("job_setup"), (q) => q("select public.staff_names() x"));
+    expect(staff.ok && staff.rows[0].x.estimators).toContain("Scott Salmon");
+  });
+  it("leaders see job changes in the log but not dollar figures", async () => {
+    const supt = user("superintendent");
+    const r = await as(supt, (q) => q("select count(*)::int n from public.change_log where field in ('contract_cents', 'material_cost_cents') or table_name in ('invoices', 'change_orders')"));
+    expect(r.ok && r.rows[0].n).toBe(0);
   });
 });

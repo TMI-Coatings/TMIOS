@@ -67,13 +67,30 @@ test("admin sets a week by hand, and it is logged", async ({ page }) => {
   await expect(page.getByRole("cell", { name: "300", exact: true })).toBeVisible();
 });
 
-test("the scheduler can move dates on any job but not change the leader", async ({ page }) => {
+test("the scheduler moves dates and sets leader, crew size and hours on any job", async ({ page }) => {
   await viewAs(page, "scheduler", "#schedule");
   const job = sample.jobs[3];
   await page.getByRole("button", { name: `${job.number} ${job.customer}` }).click();
   const dlg = page.getByRole("dialog");
   await expect(dlg.getByLabel("Start", { exact: true })).toBeEnabled();
-  await expect(dlg.getByLabel("Job leader")).toBeDisabled();
+  await expect(dlg.getByLabel("Job leader")).toBeEnabled();
+  await expect(dlg.getByLabel("Crew size")).toBeEnabled();
+  await expect(dlg.getByLabel("Projected hrs")).toBeEnabled();
+});
+
+test("leaders see hours, not dollars, in the job window", async ({ page }) => {
+  await viewAs(page, "superintendent", "#schedule");
+  const u = userFor("superintendent");
+  const j = sample.jobs.find((x) => x.leaderId === u.personId)!;
+  await page.getByRole("button", { name: `${j.number} ${j.customer}` }).click();
+  const dlg = page.getByRole("dialog");
+  await expect(dlg.getByText(/Estimate: [\d,]+ hrs\./)).toBeVisible();
+  await expect(dlg.getByText(/Contract \$|GP/)).toHaveCount(0);
+});
+
+test("PMs and reps see job changes in the Change log", async ({ page }) => {
+  await viewAs(page, "pm", "#log");
+  await expect(page.getByRole("heading", { name: "Change log" })).toBeVisible();
 });
 
 test("a PM can move their own job and not someone else's", async ({ page }) => {

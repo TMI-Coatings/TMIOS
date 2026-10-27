@@ -245,7 +245,7 @@ describe("functions", () => {
     const r = await as(user("job_setup"), async (q) => {
       const { rows } = await q("select public.create_job($1) id", [payload]);
       return q(
-        `select j.material_revenue_cents, j.baseline_finish::text, j.projected_hrs,
+        `select (select m.material_revenue_cents from public.job_money() m where m.job_id = j.id) material_revenue_cents, j.baseline_finish::text, j.projected_hrs,
                 (select count(*) from public.job_requirements where job_id = j.id) reqs,
                 (select pinned from public.job_notes where job_id = j.id) pinned
            from public.jobs j where j.id = $1`,

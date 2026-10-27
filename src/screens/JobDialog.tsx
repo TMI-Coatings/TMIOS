@@ -99,10 +99,17 @@ export function JobDialog({ ctx, jobId, onClose, journeyOpen, billingOpen }: { c
       sub={
         <>
           {job.jobType}, {job.location}
-          {job.exterior ? ", exterior" : ""}. Rep {repName}, PM {pmName}, estimator {job.estimator}. Contract {usd(job.contractCents)}. Estimate: {n0(job.estimateHrs)} hrs,{" "}
-          {usd(job.materialCostCents)} materials, {pct(bidMargin(job.contractCents, job.materialCostCents, job.estimateHrs, job.burdenedRateCents))} GP
-          {can.seeMoney(viewer.role) && job.status !== "complete" ? `; now ${pct(new Money(ds, idx, week, todayIn(new Date())).gpNow(job))} GP` : ""}. Materials revenue{" "}
-          {usd(job.materialRevenueCents)}, labor {usd(job.contractCents - job.materialRevenueCents)}.
+          {job.exterior ? ", exterior" : ""}. Rep {repName}, PM {pmName}, estimator {job.estimator}.{" "}
+          {can.seeMoney(viewer.role) ? (
+            <>
+              Contract {usd(job.contractCents)}. Estimate: {n0(job.estimateHrs)} hrs, {usd(job.materialCostCents)} materials,{" "}
+              {pct(bidMargin(job.contractCents, job.materialCostCents, job.estimateHrs, job.burdenedRateCents))} GP
+              {job.status !== "complete" ? `; now ${pct(new Money(ds, idx, week, todayIn(new Date())).gpNow(job))} GP` : ""}. Materials revenue {usd(job.materialRevenueCents)}, labor{" "}
+              {usd(job.contractCents - job.materialRevenueCents)}.
+            </>
+          ) : (
+            <>Estimate: {n0(job.estimateHrs)} hrs.</>
+          )}
           {job.retainagePct > 0 &&
             ` Retainage ${job.retainagePct}%, released at ${job.retainageRelease === "substantial_completion" ? "substantial completion" : job.retainageRelease === "final_completion" ? "final completion" : job.retainageReleaseNote || "terms in contract"}.`}
         </>

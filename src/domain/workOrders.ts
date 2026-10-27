@@ -67,7 +67,8 @@ export const stepLabel = (j: Job, step: number, n: Names) => `${WO_STEPS[step].r
 /** Is this step waiting on the viewer themselves (not acting for someone)? */
 export function woIsMine(v: Viewer, j: Job, step: number): boolean {
   return (
-    (step === 0 && v.role === "estimator" && v.name === j.estimator) ||
+    // The job's named estimator signs step 0 whatever their role, e.g. Scott Salmon with PM rights (Austin, Oct 27).
+    (step === 0 && v.name === j.estimator) ||
     (step === 1 && v.role === "sales_rep" && v.repCode === j.repCode) ||
     (step === 2 && v.role === "pm" && v.pmCode === j.pmCode) ||
     (step === 3 && v.role === "scheduler")

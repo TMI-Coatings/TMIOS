@@ -8,7 +8,7 @@ import type { Ctx } from "../Workspace";
 const needsLink = (u: { role: Role; personId: string | null; repCode: string | null; pmCode: string | null }) =>
   (u.role === "superintendent" || u.role === "field_crew") && !u.personId ? true : u.role === "sales_rep" ? !u.repCode : u.role === "pm" ? !u.pmCode : false;
 
-const blank = { email: "", name: "", role: "estimator" as Role, personId: null as string | null, repCode: null as string | null, pmCode: null as string | null, active: true };
+const blank = { email: "", name: "", role: "estimator" as Role, personId: null as string | null, repCode: null as string | null, pmCode: null as string | null, active: true, alsoEstimator: false };
 
 /** Who can sign in and as what. People sign in with Microsoft; access only works for emails listed here. */
 export function AccessScreen({ ctx }: { ctx: Ctx }) {
@@ -124,6 +124,7 @@ export function AccessScreen({ ctx }: { ctx: Ctx }) {
                 <th>Email</th>
                 <th>Role</th>
                 <th>Linked to</th>
+                <th>Also estimates</th>
                 <th>Signed in yet</th>
                 <th>Access on</th>
               </tr>
@@ -169,6 +170,11 @@ export function AccessScreen({ ctx }: { ctx: Ctx }) {
                             Cancel
                           </button>
                         </>
+                      )}
+                    </td>
+                    <td>
+                      {shown.role !== "estimator" && (
+                        <input type="checkbox" checked={u.alsoEstimator} aria-label={`${u.name} also estimates`} onChange={(e) => change({ alsoEstimator: e.target.checked })} />
                       )}
                     </td>
                     <td>{u.linked ? "Yes" : "Not yet"}</td>

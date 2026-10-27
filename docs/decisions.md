@@ -23,6 +23,11 @@ Answers to the open questions in `kickoff-analysis.md` section 3, decided by Aus
 11. **Finance.** A new `cfo` role for Jared, with full rights: the same powers as admin and CEO. Billing alerts go to the role, not to a hard-coded name.
 11a. **People and roles (Austin, Oct 26).** Full rights: Austin Lewis (admin), Derrick Gordon (ceo), Jared Wiese (cfo), Jason Jelinek, Director of Ops (admin), and Al Trenary (admin, Austin's backup). Project manager rights: Jake Moen (PM); Scott Salmon (estimator) and Lucas Kemmerer (purchaser), who work with PM rights, so each sees only the jobs where they are the PM. Estimators: Stephen Bazant, Juac Angoi, Sarah Louvar, Colicia Barnes, Jordan Strand. Sales reps: Ethan Miller, Keith Kubitschek, Phil Kick, Eric Rich, Gretchen Davies, Brent Elwood, Chris Monyhan. Scheduler: Nicole. Accounting: Patrick Leaon. Job setup stays Lori. Field leaders and crew in the sample are still invented. The sample site uses these names with @example.com addresses; live access is added on the Access screen with real TMI emails.
 11b. **Sales dashboard (Austin, Oct 27).** Sales reps get the Dashboard tab, as a capacity-to-sell view: company-wide scheduled vs available hours, open hours by week with the 4-to-8-week sell window marked, leader shortfalls, and date firmness. Capacity comes from the anonymous company totals, because reps can't read the crew's time off.
+11c. **More permission calls (Austin, Oct 27).**
+   - **Nicole (scheduler)** sets job leader, crew size and projected hours.
+   - **The Change log** opens to PMs, reps, job setup and estimators. They see changes on jobs; settings, access and roster changes stay with the office.
+   - **Leaders, crew and estimators see hours only.** The database serves job dollar columns only to roles that see money, and hides dollar rows in the log from the others.
+   - **The job's named estimator signs the estimator step whatever their role.** "Also estimates" on the Access screen puts someone like Scott Salmon on the estimator list.
 12. **Board.** No board login and no board role. The board gets an exported PDF board pack, which admin, ceo or cfo can generate.
 
 ## Business rules
