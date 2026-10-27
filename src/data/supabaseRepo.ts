@@ -484,7 +484,7 @@ export class SupabaseRepo implements Repo {
 }
 
 interface CompanyInputs {
-  jobs: { projectedHrs: number; start: string; projectedFinish: string; status: Job["status"]; actuals: { week: string; hours: number }[]; overrides: { week: string; hours: number }[] }[];
+  jobs: { projectedHrs: number; start: string; projectedFinish: string; status: Job["status"]; firmness: Job["firmness"]; actuals: { week: string; hours: number }[]; overrides: { week: string; hours: number }[] }[];
   people: { kind: Person["kind"]; timeOff: [string, string][] }[];
 }
 
@@ -499,6 +499,7 @@ export function totalsDataset(x: CompanyInputs, settings: Settings): Dataset {
     projectedFinish: j.projectedFinish,
     baselineFinish: j.projectedFinish,
     status: j.status,
+    firmness: j.firmness,
   }));
   return {
     jobs,

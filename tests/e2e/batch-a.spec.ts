@@ -94,3 +94,14 @@ test("field crew only get My week and Alerts", async ({ page }) => {
   const { tabsFor } = await import("../../src/domain/permissions");
   expect(tabsFor("field_crew").map((t) => t.id)).toEqual(["me", "alerts"]);
 });
+
+test("sales reps see company capacity to sell into, without other reps' jobs or money", async ({ page }) => {
+  await viewAs(page, "sales_rep", "#dashboard");
+  await expect(page.getByRole("heading", { name: "Capacity to sell" })).toBeVisible();
+  await expect(page.getByText(/Open hrs in the sell window/)).toBeVisible();
+  await expect(page.getByRole("img", { name: "Scheduled hours against available hours by week" })).toBeVisible();
+  await expect(page.getByRole("table", { name: "Open capacity by week" }).locator("tbody tr")).toHaveCount(13);
+  const others = sample.jobs.filter((j) => j.repCode !== userFor("sales_rep").repCode);
+  await expect(page.getByText(others[0].customer)).toHaveCount(0);
+  await expect(page.getByText("$")).toHaveCount(0);
+});

@@ -269,7 +269,7 @@ describe("functions", () => {
     expect(r.ok).toBe(true);
     const x = r.ok && r.rows[0].x;
     expect(x.jobs).toHaveLength(sample.jobs.filter((j) => j.status !== "complete").length);
-    expect(Object.keys(x.jobs[0]).sort()).toEqual(["actuals", "overrides", "projectedFinish", "projectedHrs", "start", "status"]);
+    expect(Object.keys(x.jobs[0]).sort()).toEqual(["actuals", "firmness", "overrides", "projectedFinish", "projectedHrs", "start", "status"]);
     expect(JSON.stringify(x)).not.toMatch(/customer|cents|name/i);
     const s = await as(user("superintendent"), (q) => q("select public.company_load_inputs()"));
     expect(s.ok).toBe(false);

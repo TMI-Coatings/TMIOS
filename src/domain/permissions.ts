@@ -13,7 +13,8 @@ export type Tab = "me" | "dashboard" | "schedule" | "wo" | "journey" | "billing"
 
 export const TABS: { id: Tab; label: string; roles: Role[] }[] = [
   { id: "me", label: "My week", roles: ["superintendent", "field_crew"] },
-  { id: "dashboard", label: "Dashboard", roles: [...OFFICE_ALL, "scheduler"] },
+  // Sales reps get a capacity-only version so they can sell into open weeks (Austin, Oct 27).
+  { id: "dashboard", label: "Dashboard", roles: [...OFFICE_ALL, "scheduler", "sales_rep"] },
   {
     id: "schedule",
     label: "Schedule",
