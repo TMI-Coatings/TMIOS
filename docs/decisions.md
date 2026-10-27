@@ -68,6 +68,13 @@ Austin asked for every review fix that didn't need his decision. Where a fix nee
 - **Settings have limits**, for example absence 0–50%, hours per man-week 1–80, pay-app day 1–28. The limits live in `src/domain/settingsRules.ts` and the database.
 - **The estimator is picked from the Access list.** The estimate's dollars and hours stay as bid when intake details are corrected.
 
+## Reminders, retainage and stages (Austin, Oct 27)
+
+- **Work order Remind.** Job setup, the scheduler, the job's PM or an admin can remind whoever a work order waits on. It goes once a day per work order, and the job window keeps every send-back across versions.
+- **Retainage part payments.** Accounting can record part of the retainage, never more than what's outstanding.
+- **Journey stages.** Admins can rename, reorder, add and retire stages, and mark which ones come before the job starts. A stage with checkpoints still in use can't be retired.
+- **Missed digest.** If a closed week's Monday digest never went out, the close screen offers to send it. The scheduled digest replaces this once it's approved.
+
 ## Finance views (Austin, Oct 27)
 
 - **Payments received.** Accounting marks each invoice paid when the money lands, so TMI Ops can show what's owed. What's owed is the invoice less retainage held, aged 0–30, 31–60, 61–90 and 90+ days. Sage stays the book of record; nothing is read from or written to it (hard rule 2).

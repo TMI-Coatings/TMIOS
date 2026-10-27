@@ -1,5 +1,7 @@
 # Phase 1 plan: Foundation
 
+> **Historical.** This is the plan as written on Oct 26. Everything under "Not in Phase 1" below has since been built on sample data (see the README and `docs/decisions.md`); Procore and the scheduled jobs still wait on outside approvals.
+
 Goal (from the spec): Microsoft sign-in, the database, the Schedule grid and the Crew screens. Gate: Austin can see the schedule in the app and it matches the workbook layout. Sample data only (hard rule 1).
 
 ## What gets built

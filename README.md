@@ -2,18 +2,20 @@
 
 Crew scheduling and forecasting for TMI Coatings. It replaces the 2026 Schedule workbook. Project rules are in `CLAUDE.md`; decisions are in `docs/decisions.md`; the Phase 1 plan is in `docs/phase-1-plan.md`.
 
-**What's built** (every screen in the demo):
+**What's built** (every screen in the demo, plus the changes since; see `docs/decisions.md`):
 
 | Area | Screens |
 | --- | --- |
-| Foundation | Microsoft sign-in, Access, Settings, Change log; row-level security and a change log on every table |
-| Schedule | Schedule grid with the job window, Add job from estimate, Crew (availability, time off, roster, auto-fill with preview) |
-| The week | Weekly close (PM hours, CSV import, review, close in the database), Dashboard, Alerts with per-person mutes and the Monday digest, My week, Confirm my crews |
-| Jobs | Work orders (draft upload, four sign-offs in order, send-back, filed in Procore), Job journey (admin-editable checkpoints) |
-| Money | Revenue and WIP (Monday percent complete, recognized revenue, margin, CSV export, month-end WIP locked for the books), Billing (final, monthly, milestone; retainage held per invoice; payments received, AR aging, retainage by release trigger), change orders |
+| Foundation | Microsoft sign-in, Access (with "Also estimates"), Settings with enforced limits, Change log; row-level security and a change log on every table |
+| Schedule | Schedule grid (find a job, sticky header and job column, warnings for over-typed weeks), job window (intake corrections, leader double-booking warning), Add job from estimate, Crew (availability, time off, roster, certification expiry dates, auto-fill with preview) |
+| The week | Weekly close (PM hours, CSV import that asks before replacing typed hours, "Waiting on hours" with a nudge, review, close in the database), Dashboard (capacity-to-sell view for reps), Alerts with per-person mutes and the Monday digest, My week, Confirm my crews |
+| Jobs | Work orders (draft upload, four sign-offs in order, send-back history, Remind, filed in Procore), Job journey (admin-editable stages and checkpoints) |
+| Money | Revenue and WIP (Monday percent complete, recognized revenue, margin, CSV export, month-end WIP locked for the books), Billing (final, monthly, milestone; retainage held per invoice and part payments; payments received, AR aging, retainage by release trigger), change orders with cost and approver |
 | Reporting | Leader scorecard (PM tags overrun causes), Board view with the financial position and the PDF board pack |
 
-**Still to come (needs outside approvals):** Teams and email delivery of alerts, the Monday 6 AM digest as a scheduled Netlify function, Procore read-only sync, and the time-system import. Until then alerts show in the app and hours come in by CSV.
+**Who sees what:** reps and PMs see every job and its dollars but change only their own; leaders, crew and estimators see hours only, enforced in the database. The full table is in `reference/security-brief.md`.
+
+**Still to come (needs outside approvals):** Teams and email delivery of alerts, the Monday 6 AM digest and work-order reminders as scheduled Netlify functions, Procore read-only sync, and the time-system import. Until then alerts show in the app and hours come in by CSV.
 
 ## Try it on sample data
 
@@ -53,5 +55,5 @@ Do this on a **dev** Supabase project first. Never point anything here at `tmi-o
 - `src/domain/`: business rules (weeks, plan spread, capacity, tags, crew checks, permissions). No screen or database code.
 - `src/data/`: one interface, two versions: `supabaseRepo.ts` (live) and `sampleRepo.ts` (in-browser sample).
 - `src/screens/`: the screens. `src/styles.css` is the demo's stylesheet.
-- `supabase/migrations/`: tables, row-level security, the edit trigger on jobs, the change-log trigger, `create_job`, `claim_app_user` and `company_load_inputs`.
+- `supabase/migrations/`: tables, row-level security, the edit trigger on jobs, the change-log trigger and every write the screens make (weekly close, work orders, billing, payments, month-end WIP, reminders). Apply them in file order.
 - Hard rules held by the database: four-digit job numbers, Friday weeks, money in whole cents, no deletes, every change logged, and a reason required to move a job off Locked.
