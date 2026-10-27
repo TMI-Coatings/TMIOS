@@ -86,7 +86,7 @@ Notes on these rules:
 | Bad settings break the numbers | Every threshold has limits that the database enforces |
 | Lost data or vendor change | Daily backups; code and data held in TMI-owned accounts; data exportable anytime (including a WIP spreadsheet export) |
 | Single point of failure (Austin) | Al Trenary is the named backup admin; code and decisions documented in the TMI-owned repository |
-| Real data in the demo | The demo uses invented jobs and dollars only until security is approved. It shows real staff names and roles, so the demo link should be password-protected before it's shared. |
+| Real data in the demo | The demo uses invented jobs and dollars only until security is approved. It shows real staff names and roles, so the demo site is password-protected (Netlify, since Oct 27). |
 
 **What TMI Ops will hold:**
 - **Staff and crew:** names, roles, phone numbers, DOT physical and certification expiry dates, time off.
