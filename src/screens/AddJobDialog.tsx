@@ -106,6 +106,7 @@ export function AddJobDialog({ ctx, onClose }: { ctx: Ctx; onClose: () => void }
       id: "new",
       projectedHrs: hrs,
       materialRevenueCents: matRev,
+      burdenedRateCents: rate,
       baselineFinish: input.projectedFinish,
       actualFinish: null,
       firmnessReason: null,

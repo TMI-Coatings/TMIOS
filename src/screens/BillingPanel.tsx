@@ -13,9 +13,9 @@ export function BillingPanel({ ctx, job, open }: { ctx: Ctx; job: Job; open?: bo
   const ds = data.ds;
   const [form, setForm] = useState<Record<string, string>>({});
   const [ms, setMs] = useState<{ id?: string; label: string; pct: number }[] | null>(null);
-  const [co, setCo] = useState({ number: "", description: "", amount: "", material: "", hours: "" });
-  if (!can.seeMoney(viewer.role)) return null;
   const today = todayIn(new Date());
+  const [co, setCo] = useState({ number: "", description: "", amount: "", material: "", materialCost: "", hours: "", approvedBy: "", approvedOn: today });
+  if (!can.seeMoney(viewer.role)) return null;
   const m = new Money(ds, buildIndex(ds), week, today);
   const cb = can.recordInvoices(viewer.role);
   const st = m.billState(job);
@@ -195,7 +195,7 @@ export function BillingPanel({ ctx, job, open }: { ctx: Ctx; job: Job; open?: bo
                 <tr>
                   <td>Final invoice at customer sign-off</td>
                   <td className="r">{Math.max(0, 100 - (ms ? ms.reduce((a, x) => a + x.pct, 0) : m.milestoneTotal(job)))}</td>
-                  <td className="r num">{usd(Math.round((m.contract(job) * Math.max(0, 100 - m.milestoneTotal(job))) / 100))}</td>
+                  <td className="r num">{usd(Math.round((m.contract(job) * Math.max(0, 100 - (ms ? ms.reduce((a, x) => a + x.pct, 0) : m.milestoneTotal(job)))) / 100))}</td>
                   <td>{m.finalInvoice(job) ? "Invoiced" : "At completion"}</td>
                   <td />
                 </tr>
@@ -288,6 +288,7 @@ export function BillingPanel({ ctx, job, open }: { ctx: Ctx; job: Job; open?: bo
                 <th>Description</th>
                 <th>Approved</th>
                 <th className="r">Amount</th>
+                <th className="r">Materials cost</th>
                 <th className="r">Hours</th>
               </tr>
             </thead>
@@ -296,8 +297,12 @@ export function BillingPanel({ ctx, job, open }: { ctx: Ctx; job: Job; open?: bo
                 <tr key={c.id}>
                   <td>{c.number}</td>
                   <td>{c.description}</td>
-                  <td>{fmtShort(c.approvedOn)}</td>
+                  <td>
+                    {fmtShort(c.approvedOn)}
+                    {c.approvedBy ? `, ${c.approvedBy}` : ""}
+                  </td>
                   <td className="r num">{usd(c.amountCents)}</td>
+                  <td className="r num">{usd(c.materialCostCents)}</td>
                   <td className="r num">{c.hours}</td>
                 </tr>
               ))}
@@ -328,21 +333,44 @@ export function BillingPanel({ ctx, job, open }: { ctx: Ctx; job: Job; open?: bo
             <input value={co.material} inputMode="decimal" style={{ width: 110 }} onChange={(e) => setCo({ ...co, material: e.target.value })} />
           </label>
           <label className="field">
+            Materials cost ($)
+            <input value={co.materialCost} inputMode="decimal" style={{ width: 110 }} onChange={(e) => setCo({ ...co, materialCost: e.target.value })} />
+          </label>
+          <label className="field">
             Hours
             <input value={co.hours} inputMode="numeric" style={{ width: 70 }} onChange={(e) => setCo({ ...co, hours: e.target.value })} />
           </label>
+          <label className="field">
+            Approved by
+            <input value={co.approvedBy} style={{ width: 140 }} placeholder="Customer contact" onChange={(e) => setCo({ ...co, approvedBy: e.target.value })} />
+          </label>
+          <label className="field">
+            Approved on
+            <input type="date" value={co.approvedOn} onChange={(e) => setCo({ ...co, approvedOn: e.target.value })} />
+          </label>
           <button
             className="btn sec"
-            disabled={!co.number.trim() || !co.amount.trim()}
+            disabled={!co.number.trim() || !co.amount.trim() || !co.approvedBy.trim() || !co.approvedOn}
             onClick={async () => {
               const amountCents = toCents(co.amount);
               const materialCents = co.material.trim() ? toCents(co.material) : 0;
-              if (!Number.isFinite(amountCents) || !Number.isFinite(materialCents)) return void run(() => Promise.reject(new Error("Enter amounts in dollars.")));
+              const materialCostCents = co.materialCost.trim() ? toCents(co.materialCost) : 0;
+              if (![amountCents, materialCents, materialCostCents].every(Number.isFinite)) return void run(() => Promise.reject(new Error("Enter amounts in dollars.")));
               const ok = await run(
-                () => repo.addChangeOrder({ jobId: job.id, number: co.number.trim(), description: co.description.trim(), amountCents, materialCents, hours: Math.round(Number(co.hours) || 0), approvedOn: today }),
+                () => repo.addChangeOrder({
+                    jobId: job.id,
+                    number: co.number.trim(),
+                    description: co.description.trim(),
+                    amountCents,
+                    materialCents,
+                    materialCostCents,
+                    hours: Math.round(Number(co.hours) || 0),
+                    approvedOn: co.approvedOn,
+                    approvedBy: co.approvedBy.trim(),
+                  }),
                 "Change order added.",
               );
-              if (ok) setCo({ number: "", description: "", amount: "", material: "", hours: "" });
+              if (ok) setCo({ number: "", description: "", amount: "", material: "", materialCost: "", hours: "", approvedBy: "", approvedOn: today });
             }}
           >
             Add approved CO
@@ -361,6 +389,7 @@ export function BillingPanel({ ctx, job, open }: { ctx: Ctx; job: Job; open?: bo
                   <th>Type</th>
                   <th>Date</th>
                   <th className="r">Amount</th>
+                  {job.retainagePct > 0 && <th className="r">Retainage held</th>}
                 </tr>
               </thead>
               <tbody>
@@ -370,6 +399,7 @@ export function BillingPanel({ ctx, job, open }: { ctx: Ctx; job: Job; open?: bo
                     <td>{i.kind === "progress" ? `Progress, ${monthLabel(i.period!, true)}` : i.kind === "milestone" ? `Milestone: ${milestones.find((x) => x.id === i.milestoneId)?.label ?? ""}` : "Final"}</td>
                     <td>{fmtShort(i.invoicedOn)}</td>
                     <td className="r num">{usd(i.amountCents)}</td>
+                    {job.retainagePct > 0 && <td className="r num">{usd(i.retainageCents)}</td>}
                   </tr>
                 ))}
               </tbody>

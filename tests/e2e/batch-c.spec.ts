@@ -50,7 +50,11 @@ test("a PM marks a milestone reached and adds a change order; reps can't record 
   await dlg.getByLabel("CO number").fill("CO-3");
   await dlg.getByLabel("Description").fill("Extra coat on tank 2");
   await dlg.getByLabel("Amount ($)").fill("12000");
+  await dlg.getByLabel("Of which materials ($)").fill("3000");
+  await dlg.getByLabel("Materials cost ($)").fill("1800");
   await dlg.getByLabel("Hours").fill("40");
+  await expect(dlg.getByRole("button", { name: "Add approved CO" })).toBeDisabled();
+  await dlg.getByLabel("Approved by").fill("Plant engineer");
   await dlg.getByRole("button", { name: "Add approved CO" }).click();
   await expect(page.getByText("Change order added.")).toBeVisible();
   await expect(dlg.getByRole("cell", { name: "Extra coat on tank 2" })).toBeVisible();

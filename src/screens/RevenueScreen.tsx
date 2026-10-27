@@ -251,7 +251,7 @@ export function RevenueScreen({ ctx }: { ctx: Ctx }) {
       </div>
       <p className="note">
         Review rows sort to the top: percentages not updated at this week’s meeting, a labor % {s.laborDivergencePts}+ points from what hours suggest, or margin down {s.marginFadePts}+ points from bid. GP now
-        uses hours at completion at {usd(s.burdenedRateCents)}/hr labor cost plus the estimate’s material cost and change orders. Over-billed is cash ahead of the work; under-billed is work not yet
+        uses hours at completion at the burdened labor rate the job was set up with, plus material cost; both include approved change orders. Over-billed is cash ahead of the work; under-billed is work not yet
         invoiced.
       </p>
       {openJob && <JobDialog ctx={ctx} jobId={openJob} onClose={() => setOpenJob(null)} />}

@@ -47,3 +47,29 @@ describe("journey checkpoints added later", () => {
     expect(jy.isDone(future, added)).toBe(false);
   });
 });
+
+describe("money fixes", () => {
+  it("bid margin uses the job's own labor rate and includes change orders at their cost", async () => {
+    const { Money } = await import("../../src/domain/money");
+    const { buildIndex } = await import("../../src/domain/schedule");
+    const j = job({ burdenedRateCents: 5500, contractCents: 6_000_000, materialCostCents: 1_000_000, estimateHrs: 400 });
+    const base = dataset({ jobs: [j] });
+    const m0 = new Money(base, buildIndex(base), "2026-10-30", "2026-10-27");
+    expect(m0.gpBid(j)).toBeCloseTo(1 - (1_000_000 + 400 * 5500) / 6_000_000, 9);
+    const raised = { ...base, settings: { ...base.settings, burdenedRateCents: 9000 } };
+    expect(new Money(raised, buildIndex(raised), "2026-10-30", "2026-10-27").gpBid(j)).toBeCloseTo(m0.gpBid(j), 9);
+    const co = { id: "c", jobId: j.id, number: "CO-1", description: "", amountCents: 500_000, materialCents: 300_000, materialCostCents: 180_000, hours: 20, approvedOn: "2026-10-20", approvedBy: "Owner" };
+    const withCo = { ...base, changeOrders: [co] };
+    const m1 = new Money(withCo, buildIndex(withCo), "2026-10-30", "2026-10-27");
+    expect(m1.materialCost(j)).toBe(1_180_000);
+    expect(m1.gpBid(j)).toBeCloseTo(1 - (1_180_000 + 420 * 5500) / 6_500_000, 9);
+  });
+  it("retainage outstanding is what was held on each invoice, less what was received", async () => {
+    const { Money } = await import("../../src/domain/money");
+    const { buildIndex } = await import("../../src/domain/schedule");
+    const j = job({ retainagePct: 10, billingMethod: "monthly" });
+    const inv = { id: "i", jobId: j.id, kind: "progress" as const, period: "2026-09", milestoneId: null, number: "26-1", amountCents: 1_000_000, retainageCents: 50_000, invoicedOn: "2026-09-25", recordedBy: "x" };
+    const ds = dataset({ jobs: [j], invoices: [inv], retainageReceipts: [{ id: "r", jobId: j.id, amountCents: 20_000, receivedOn: "2026-10-01" }] });
+    expect(new Money(ds, buildIndex(ds), "2026-10-30", "2026-10-27").retainageOutstanding(j)).toBe(30_000);
+  });
+});

@@ -18,7 +18,7 @@ import { addDays, currentWeek, fmtShort, mondayOf, planningWeek, todayIn, weekLi
 import { buildSample, type SampleData } from "../sample/seed";
 import type { AccessUser, LoadResult, NewJobInput, Repo } from "./repo";
 
-const KEY = "tmi-ops-sample-v3";
+const KEY = "tmi-ops-sample-v4";
 
 const uid = () => crypto.randomUUID();
 const denied = () => new Error("You don't have permission to make that change.");
@@ -98,30 +98,30 @@ export class SampleRepo implements Repo {
     const cp = today.slice(0, 7);
     if (due.length && !st["bill-period|" + cp]) {
       st["bill-period|" + cp] = "sent";
-      this.push([{ rule: "bill", title: `Progress billing for ${monthLabel(cp, true)}: ${due.length} job${due.length > 1 ? "s" : ""}`, body: due.map((j) => `${j.number} ${j.customer}`).join("\n") + `\nPay applications due by the ${d.settings.payAppDay}th.`, recipients: ["Accounting", "Jared"], jobId: null, personId: null }]);
+      this.push([{ rule: "bill", title: `Progress billing for ${monthLabel(cp, true)}: ${due.length} job${due.length > 1 ? "s" : ""}`, body: due.map((j) => `${j.number} ${j.customer}: ${m.progressDue(j).map((p) => monthLabel(p)).join(", ")}, suggested ${usd(m.progressSuggest(j))}`).join("\n") + `\nPay applications due by the ${d.settings.payAppDay}th.`, recipients: ["Accounting", "CFO"], jobId: null, personId: null }]);
     }
     for (const j of due)
       for (const p of m.progressDue(j).filter((x) => m.progressLate(x))) {
         const k = `bill-late|${j.id}|${p}`;
         if (st[k]) continue;
         st[k] = "sent";
-        this.push([{ rule: "bill", title: `Progress invoice late: ${j.number} ${j.customer}`, body: `${monthLabel(p, true)} was due ${fmtShort(m.payDue(p))}.`, recipients: ["Accounting", "Jared", "Leadership"], jobId: j.id, personId: null }]);
+        this.push([{ rule: "bill", title: `Progress invoice late: ${j.number} ${j.customer}`, body: `${monthLabel(p, true)} was due ${fmtShort(m.payDue(p))}. ${usd(m.progressSuggest(j))} recognized but not billed.`, recipients: ["Accounting", "CFO", "Leadership"], jobId: j.id, personId: null }]);
       }
     for (const j of d.jobs.filter((x) => x.status === "complete" && !m.finalInvoice(x))) {
       const pm = "PM " + n.pm(j.pmCode);
       if (!m.signedOff(j)) {
         if (st["bill-wait|" + j.id]) continue;
         st["bill-wait|" + j.id] = "sent";
-        this.push([{ rule: "bill", title: `Complete, waiting on sign-off: ${j.number} ${j.customer}`, body: `The job is complete but the customer hasn’t signed off at the final walk. ${pm} to get the sign-off so accounting can invoice.`, recipients: ["Accounting", "Jared", pm], jobId: j.id, personId: null }]);
+        this.push([{ rule: "bill", title: `Complete, waiting on sign-off: ${j.number} ${j.customer}`, body: `The job is complete but the customer hasn’t signed off at the final walk. ${pm} to get the sign-off so accounting can invoice.`, recipients: ["Accounting", "CFO", pm], jobId: j.id, personId: null }]);
         continue;
       }
       if (!st["bill-ready|" + j.id]) {
         st["bill-ready|" + j.id] = "sent";
-        this.push([{ rule: "bill", title: `Ready to invoice: ${j.number} ${j.customer}`, body: `Job complete ${fmtShort(j.actualFinish ?? j.projectedFinish)} and signed off by the customer.\nFinal invoice ${usd(m.toBill(j))}.\nInvoice due by ${fmtShort(m.invoiceDue(j)!)}.`, recipients: ["Accounting", "Jared", pm, "Leadership"], jobId: j.id, personId: null }]);
+        this.push([{ rule: "bill", title: `Ready to invoice: ${j.number} ${j.customer}`, body: `Job complete ${fmtShort(j.actualFinish ?? j.projectedFinish)} and signed off by the customer.\nFinal invoice ${usd(m.toBill(j))}${j.retainagePct > 0 ? `, retainage held ${usd(Math.round((m.toBill(j) * j.retainagePct) / 100))}` : ""}. PO ${j.customerPo || "not on file"}.\nInvoice due by ${fmtShort(m.invoiceDue(j)!)}.`, recipients: ["Accounting", "CFO", pm, "Leadership"], jobId: j.id, personId: null }]);
       }
       if (m.invoiceLate(j) && !st["bill-inv-late|" + j.id]) {
         st["bill-inv-late|" + j.id] = "sent";
-        this.push([{ rule: "bill", title: `Invoice late: ${j.number} ${j.customer}`, body: `Ready to invoice since ${fmtShort(m.readyOn(j)!)}; it was due ${fmtShort(m.invoiceDue(j)!)}.`, recipients: ["Accounting", "Jared", "Leadership"], jobId: j.id, personId: null }]);
+        this.push([{ rule: "bill", title: `Invoice late: ${j.number} ${j.customer}`, body: `Ready to invoice since ${fmtShort(m.readyOn(j)!)}; it was due ${fmtShort(m.invoiceDue(j)!)}. ${usd(m.toBill(j))} not yet billed.`, recipients: ["Accounting", "CFO", "Leadership"], jobId: j.id, personId: null }]);
       }
     }
   }
@@ -167,7 +167,7 @@ export class SampleRepo implements Repo {
   private recordOutcome(j: Job) {
     const d = this.s.data;
     const m = this.money();
-    const rate = d.settings.burdenedRateCents;
+    const rate = j.burdenedRateCents;
     const act = d.actuals.filter((a) => a.jobId === j.id).reduce((a, x) => a + x.hours, 0);
     const finished = j.actualFinish ?? todayIn(new Date());
     const o = {
@@ -182,7 +182,7 @@ export class SampleRepo implements Repo {
       estimateHrs: j.estimateHrs,
       actualHrs: act,
       contractCents: m.contract(j),
-      gpBid: 1 - (j.materialCostCents + j.estimateHrs * rate) / Math.max(1, j.contractCents),
+      gpBid: m.gpBid(j),
       gpFinal: 1 - (m.materialCost(j) + act * rate) / Math.max(1, m.contract(j)),
       onTime: finished <= (j.mustFinish ?? j.baselineFinish),
       cause: null,
@@ -365,6 +365,7 @@ export class SampleRepo implements Repo {
       id: uid(),
       projectedHrs: input.estimateHrs,
       materialRevenueCents: materialRevenueCents(input.contractCents, input.materialCostCents, input.estimateHrs, this.d.settings.burdenedRateCents),
+      burdenedRateCents: this.d.settings.burdenedRateCents,
       baselineFinish: input.projectedFinish,
       actualFinish: null,
       firmnessReason: null,
@@ -835,6 +836,7 @@ export class SampleRepo implements Repo {
     const j = this.job(co.jobId);
     if (!canEditJob(v, j, "changeOrders")) throw new Error("Only the job's PM, job setup or an admin enters change orders.");
     if (!co.number.trim()) throw new Error("Enter the change order number.");
+    if (!co.approvedBy.trim()) throw new Error("Enter who approved the change order.");
     this.d.changeOrders.push({ ...co, id: uid() });
     this.log("change_orders", co.jobId, "Job " + j.number, "added", null, `${co.number}: ${usd(co.amountCents)}, ${co.hours} hrs`);
     if (co.hours) {
@@ -883,7 +885,7 @@ export class SampleRepo implements Repo {
     ms.reachedBy = v.name;
     const amt = this.money().milestoneAmount(j, ms);
     this.log("milestones", ms.id, "Job " + j.number, ms.label, "not reached", "reached");
-    this.push([{ rule: "bill", title: `Milestone reached: ${j.number} ${j.customer}`, body: `${ms.label} (${Math.round(ms.pct)}%, ${usd(amt)}). Ready to invoice.\nMarked by ${v.name}.`, recipients: ["Accounting", "Jared", "PM " + this.names().pm(j.pmCode)], jobId: j.id, personId: null }]);
+    this.push([{ rule: "bill", title: `Milestone reached: ${j.number} ${j.customer}`, body: `${ms.label} (${Math.round(ms.pct)}%, ${usd(amt)}). Ready to invoice.\nMarked by ${v.name}.`, recipients: ["Accounting", "CFO", "PM " + this.names().pm(j.pmCode)], jobId: j.id, personId: null }]);
     this.save();
   }
 
@@ -897,12 +899,17 @@ export class SampleRepo implements Repo {
     if (inv.kind !== "skip" && !num) throw new Error("Enter the invoice number from Sage.");
     const today = todayIn(new Date());
     let amt = inv.amountCents ?? 0;
+    if (inv.kind === "progress" || inv.kind === "final") {
+      if (!Number.isFinite(amt) || amt <= 0) throw new Error("Enter the invoice amount in dollars.");
+      if (amt > m.toBill(j)) throw new Error(`That's more than the ${usd(m.toBill(j))} left to bill on this job.`);
+    }
     const base = { id: uid(), jobId: j.id, number: num, invoicedOn: today, recordedBy: v.name, period: null as string | null, milestoneId: null as string | null };
-    const to = ["Jared", "PM " + n.pm(j.pmCode), n.rep(j.repCode)];
+    const held = (a: number) => Math.round((a * j.retainagePct) / 100);
+    const to = ["CFO", "PM " + n.pm(j.pmCode), n.rep(j.repCode)];
     if (inv.kind === "final") {
       if (j.status !== "complete" || !m.signedOff(j)) throw new Error("The final invoice waits for the job to be complete and signed off by the customer.");
       if (m.finalInvoice(j)) throw new Error("This job already has its final invoice.");
-      this.d.invoices.push({ ...base, kind: "final", amountCents: amt });
+      this.d.invoices.push({ ...base, kind: "final", amountCents: amt, retainageCents: held(amt) });
       const ret = this.money().retainageOutstanding(j);
       this.push([{ rule: "bill", title: `Invoiced: ${j.number} ${j.customer}`, body: `Final invoice ${num} for ${usd(amt)}.${j.retainagePct > 0 ? ` Retainage ${usd(ret)} still outstanding.` : ""}\nRecorded by ${v.name}.`, recipients: [...to, "Leadership"], jobId: j.id, personId: null }]);
     } else if (inv.kind === "milestone") {
@@ -910,12 +917,12 @@ export class SampleRepo implements Repo {
       if (!ms?.reachedOn) throw new Error("That milestone hasn't been reached.");
       if (m.milestoneInvoice(ms)) throw new Error("That milestone is already invoiced.");
       amt = m.milestoneAmount(j, ms);
-      this.d.invoices.push({ ...base, kind: "milestone", milestoneId: ms.id, amountCents: amt });
+      this.d.invoices.push({ ...base, kind: "milestone", milestoneId: ms.id, amountCents: amt, retainageCents: held(amt) });
       this.push([{ rule: "bill", title: `Milestone invoiced: ${j.number} ${j.customer}`, body: `${ms.label}: invoice ${num} for ${usd(amt)}.\nRecorded by ${v.name}.`, recipients: to, jobId: j.id, personId: null }]);
     } else {
       if (j.billingMethod !== "monthly") throw new Error("This job isn't billed monthly.");
       if (!inv.period || !m.progressDue(j).includes(inv.period)) throw new Error("That month is already billed.");
-      this.d.invoices.push({ ...base, kind: inv.kind, period: inv.period, amountCents: inv.kind === "skip" ? 0 : amt });
+      this.d.invoices.push({ ...base, kind: inv.kind, period: inv.period, amountCents: inv.kind === "skip" ? 0 : amt, retainageCents: inv.kind === "skip" ? 0 : held(amt) });
       if (inv.kind === "progress")
         this.push([{ rule: "bill", title: `Progress invoiced: ${j.number} ${j.customer}`, body: `${monthLabel(inv.period, true)}: invoice ${num} for ${usd(amt)}.\nRecorded by ${v.name}.`, recipients: to, jobId: j.id, personId: null }]);
     }

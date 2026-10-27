@@ -30,6 +30,7 @@ const JOB_MAP: Record<keyof Omit<Job, "requirements">, string> = {
   contractCents: "contract_cents",
   materialCostCents: "material_cost_cents",
   materialRevenueCents: "material_revenue_cents",
+  burdenedRateCents: "burdened_rate_cents",
   start: "start",
   projectedFinish: "projected_finish",
   baselineFinish: "baseline_finish",
@@ -58,7 +59,7 @@ const JOB_MAP: Record<keyof Omit<Job, "requirements">, string> = {
   sitePpe: "site_ppe",
   active: "active",
 };
-const NUMERIC: (keyof Job)[] = ["contractCents", "materialCostCents", "materialRevenueCents", "retainagePct"];
+const NUMERIC: (keyof Job)[] = ["contractCents", "materialCostCents", "materialRevenueCents", "burdenedRateCents", "retainagePct"];
 
 function rowToJob(r: Row, reqs: string[]): Job {
   const j = Object.fromEntries(Object.entries(JOB_MAP).map(([k, col]) => [k, r[col]])) as unknown as Job;
@@ -217,8 +218,10 @@ export class SupabaseRepo implements Repo {
         description: r.description,
         amountCents: Number(r.amount_cents),
         materialCents: Number(r.material_cents),
+        materialCostCents: Number(r.material_cost_cents),
         hours: r.hours,
         approvedOn: r.approved_on,
+        approvedBy: r.approved_by ?? "",
       })),
       milestones: (check(mss) as Row[]).map((r) => ({ id: r.id, jobId: r.job_id, label: r.label, pct: Number(r.pct), sort: r.sort, reachedOn: r.reached_on, reachedBy: r.reached_by })),
       invoices: (check(invs) as Row[]).map((r) => ({
@@ -229,6 +232,7 @@ export class SupabaseRepo implements Repo {
         milestoneId: r.milestone_id,
         number: r.number,
         amountCents: Number(r.amount_cents),
+        retainageCents: Number(r.retainage_cents),
         invoicedOn: r.invoiced_on,
         recordedBy: r.recorded_by,
       })),
@@ -546,6 +550,7 @@ const blankJob: Omit<Job, "id" | "number" | "projectedHrs" | "start" | "projecte
   contractCents: 0,
   materialCostCents: 0,
   materialRevenueCents: 0,
+  burdenedRateCents: 0,
   mustFinish: null,
   mustFinishReason: null,
   actualFinish: null,

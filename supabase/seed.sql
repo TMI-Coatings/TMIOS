@@ -1251,12 +1251,12 @@ insert into public.milestones (id, job_id, label, pct, sort, reached_on, reached
   ('00000000-0000-4000-8008-000000000005', '00000000-0000-4000-8002-00000000000f', 'Surface prep complete', 30, 2, null, null),
   ('00000000-0000-4000-8008-000000000006', '00000000-0000-4000-8002-00000000000f', 'Coatings applied', 40, 3, null, null);
 
-insert into public.invoices (id, job_id, kind, period, milestone_id, number, amount_cents, invoiced_on, recorded_by) values
-  ('00000000-0000-4000-8007-000000000001', '00000000-0000-4000-8002-000000000001', 'progress', '2026-10', null, '26-1150', 6640000, '2026-10-25', 'Patrick Leaon'),
-  ('00000000-0000-4000-8007-000000000002', '00000000-0000-4000-8002-000000000002', 'milestone', null, '00000000-0000-4000-8008-000000000001', '26-1151', 4050000, '2026-10-23', 'Patrick Leaon'),
-  ('00000000-0000-4000-8007-000000000003', '00000000-0000-4000-8002-000000000065', 'progress', '2026-09', null, '26-1152', 15900000, '2026-09-28', 'Patrick Leaon'),
-  ('00000000-0000-4000-8007-000000000004', '00000000-0000-4000-8002-000000000067', 'final', null, null, '26-1153', 17400000, '2026-10-02', 'Patrick Leaon'),
-  ('00000000-0000-4000-8007-000000000005', '00000000-0000-4000-8002-000000000068', 'final', null, null, '26-1154', 5800000, '2026-09-25', 'Patrick Leaon');
+insert into public.invoices (id, job_id, kind, period, milestone_id, number, amount_cents, retainage_cents, invoiced_on, recorded_by) values
+  ('00000000-0000-4000-8007-000000000001', '00000000-0000-4000-8002-000000000001', 'progress', '2026-10', null, '26-1150', 6640000, 0, '2026-10-25', 'Patrick Leaon'),
+  ('00000000-0000-4000-8007-000000000002', '00000000-0000-4000-8002-000000000002', 'milestone', null, '00000000-0000-4000-8008-000000000001', '26-1151', 4050000, 0, '2026-10-23', 'Patrick Leaon'),
+  ('00000000-0000-4000-8007-000000000003', '00000000-0000-4000-8002-000000000065', 'progress', '2026-09', null, '26-1152', 15900000, 795000, '2026-09-28', 'Patrick Leaon'),
+  ('00000000-0000-4000-8007-000000000004', '00000000-0000-4000-8002-000000000067', 'final', null, null, '26-1153', 17400000, 870000, '2026-10-02', 'Patrick Leaon'),
+  ('00000000-0000-4000-8007-000000000005', '00000000-0000-4000-8002-000000000068', 'final', null, null, '26-1154', 5800000, 0, '2026-09-25', 'Patrick Leaon');
 
 
 insert into public.closeout_outcomes (id, job_id, number, customer, job_type, leader_id, pm_code, finished_on, estimate_hrs, actual_hrs, contract_cents, gp_bid, gp_final, on_time, cause, illustrative) values

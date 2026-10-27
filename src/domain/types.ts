@@ -60,6 +60,8 @@ export interface Job {
   materialCostCents: number;
   /** Frozen at intake (decision 22). */
   materialRevenueCents: number;
+  /** Burdened labor rate when the job was set up; frozen so a rate change never rewrites its margin (decision 22). */
+  burdenedRateCents: number;
   start: IsoDate;
   projectedFinish: IsoDate;
   baselineFinish: IsoDate;

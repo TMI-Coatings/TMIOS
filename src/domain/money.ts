@@ -19,9 +19,13 @@ export interface ChangeOrder {
   number: string;
   description: string;
   amountCents: number;
+  /** Materials revenue in the change order. */
   materialCents: number;
+  /** What those materials cost TMI. */
+  materialCostCents: number;
   hours: number;
   approvedOn: IsoDate;
+  approvedBy: string;
 }
 export interface Milestone {
   id: string;
@@ -41,6 +45,8 @@ export interface Invoice {
   milestoneId: string | null;
   number: string | null;
   amountCents: number;
+  /** Retainage the customer holds on this invoice, at the job's retainage % when it was billed (decision 17). */
+  retainageCents: number;
   invoicedOn: IsoDate;
   recordedBy: string;
 }
@@ -69,7 +75,9 @@ export class Money {
   contract = (j: Job) => j.contractCents + this.cos(j).reduce((a, c) => a + c.amountCents, 0);
   materialRev = (j: Job) => j.materialRevenueCents + this.cos(j).reduce((a, c) => a + c.materialCents, 0);
   laborRev = (j: Job) => this.contract(j) - this.materialRev(j);
-  materialCost = (j: Job) => j.materialCostCents + this.cos(j).reduce((a, c) => a + c.materialCents, 0);
+  materialCost = (j: Job) => j.materialCostCents + this.cos(j).reduce((a, c) => a + c.materialCostCents, 0);
+  /** The estimate plus approved change orders, at the job's frozen labor rate. */
+  budgetCost = (j: Job) => this.materialCost(j) + (j.estimateHrs + this.cos(j).reduce((a, c) => a + c.hours, 0)) * j.burdenedRateCents;
   latest(j: Job): PercentEntry | undefined {
     return this.ds.percents.filter((p) => p.jobId === j.id).sort((a, b) => b.week.localeCompare(a.week))[0];
   }
@@ -85,16 +93,17 @@ export class Money {
   billed = (j: Job) => this.ds.invoices.filter((i) => i.jobId === j.id && i.kind !== "skip").reduce((a, i) => a + i.amountCents, 0);
   overUnder = (j: Job) => this.billed(j) - this.recognized(j);
   remaining = (j: Job) => Math.max(0, this.contract(j) - this.recognized(j));
-  retainageOutstanding = (j: Job) =>
-    Math.max(0, Math.round((this.billed(j) * j.retainagePct) / 100) - this.ds.retainageReceipts.filter((r) => r.jobId === j.id).reduce((a, r) => a + r.amountCents, 0));
+  retainageHeld = (j: Job) => this.ds.invoices.filter((i) => i.jobId === j.id && i.kind !== "skip").reduce((a, i) => a + i.retainageCents, 0);
+  retainageOutstanding = (j: Job) => Math.max(0, this.retainageHeld(j) - this.ds.retainageReceipts.filter((r) => r.jobId === j.id).reduce((a, r) => a + r.amountCents, 0));
   suggestLabor(j: Job): number {
     const a = actualToDate(this.idx, j);
     return a ? Math.min(1, a / Math.max(eac(this.idx, j), 1)) : 0;
   }
   diverges = (j: Job) => isSold(j) && actualToDate(this.idx, j) > 0 && Math.abs(this.labDone(j) - this.suggestLabor(j)) > this.ds.settings.laborDivergencePts / 100;
   stale = (j: Job) => isSold(j) && j.start <= this.week && this.latest(j)?.week !== this.week;
-  gpBid = (j: Job) => 1 - (j.materialCostCents + j.estimateHrs * this.ds.settings.burdenedRateCents) / Math.max(1, j.contractCents);
-  gpNow = (j: Job) => 1 - (this.materialCost(j) + eac(this.idx, j) * this.ds.settings.burdenedRateCents) / Math.max(1, this.contract(j));
+  /** Bid margin, with approved change orders at their own margin, so fade measures the field, not the COs. */
+  gpBid = (j: Job) => 1 - this.budgetCost(j) / Math.max(1, this.contract(j));
+  gpNow = (j: Job) => 1 - (this.materialCost(j) + eac(this.idx, j) * j.burdenedRateCents) / Math.max(1, this.contract(j));
   fade = (j: Job) => this.gpNow(j) - this.gpBid(j);
   forReview = (j: Job) => isSold(j) && (this.stale(j) || this.diverges(j) || this.fade(j) < -this.ds.settings.marginFadePts / 100);
 
@@ -197,7 +206,7 @@ export function revenueByPeriod(ds: Dataset, m: Money, plans: Plans, week: IsoDa
     const w = addDays(week, 7 * (i - 4));
     return { key: w, label: w, actual: 0, lab: 0, mat: 0, current: i === 4 };
   });
-  for (const r of rows) if (r.key < week) r.actual = jobs.reduce((a, j) => a + m.recognizedAsOf(j, r.key) - m.recognizedAsOf(j, addDays(r.key, -7)), 0);
+  for (const r of rows) if (r.key <= week) r.actual = jobs.reduce((a, j) => a + m.recognizedAsOf(j, r.key) - m.recognizedAsOf(j, addDays(r.key, -7)), 0);
   for (const j of jobs)
     for (const [w, f] of m.forecast(j, plans)) {
       const r = rows.find((x) => x.key === w);

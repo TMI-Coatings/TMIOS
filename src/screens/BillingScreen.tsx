@@ -19,6 +19,8 @@ export function BillingScreen({ ctx }: { ctx: Ctx }) {
   const ready = by("ready");
   const wait = by("wait");
   const ret = by("ret");
+  // Retainage receivable includes what customers hold on progress and milestone invoices, not just finished jobs.
+  const held = ds.jobs.filter((j) => m.retainageOutstanding(j) > 0);
   const closed = by("closed")
     .sort((a, b) => (m.finalInvoice(b)?.invoicedOn ?? "").localeCompare(m.finalInvoice(a)?.invoicedOn ?? ""))
     .slice(0, 8);
@@ -90,9 +92,9 @@ export function BillingScreen({ ctx }: { ctx: Ctx }) {
           <div className="l">Complete, waiting on customer sign-off</div>
         </div>
         <div className="kpi">
-          <div className="v num">{usd(ret.reduce((a, j) => a + m.retainageOutstanding(j), 0))}</div>
+          <div className="v num">{usd(held.reduce((a, j) => a + m.retainageOutstanding(j), 0))}</div>
           <div className="l">
-            Retainage outstanding on {ret.length} job{ret.length === 1 ? "" : "s"}
+            Retainage outstanding on {held.length} job{held.length === 1 ? "" : "s"}, finished and running
           </div>
         </div>
       </div>

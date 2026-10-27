@@ -90,7 +90,7 @@ const UPDATE: Record<JobField, Stmt> = {
   pinNotes: (q, j) => q("update public.job_notes set pinned = not pinned where job_id = $1", [j.id]),
   actuals: (q, j) => q("insert into public.hour_entries (job_id, week, hours) values ($1, $2, 40)", [j.id, TEST_WEEK]),
   percent: (q, j) => q("select public.record_percent($1, 50, 40)", [j.id]),
-  changeOrders: (q, j) => q("select public.add_change_order($1)", [{ jobId: j.id, number: "CO-9", amountCents: 100000, hours: 10 }]),
+  changeOrders: (q, j) => q("select public.add_change_order($1)", [{ jobId: j.id, number: "CO-9", amountCents: 100000, hours: 10, approvedBy: "Customer" }]),
   milestones: (q, j) => q("select public.mark_milestone_reached((select id from public.milestones where job_id = $1 and label = 'Test milestone'))", [j.id]),
 };
 

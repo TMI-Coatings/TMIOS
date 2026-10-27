@@ -152,7 +152,7 @@ describe("percent complete and change orders", () => {
     const pm = user("pm");
     const j = sample.jobs.find((x) => x.pmCode === pm.pmCode && x.status === "active")!;
     const r = await as(pm, async (q) => {
-      await q("select public.add_change_order($1)", [{ jobId: j.id, number: "CO-1", description: "Third boom lift", amountCents: 1200000, hours: 40 }]);
+      await q("select public.add_change_order($1)", [{ jobId: j.id, number: "CO-1", description: "Third boom lift", amountCents: 1200000, materialCents: 400000, materialCostCents: 250000, hours: 40, approvedBy: "Plant engineer" }]);
       await q("reset role");
       return q(
         "select j.projected_hrs, app.contract_cents(j) val, (select count(*)::int from public.change_log where table_name = 'change_orders') logged from public.jobs j where id = $1",
@@ -161,5 +161,75 @@ describe("percent complete and change orders", () => {
     });
     expect(r.ok ? "" : r.error).toBe("");
     expect(r.ok && r.rows[0]).toEqual({ projected_hrs: j.projectedHrs + 40, val: String(j.contractCents + 1200000), logged: 1 });
+  });
+});
+
+describe("money fixes from the demo review", () => {
+  it("bid and current margin match the screens for every job", async () => {
+    for (const j of sample.jobs) {
+      const { rows } = await db.query("select app.gp_bid(j) bid from public.jobs j where id = $1", [j.id]);
+      expect(Number(rows[0].bid), j.number).toBeCloseTo(money.gpBid(j), 6);
+    }
+  });
+  it("a new burdened rate leaves existing jobs' margins alone", async () => {
+    const j = sample.jobs.find((x) => x.status === "active")!;
+    const r = await as(user("admin"), async (q) => {
+      await q("update public.settings set value = '7000' where key = 'burdenedRateCents'");
+      await attempt(q, "update public.jobs set burdened_rate_cents = 1 where id = $1", [j.id]);
+      await q("reset role");
+      const before = { g: String(money.gpBid(j)), r: String(j.burdenedRateCents) };
+      const after = (await q("select app.gp_bid(j) g, burdened_rate_cents r from public.jobs j where id = $1", [j.id])).rows[0];
+      return { rows: { before, after } } as never;
+    });
+    expect(r.ok ? "" : r.error).toBe("");
+    const x = r.ok ? (r.rows as unknown as { before: { g: string; r: string }; after: { g: string; r: string } }) : null;
+    expect(Number(x!.after.g)).toBeCloseTo(Number(x!.before.g), 6);
+    expect(Number(x!.after.r)).toBe(Number(x!.before.r));
+  });
+  it("change-order materials carry their own cost, not their price", async () => {
+    const pm = user("pm");
+    const j = sample.jobs.find((x) => x.pmCode === pm.pmCode && x.status === "active")!;
+    const r = await as(pm, async (q) => {
+      await q("select public.add_change_order($1)", [{ jobId: j.id, number: "CO-7", amountCents: 500000, materialCents: 300000, materialCostCents: 180000, hours: 0, approvedBy: "Owner" }]);
+      const noBy = await attempt(q, "select public.add_change_order($1)", [{ jobId: j.id, number: "CO-8", amountCents: 1, hours: 0 }]);
+      await q("reset role");
+      const after = Number((await q("select app.material_cost_cents(j) c from public.jobs j where id = $1", [j.id])).rows[0].c);
+      return { rows: { added: after - money.materialCost(j), noBy } } as never;
+    });
+    expect(r.ok ? "" : r.error).toBe("");
+    expect(r.ok && r.rows).toEqual({ added: 180000, noBy: "Enter who approved the change order" });
+  });
+  it("retainage is held per invoice, so a later % change doesn't restate it", async () => {
+    const j = sample.jobs.find((x) => sample.invoices.some((i) => i.jobId === x.id && i.retainageCents > 0))!;
+    const r = await as(user("admin"), async (q) => {
+      await q("update public.jobs set retainage_pct = 10 where id = $1", [j.id]);
+      await q("reset role");
+      const before = String(money.retainageOutstanding(j));
+      const after = (await q("select app.retainage_outstanding_cents(j) o from public.jobs j where id = $1", [j.id])).rows[0].o;
+      return { rows: { before, after } } as never;
+    });
+    expect(r.ok ? "" : r.error).toBe("");
+    const x = r.ok ? (r.rows as unknown as { before: string; after: string }) : null;
+    expect(Number(x!.after)).toBe(Number(x!.before));
+  });
+  it("an invoice can't be empty or bill more than is left on the contract", async () => {
+    const j = sample.jobs.find((x) => x.billingMethod === "monthly" && x.status !== "complete" && money.progressDue(x).length)!;
+    const p = money.progressDue(j)[0];
+    const r = await as(user("accounting"), async (q) => ({ rows: {
+      zero: await attempt(q, "select public.record_invoice($1)", [{ jobId: j.id, kind: "progress", period: p, number: "26-9001", amountCents: 0 }]),
+      over: await attempt(q, "select public.record_invoice($1)", [{ jobId: j.id, kind: "progress", period: p, number: "26-9002", amountCents: money.contract(j) * 2 }]),
+    } }) as never);
+    expect(r.ok ? "" : r.error).toBe("");
+    expect(r.ok && (r.rows as unknown as { zero: string }).zero).toBe("Enter the invoice amount in dollars");
+    expect(r.ok && (r.rows as unknown as { over: string }).over).toMatch(/^That's more than the \$.* left to bill on this job$/);
+  });
+  it("billing alerts go to the CFO role, with the demo's detail", async () => {
+    const { rows } = await db.query("select title, body, recipients from public.alerts where rule = 'bill' order by title");
+    expect(rows.length).toBeGreaterThan(0);
+    for (const a of rows) expect(a.recipients, a.title).not.toContain("Jared");
+    const period = rows.find((a) => a.title.startsWith("Progress billing for"));
+    if (period) expect(period.body).toMatch(/suggested \$/);
+    const late = rows.find((a) => a.title.startsWith("Progress invoice late"));
+    if (late) expect(late.body).toMatch(/recognized but not billed\.$/);
   });
 });

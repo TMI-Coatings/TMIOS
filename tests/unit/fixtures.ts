@@ -20,6 +20,7 @@ export function job(over: Partial<Job> = {}): Job {
     contractCents: 6_000_000,
     materialCostCents: 1_000_000,
     materialRevenueCents: 1_500_000,
+    burdenedRateCents: 5500,
     start: "2026-10-26",
     projectedFinish: "2026-11-20",
     baselineFinish: "2026-11-20",

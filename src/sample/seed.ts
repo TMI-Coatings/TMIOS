@@ -234,6 +234,7 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
       contractCents,
       materialCostCents,
       materialRevenueCents: materialRevenueCents(contractCents, materialCostCents, est, DEFAULT_SETTINGS.burdenedRateCents),
+      burdenedRateCents: DEFAULT_SETTINGS.burdenedRateCents,
       start,
       projectedFinish: finish,
       baselineFinish: finish,
@@ -531,7 +532,19 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
   let iv = 1;
   let invNo = 1150;
   const inv = (jobId: string, kind: Invoice["kind"], amountCents: number, on: IsoDate, extra: Partial<Invoice> = {}) =>
-    invoices.push({ id: sampleId(7, iv++), jobId, kind, period: null, milestoneId: null, number: kind === "skip" ? null : `26-${invNo++}`, amountCents, invoicedOn: on, recordedBy: "Patrick Leaon", ...extra });
+    invoices.push({
+      id: sampleId(7, iv++),
+      jobId,
+      kind,
+      period: null,
+      milestoneId: null,
+      number: kind === "skip" ? null : `26-${invNo++}`,
+      amountCents,
+      retainageCents: Math.round((amountCents * (jobs.find((x) => x.id === jobId)?.retainagePct ?? 0)) / 100),
+      invoicedOn: on,
+      recordedBy: "Patrick Leaon",
+      ...extra,
+    });
   {
     const j0 = jobs[0];
     const amt = Math.round((recognizedNow(j0) * (0.85 + r11() * 0.1)) / 10000) * 10000;
@@ -576,6 +589,7 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
       contractCents,
       materialCostCents: Math.round(x.val * 0.3 * 0.55) * 100,
       materialRevenueCents: Math.round((x.val * 0.3) / 500) * 50000,
+      burdenedRateCents: DEFAULT_SETTINGS.burdenedRateCents,
       start,
       projectedFinish: finish,
       baselineFinish: finish,
