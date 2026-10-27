@@ -12,6 +12,7 @@ import type { Ctx } from "../Workspace";
 export function AddJobDialog({ ctx, onClose }: { ctx: Ctx; onClose: () => void }) {
   const { data, week, repo, run } = ctx;
   const ds = data.ds;
+  const estimators = ds.staff.estimators;
   const leaders = ds.people.filter((p) => p.kind === "leader" && p.active);
   const [f, setF] = useState({
     number: "",
@@ -60,7 +61,7 @@ export function AddJobDialog({ ctx, onClose }: { ctx: Ctx; onClose: () => void }
   const matRev = materialRevenueCents(contractCents, materialCents, hrs, rate);
 
   const submit = async () => {
-    if (!f.estimator.trim()) return setProblem("Enter the estimator. They review the draft work order first.");
+    if (!f.estimator.trim()) return setProblem("Pick the estimator. They review the draft work order first.");
     if (!f.firmness) return setProblem("Pick how firm the dates are. The rep knows what the customer agreed to.");
     if (!(contractCents > 0) || !(hrs > 0)) return setProblem("Contract value and estimated hours are required.");
     const input: NewJobInput = {
@@ -167,7 +168,15 @@ export function AddJobDialog({ ctx, onClose }: { ctx: Ctx; onClose: () => void }
             ))}
           </select>
         </label>
-        {text("estimator", "Estimator (required)")}
+        <label className="field">
+          Estimator (required)
+          <select value={f.estimator} onChange={(e) => set("estimator", e.target.value)}>
+            <option value="">Pick the estimator</option>
+            {estimators.map((n) => (
+              <option key={n}>{n}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       <h2 style={{ fontSize: 15, margin: "16px 0 8px" }}>From the estimate</h2>

@@ -332,7 +332,7 @@ export interface Dataset {
   retainageReceipts: RetainageReceipt[];
   outcomes: Outcome[];
   /** Names only, so screens can say who a step waits on. */
-  staff: { schedulers: string[]; jobSetup: string[] };
+  staff: { schedulers: string[]; jobSetup: string[]; estimators: string[] };
 }
 
 /** The signed-in person as the app sees them. */

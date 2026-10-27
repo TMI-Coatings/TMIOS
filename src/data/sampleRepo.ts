@@ -7,12 +7,12 @@ import { JOB_COLUMNS, can, canEditJob, canSeeJob, seesCompanyTotals, type JobFie
 import { jobProblem } from "../domain/jobRules";
 import { canSeeAlert, capacityAlerts, certAlerts, jobChangeAlerts, overrunAlert, type NewAlert } from "../domain/alerts";
 import { closeRows, forecastAccuracy, type CloseInput, type CloseResult } from "../domain/close";
-import { allPlans, buildIndex, capacity, hoursLeft, inWindow, isSold, materialRevenueCents } from "../domain/schedule";
+import { allPlans, buildIndex, capacity, firmnessLabel, hoursLeft, inWindow, isSold, materialRevenueCents } from "../domain/schedule";
 import { backlogCents, digestLines, digestTitle } from "../domain/insights";
 import { canCheck, type CheckpointDef } from "../domain/journey";
 import { MILESTONE_TEMPLATE, Money, monthLabel, type ChangeOrder, type InvoiceKind } from "../domain/money";
 import { WO_STEPS, stepWho, woCanFile, woCanSign, woCanUpload, woIsMine, woStatus, type Names, type WorkOrder } from "../domain/workOrders";
-import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Settings, Viewer } from "../domain/types";
+import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Role, Settings, Viewer } from "../domain/types";
 import { usd } from "../format";
 import { addDays, currentWeek, fmtShort, mondayOf, planningWeek, todayIn, weekList, weekToClose } from "../domain/weeks";
 import { buildSample, type SampleData } from "../sample/seed";
@@ -264,6 +264,9 @@ export class SampleRepo implements Repo {
       timeOff: office ? d.timeOff : [],
       people: viewer.role === "field_crew" ? [] : d.people.map((p) => (office ? p : { ...p, phone: "", dotExpires: null })),
     };
+    // Staff lists come from the Access list, like the database's staff_names.
+    const staffOf = (r: Role) => this.s.data.users.filter((u) => u.active && u.role === r).map((u) => u.name).sort();
+    ds.staff = { schedulers: staffOf("scheduler"), jobSetup: staffOf("job_setup"), estimators: staffOf("estimator") };
     const office2 = ["admin", "ceo", "cfo", "scheduler"].includes(viewer.role);
     ds.hourEntries = d.hourEntries.filter((e) => visible.has(e.jobId));
     ds.confirmations = d.confirmations.filter((c) => visible.has(c.jobId));
@@ -320,7 +323,7 @@ export class SampleRepo implements Repo {
       this.d.notes.push({
         id: uid(),
         jobId,
-        text: `Firmness ${j.firmness} → ${next.firmness}: ${next.firmnessReason}`,
+        text: `Firmness ${firmnessLabel(j.firmness)} → ${firmnessLabel(next.firmness)}: ${next.firmnessReason}`,
         pinned: j.firmness === "locked",
         crewVisible: false,
         author: v.name,
@@ -329,9 +332,28 @@ export class SampleRepo implements Repo {
     }
     const before = { ...j };
     Object.assign(j, next);
+    if (before.leaderId !== j.leaderId) this.swapLeader(j, before.leaderId);
     this.push(jobChangeAlerts(this.d, before, j, v.name));
     if (before.status !== "complete" && j.status === "complete") this.recordOutcome(j);
     this.save();
+  }
+
+  /** A new job leader takes the old one's place on the crew from the planning week on (the database's swap_leader). */
+  private swapLeader(j: Job, oldLeader: string | null) {
+    const from = this.week();
+    const weeks = new Set<string>();
+    this.d.assignments = this.d.assignments.filter((a) => {
+      if (a.jobId !== j.id || a.personId !== oldLeader || a.week < from) return true;
+      weeks.add(a.week);
+      this.log("assignments", j.id, "Job " + j.number + " · " + this.personName(a.personId), "crew, week ending " + a.week, "assigned", "removed");
+      return false;
+    });
+    if (!j.leaderId) return;
+    for (const w of weeks)
+      if (!this.d.assignments.some((a) => a.jobId === j.id && a.personId === j.leaderId && a.week === w)) {
+        this.d.assignments.push({ id: uid(), jobId: j.id, personId: j.leaderId, week: w });
+        this.log("assignments", j.id, "Job " + j.number + " · " + this.personName(j.leaderId), "crew, week ending " + w, null, "added");
+      }
   }
 
   async createJob(input: NewJobInput): Promise<string> {
@@ -781,13 +803,13 @@ export class SampleRepo implements Repo {
     const i = this.d.checkpointDefs.findIndex((x) => x.key === def.key);
     if (isNew) {
       if (i >= 0) throw new Error("That checkpoint already exists.");
-      this.d.checkpointDefs.push({ ...def, autoSource: null });
+      this.d.checkpointDefs.push({ ...def, autoSource: null, appliesFrom: todayIn(new Date()) });
       this.log("journey_checkpoints", def.key, "Journey " + def.label, "added", null, def.label);
     } else {
       const before = this.d.checkpointDefs[i];
       for (const k of ["label", "owner", "offsetDays", "anchor", "stageKey", "active"] as const)
         if (before[k] !== def[k]) this.log("journey_checkpoints", def.key, "Journey " + def.label, k, before[k], def[k]);
-      this.d.checkpointDefs[i] = { ...def, autoSource: before.autoSource };
+      this.d.checkpointDefs[i] = { ...def, autoSource: before.autoSource, appliesFrom: before.appliesFrom ?? null };
     }
     this.save();
   }

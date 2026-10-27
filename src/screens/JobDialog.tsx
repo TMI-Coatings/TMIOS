@@ -12,17 +12,9 @@ import type { Ctx } from "../Workspace";
 import { BillingPanel } from "./BillingPanel";
 import { JourneyPanel } from "./JourneyPanel";
 import { WorkOrderPanel } from "./WorkOrderPanel";
+import { STATUS_LABEL, describeChange } from "../domain/changeText";
 
-/** One line for a change-log entry. */
-export const describeChange = (c: ChangeLogEntry) =>
-  c.field === "added" ? (c.table === "jobs" ? "job added" : c.table.replace(/_/g, " ").replace(/s$/, "") + " added") : `${c.field.replace(/_/g, " ")} ${c.oldValue ?? "blank"} → ${c.newValue ?? "blank"}`;
-
-const STATUS: { k: Job["status"]; l: string }[] = [
-  { k: "scheduled", l: "Scheduled" },
-  { k: "active", l: "In progress" },
-  { k: "on_hold", l: "On hold" },
-  { k: "complete", l: "Complete" },
-];
+const STATUS = (Object.keys(STATUS_LABEL) as Job["status"][]).map((k) => ({ k, l: STATUS_LABEL[k] }));
 
 export function JobDialog({ ctx, jobId, onClose, journeyOpen, billingOpen }: { ctx: Ctx; jobId: string; onClose: () => void; journeyOpen?: boolean; billingOpen?: boolean }) {
   const { viewer, week, data, repo, run } = ctx;
@@ -185,7 +177,15 @@ export function JobDialog({ ctx, jobId, onClose, journeyOpen, billingOpen }: { c
         {field(
           "Status",
           "status",
-          <select value={form.status} disabled={!ed("status")} onChange={(e) => set("status", e.target.value as Job["status"])}>
+          <select
+            value={form.status}
+            disabled={!ed("status")}
+            onChange={(e) => {
+              const status = e.target.value as Job["status"];
+              // Marking a job complete fills in the actual finish, as in the demo.
+              setForm({ ...form, status, actualFinish: status === "complete" && !form.actualFinish && ed("actualFinish") ? todayIn(new Date()) : form.actualFinish });
+            }}
+          >
             {STATUS.map((s) => (
               <option key={s.k} value={s.k}>
                 {s.l}
@@ -264,7 +264,16 @@ export function JobDialog({ ctx, jobId, onClose, journeyOpen, billingOpen }: { c
           "projectedFinish",
           <input type="date" value={form.projectedFinish} disabled={!ed("projectedFinish")} onChange={(e) => set("projectedFinish", e.target.value || job.projectedFinish)} />,
         )}
-        {field("Actual finish", "actualFinish", <input type="date" value={form.actualFinish ?? ""} disabled={!ed("actualFinish")} onChange={(e) => set("actualFinish", e.target.value || null)} />)}
+        {field("Actual finish", "actualFinish", <input
+            type="date"
+            value={form.actualFinish ?? ""}
+            disabled={!ed("actualFinish")}
+            onChange={(e) => {
+              const actualFinish = e.target.value || null;
+              // An actual finish means the job is complete.
+              setForm({ ...form, actualFinish, status: actualFinish && ed("status") ? "complete" : form.status });
+            }}
+          />)}
         {field(
           "Must finish (shutdown or contract only)",
           "mustFinish",
@@ -505,7 +514,7 @@ export function JobDialog({ ctx, jobId, onClose, journeyOpen, billingOpen }: { c
                 <li key={c.id}>
                   <span className="tag">{stamp(c.at)}</span>
                   <span>
-                    {c.who}: {describeChange(c)}
+                    {c.who}: {describeChange(c, ds)}
                   </span>
                 </li>
               ))}

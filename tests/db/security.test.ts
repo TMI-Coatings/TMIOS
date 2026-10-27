@@ -177,7 +177,7 @@ describe("business rules held in the database", () => {
       await q("update public.jobs set firmness = 'confirmed', firmness_reason = 'Shutdown moved a week' where id = $1", [j.id]);
       return q("select body, pinned from public.job_notes where job_id = $1 and body like 'Firmness%'", [j.id]);
     });
-    expect(r.ok && r.rows).toEqual([{ body: "Firmness locked → confirmed: Shutdown moved a week", pinned: true }]);
+    expect(r.ok && r.rows).toEqual([{ body: "Firmness Locked → Confirmed, some flexibility: Shutdown moved a week", pinned: true }]);
   });
   it("on hold needs a reason and a restart date", async () => {
     const j = sample.jobs[3];

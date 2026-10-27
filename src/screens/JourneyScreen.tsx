@@ -18,7 +18,7 @@ export function JourneyScreen({ ctx }: { ctx: Ctx }) {
   const n = namesOf(ds);
   const look = ds.settings.journeyLookaheadDays;
   const jobs = ds.jobs.filter((j) => j.status !== "complete" || jy.stageOf(j) < jy.stages.length);
-  const startSoon = jobs.filter((j) => j.start <= addDays(today, look) && jy.inStartup(j));
+  const startSoon = jobs.filter((j) => j.status !== "complete" && j.start <= addDays(today, look) && jy.inStartup(j));
   const notReady = startSoon.filter((j) => jy.startupDefs().some((c) => jy.isLate(j, c) || jy.isSoon(j, c)));
   const late = jobs.flatMap((j) => jy.lateList(j).map((c) => ({ j, c }))).sort((a, b) => jy.daysLate(b.j, b.c) - jy.daysLate(a.j, a.c));
   const closeIdx = jy.stages.findIndex((s) => s.key === "punch");
@@ -290,7 +290,9 @@ function Definitions({ ctx }: { ctx: Ctx }) {
               className="btn"
               disabled={!draft.label.trim()}
               onClick={async () => {
-                const key = draft.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+                const base = draft.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 36) || "checkpoint";
+                let key = base;
+                for (let n = 2; ds.checkpointDefs.some((c) => c.key === key); n++) key = `${base}-${n}`;
                 const sort = Math.max(0, ...ds.checkpointDefs.filter((c) => c.stageKey === draft.stageKey).map((c) => c.sort)) + 1;
                 if (await save({ ...draft, key, label: draft.label.trim(), sort }, true)) setDraft({ ...draft, label: "" });
               }}

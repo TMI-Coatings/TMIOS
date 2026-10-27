@@ -4,7 +4,7 @@
  * them (app.can_see_alert). Sample mode uses these functions to do the same in the browser.
  */
 import { gapWeeks, openWeeks } from "./insights";
-import { type Index, type Plans, availableMen, capacity, eac, leadersNeeded, loadForWeek } from "./schedule";
+import { type Index, type Plans, availableMen, capacity, eac, firmnessLabel, leadersNeeded, loadForWeek } from "./schedule";
 import type { Alert, AlertRule, Dataset, IsoDate, Job, Person, Viewer } from "./types";
 import { addDays, daysBetween, fmtLong, fmtShort } from "./weeks";
 
@@ -20,7 +20,6 @@ export function jobRecipients(ds: Dataset, j: Job): string[] {
   return ["PM " + pm, ...(leader ? [leader] : []), "Leadership"];
 }
 
-const FIRM_WORD: Record<string, string> = { locked: "locked", confirmed: "confirmed", waiting: "waiting", flexible: "flexible", best_guess: "best_guess", fill_in: "fill_in" };
 
 /** Date moved, firmness off or onto Locked, on or off hold, crew size or leader changed. */
 export function jobChangeAlerts(ds: Dataset, before: Job, after: Job, who: string): NewAlert[] {
@@ -41,7 +40,7 @@ export function jobChangeAlerts(ds: Dataset, before: Job, after: Job, who: strin
       ...base,
       rule: "date",
       title: "Firmness changed: " + title,
-      body: `${FIRM_WORD[before.firmness]} → ${FIRM_WORD[after.firmness]}${after.firmnessReason?.trim() ? "\nReason: " + after.firmnessReason.trim() : ""}\nChanged by ${who}.`,
+      body: `${firmnessLabel(before.firmness)} → ${firmnessLabel(after.firmness)}${after.firmnessReason?.trim() ? "\nReason: " + after.firmnessReason.trim() : ""}\nChanged by ${who}.`,
     });
   if (before.status !== after.status && (before.status === "on_hold" || after.status === "on_hold"))
     out.push({

@@ -77,7 +77,7 @@ export function dataset(over: Partial<Dataset> = {}): Dataset {
     stages: [],
     checkpointDefs: [],
     jobCheckpoints: [],
-    staff: { schedulers: [], jobSetup: [] },
+    staff: { schedulers: [], jobSetup: [], estimators: [] },
     percents: [],
     changeOrders: [],
     milestones: [],

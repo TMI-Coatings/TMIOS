@@ -1,4 +1,4 @@
-import { AUTO_LABEL, canCheck, dueDate, ownerName } from "../domain/journey";
+import { applies, AUTO_LABEL, canCheck, dueDate, ownerName } from "../domain/journey";
 import type { Job } from "../domain/types";
 import { journeyOf, namesOf } from "../domain/views";
 import { fmtShort, todayIn } from "../domain/weeks";
@@ -46,7 +46,9 @@ export function JourneyPanel({ ctx, job, open }: { ctx: Ctx; job: Job; open?: bo
                     {c.label}
                     <span className="q">
                       {ownerName(job, c, n)}.{" "}
-                      {done ? (
+                      {!applies(job, c) ? (
+                        <span className="ok">Not needed: added after this was due</span>
+                      ) : done ? (
                         <span className="ok">Done{mark ? ` by ${mark.by}, ${stamp(mark.at)}` : c.autoSource ? `, from the ${AUTO_LABEL[c.autoSource]}` : ""}</span>
                       ) : jy.isLate(job, c) ? (
                         <span className="lt">

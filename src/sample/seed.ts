@@ -368,7 +368,7 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
   const snapshots: ForecastSnapshot[] = [];
   {
     const r7 = rng(7);
-    const ds0 = { jobs, people, timeOff, overrides: [], actuals, assignments, notes, settings: { ...DEFAULT_SETTINGS }, qualifications: QUALIFICATIONS, reps: REPS, pms: PMS, closes, hourEntries: [], confirmations: [], metrics, workOrders: [], stages: [], checkpointDefs: [], jobCheckpoints: [], staff: { schedulers: [], jobSetup: [] }, percents: [], changeOrders: [], milestones: [], invoices: [], retainageReceipts: [], outcomes: [] };
+    const ds0 = { jobs, people, timeOff, overrides: [], actuals, assignments, notes, settings: { ...DEFAULT_SETTINGS }, qualifications: QUALIFICATIONS, reps: REPS, pms: PMS, closes, hourEntries: [], confirmations: [], metrics, workOrders: [], stages: [], checkpointDefs: [], jobCheckpoints: [], staff: { schedulers: [], jobSetup: [], estimators: [] }, percents: [], changeOrders: [], milestones: [], invoices: [], retainageReceipts: [], outcomes: [] };
     const plans = allPlans(ds0, buildIndex(ds0), START);
     for (let i = 0; i < 4; i++) {
       const w = addDays(START, 7 * i);
@@ -729,7 +729,7 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
     stages: DEFAULT_STAGES.map((x) => ({ ...x })),
     checkpointDefs: DEFAULT_CHECKPOINTS.map((x) => ({ ...x })),
     jobCheckpoints,
-    staff: { schedulers: ["Nicole"], jobSetup: ["Lori"] },
+    staff: { schedulers: ["Nicole"], jobSetup: ["Lori"], estimators: [...ESTIMATORS] },
     percents,
     changeOrders: [],
     milestones,

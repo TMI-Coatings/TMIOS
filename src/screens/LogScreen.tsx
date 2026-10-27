@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fieldLabel, valueText } from "../domain/changeText";
 import { friendlyError } from "../data/repo";
 import type { ChangeLogEntry } from "../domain/types";
 import { stamp } from "../format";
@@ -13,8 +14,9 @@ export function LogScreen({ ctx }: { ctx: Ctx }) {
   useEffect(() => {
     repo.changeLog().then(setRows, (e) => setError(friendlyError(e)));
   }, [repo, data]);
-  const shown = (rows ?? []).filter((r) => !q || [r.who, r.recordLabel, r.field, r.oldValue, r.newValue].join(" ").toLowerCase().includes(q.toLowerCase()));
-  const val = (r: ChangeLogEntry, v: string | null) => (r.field === "added" ? (v === null ? "" : "added") : v ?? "blank");
+  const shown = (rows ?? []).filter((r) => !q || [r.who, r.recordLabel, fieldLabel(r.field), valueText(r.field, r.oldValue, data.ds, r.table), valueText(r.field, r.newValue, data.ds, r.table)].join(" ").toLowerCase().includes(q.toLowerCase()));
+  const ds = data.ds;
+  const val = (r: ChangeLogEntry, v: string | null) => (r.field === "added" && v === null ? "" : valueText(r.field, v, ds, r.table));
   return (
     <>
       <h1>Change log</h1>
@@ -49,7 +51,7 @@ export function LogScreen({ ctx }: { ctx: Ctx }) {
                   <td>{stamp(r.at)}</td>
                   <td>{r.who}</td>
                   <td>{r.recordLabel || r.table}</td>
-                  <td>{r.field.replace(/_/g, " ")}</td>
+                  <td>{fieldLabel(r.field)}</td>
                   <td style={{ whiteSpace: "normal" }}>{val(r, r.oldValue)}</td>
                   <td style={{ whiteSpace: "normal" }}>{val(r, r.newValue)}</td>
                 </tr>

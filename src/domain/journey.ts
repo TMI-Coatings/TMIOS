@@ -27,7 +27,12 @@ export interface CheckpointDef {
   autoSource: AutoSource | null;
   sort: number;
   active: boolean;
+  /** Set when an admin adds a checkpoint: it only applies to jobs where it falls due on or after this date. */
+  appliesFrom?: IsoDate | null;
 }
+
+/** A checkpoint added later doesn't reach back to jobs where it would already be past due. */
+export const applies = (j: Job, c: CheckpointDef) => !c.appliesFrom || dueDate(j, c) >= c.appliesFrom;
 
 export interface JobCheckpoint {
   jobId: string;
@@ -37,7 +42,7 @@ export interface JobCheckpoint {
 }
 
 export const OWNER_LABEL: Record<CheckpointOwner, string> = { sales_rep: "Sales rep", job_setup: "Job setup", pm: "PM", scheduler: "Scheduler", accounting: "Accounting" };
-export const AUTO_LABEL: Record<AutoSource, string> = { wo_final: "Work orders", mobilized: "weekly close", work_complete: "job status", final_invoice: "Billing" };
+export const AUTO_LABEL: Record<AutoSource, string> = { wo_final: "Work orders tab", mobilized: "weekly close", work_complete: "job status", final_invoice: "Billing tab" };
 
 export interface JourneyFacts {
   woFinal: (jobId: string) => boolean;
@@ -74,7 +79,7 @@ export class Journey {
   }
   stageIndex = (c: CheckpointDef) => this.stages.findIndex((s) => s.key === c.stageKey);
   mark = (j: Job, c: CheckpointDef) => this.done.get(j.id + "|" + c.key);
-  isDone = (j: Job, c: CheckpointDef) => (c.autoSource ? autoDone(j, c, this.facts) : this.done.has(j.id + "|" + c.key));
+  isDone = (j: Job, c: CheckpointDef) => !applies(j, c) || (c.autoSource ? autoDone(j, c, this.facts) : this.done.has(j.id + "|" + c.key));
   isLate = (j: Job, c: CheckpointDef) => !this.isDone(j, c) && dueDate(j, c) < this.today;
   isSoon = (j: Job, c: CheckpointDef) => !this.isDone(j, c) && !this.isLate(j, c) && dueDate(j, c) <= addDays(this.today, 7);
   daysLate = (j: Job, c: CheckpointDef) => daysBetween(dueDate(j, c), this.today);

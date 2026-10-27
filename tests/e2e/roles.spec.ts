@@ -101,7 +101,7 @@ test("moving a job off Locked needs a reason, which lands in pinned notes", asyn
   await dlg.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByRole("button", { name: `${job.number} ${job.customer}` }).click();
-  await expect(page.getByRole("dialog").getByText("Firmness locked → confirmed: Plant moved the shutdown a week")).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("Firmness Locked → Confirmed, some flexibility: Plant moved the shutdown a week")).toBeVisible();
 });
 
 test("job setup adds a job from the estimate and it lands on the schedule", async ({ page }) => {
@@ -110,7 +110,7 @@ test("job setup adds a job from the estimate and it lands on the schedule", asyn
   const dlg = page.getByRole("dialog");
   await dlg.getByLabel("Job number").fill("4291");
   await dlg.getByLabel("Customer", { exact: true }).fill("Valley Malt House");
-  await dlg.getByLabel("Estimator (required)").fill("Stephen Bazant");
+  await dlg.getByLabel("Estimator (required)").selectOption("Stephen Bazant");
   await dlg.getByLabel("Contract value ($)").fill("96500");
   await dlg.getByLabel("Estimated labor hrs").fill("610");
   await dlg.getByLabel("Projected material cost ($)").fill("21800");
@@ -128,7 +128,7 @@ test("a four-digit job number is required", async ({ page }) => {
   const dlg = page.getByRole("dialog");
   await dlg.getByLabel("Job number").fill("429");
   await dlg.getByLabel("Customer", { exact: true }).fill("Short Number Co");
-  await dlg.getByLabel("Estimator (required)").fill("Juac Angoi");
+  await dlg.getByLabel("Estimator (required)").selectOption("Juac Angoi");
   await dlg.getByLabel("Contract value ($)").fill("1000");
   await dlg.getByLabel("Estimated labor hrs").fill("10");
   await dlg.getByLabel("Date firmness (required)").selectOption("confirmed");
@@ -165,4 +165,28 @@ test("the schedule fits a phone screen without sideways page scroll", async ({ p
   await viewAs(page, "superintendent", "#schedule");
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test("a new leader takes over the crew, and the change reads in plain words", async ({ page }) => {
+  await viewAs(page, "admin", "#schedule");
+  const j = sample.jobs.find((x) => x.status === "active" && x.leaderId)!;
+  const oldName = sample.people.find((p) => p.id === j.leaderId)!.name;
+  const next = sample.people.find((p) => p.kind === "leader" && p.id !== j.leaderId && !sample.assignments.some((a) => a.jobId === j.id && a.personId === p.id))!;
+  await page.getByRole("button", { name: `${j.number} ${j.customer}` }).click();
+  const dlg = page.getByRole("dialog");
+  await dlg.getByLabel("Job leader").selectOption(next.id);
+  await dlg.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: `${j.number} ${j.customer}` }).click();
+  await expect(page.getByRole("dialog").getByText(`Job leader ${oldName} → ${next.name}`)).toBeVisible();
+  await expect(page.getByRole("dialog").getByText(/leaderId|0000/)).toHaveCount(0);
+});
+
+test("entering an actual finish marks the job complete", async ({ page }) => {
+  await viewAs(page, "scheduler", "#schedule");
+  const j = sample.jobs.find((x) => x.status === "active")!;
+  await page.getByRole("button", { name: `${j.number} ${j.customer}` }).click();
+  const dlg = page.getByRole("dialog");
+  await dlg.getByLabel("Actual finish").fill(j.projectedFinish);
+  await expect(dlg.getByLabel("Status")).toHaveValue("complete");
 });
