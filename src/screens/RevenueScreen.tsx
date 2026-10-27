@@ -128,6 +128,19 @@ export function RevenueScreen({ ctx }: { ctx: Ctx }) {
                   </td>
                 </tr>
               ))}
+              <tr>
+                <td>
+                  <b>Total shown</b>
+                </td>
+                {(["actual", "lab", "mat"] as const).map((k) => (
+                  <td key={k} className="r num">
+                    <b>{usd(rows.reduce((a, r) => a + r[k], 0))}</b>
+                  </td>
+                ))}
+                <td className="r num">
+                  <b>{usd(rows.reduce((a, r) => a + r.actual + r.lab + r.mat, 0))}</b>
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>

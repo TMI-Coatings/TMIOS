@@ -5,7 +5,7 @@
  */
 import { gapWeeks, openWeeks } from "./insights";
 import { type Index, type Plans, availableMen, capacity, eac, firmnessLabel, leadersNeeded, loadForWeek } from "./schedule";
-import type { Alert, AlertRule, Dataset, IsoDate, Job, Person, Viewer } from "./types";
+import { ALERT_RULES, type Alert, type AlertRule, type Dataset, type IsoDate, type Job, type Person, type Role, type Settings, type Viewer } from "./types";
 import { addDays, daysBetween, fmtLong, fmtShort } from "./weeks";
 
 const n0 = (v: number) => Math.round(v).toLocaleString("en-US");
@@ -184,5 +184,45 @@ export function canSeeAlert(v: Viewer, a: Pick<Alert, "rule" | "jobId" | "recipi
       );
     default:
       return false;
+  }
+}
+
+/** The alert rules that can ever reach a role (same routing as canSeeAlert), for the mute list. */
+export function rulesFor(role: Role): AlertRule[] {
+  switch (role) {
+    case "admin":
+    case "ceo":
+    case "cfo":
+      return ALERT_RULES.map((r) => r.id);
+    case "scheduler":
+      return ALERT_RULES.map((r) => r.id).filter((r) => r !== "bill");
+    case "accounting":
+      return ["bill", "digest"];
+    case "job_setup":
+      return ["wo", "digest"];
+    case "estimator":
+      return ["wo"];
+    case "pm":
+      return ["wo", "bill", "date", "overrun", "crew", "digest"];
+    case "sales_rep":
+      return ["wo", "bill", "open", "date", "overrun", "crew", "digest"];
+    case "superintendent":
+      return ["date", "overrun", "crew", "digest", "cert"];
+    case "field_crew":
+      return ["date", "overrun", "crew", "cert"];
+  }
+}
+
+/** A rule's description with today's settings in it. */
+export function ruleDesc(rule: AlertRule, s: Settings): string {
+  switch (rule) {
+    case "open":
+      return `Unsold hours ${s.openWindowStartWeeks} to ${s.openWindowEndWeeks} weeks out, for the sales team`;
+    case "cert":
+      return `DOT physical or certification expiring in ${s.certFirstDays} or ${s.certSecondDays} days`;
+    case "overrun":
+      return `Job on pace to beat its hours by ${s.overrunPct}% or more`;
+    default:
+      return ALERT_RULES.find((r) => r.id === rule)!.desc;
   }
 }

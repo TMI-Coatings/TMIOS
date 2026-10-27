@@ -3,6 +3,7 @@ import { friendlyError } from "../data/repo";
 import { digestLines, digestTitle } from "../domain/insights";
 import { can } from "../domain/permissions";
 import { allPlans, buildIndex } from "../domain/schedule";
+import { ruleDesc, rulesFor } from "../domain/alerts";
 import { ALERT_RULES, type Alert, type AlertRule } from "../domain/types";
 import { todayIn } from "../domain/weeks";
 import { stamp } from "../format";
@@ -46,7 +47,7 @@ export function AlertsScreen({ ctx }: { ctx: Ctx }) {
           : "What posts to the leadership Teams channel, with email as backup. Each person chooses which rules reach them. Every change anyone makes is on the Change log."}
       </p>
       {error && <p role="alert">{error}</p>}
-      <div className="grid2" style={{ gridTemplateColumns: "3fr 2fr" }}>
+      <div className="grid2 wl">
         <div>
           <h2 style={{ marginTop: 0 }}>{field ? "Your messages" : "Teams channel"}</h2>
           <div className="feed">
@@ -81,12 +82,12 @@ export function AlertsScreen({ ctx }: { ctx: Ctx }) {
         <div>
           <h2 style={{ marginTop: 0 }}>Rules that reach you</h2>
           <div className="panel">
-            {ALERT_RULES.map((r) => (
+            {ALERT_RULES.filter((r) => rulesFor(viewer.role).includes(r.id)).map((r) => (
               <label className="toggle" key={r.id}>
                 <span>
                   <b>{r.name}</b>
                   <br />
-                  <span className="note">{r.desc}</span>
+                  <span className="note">{ruleDesc(r.id, data.ds.settings)}</span>
                 </span>
                 <input
                   type="checkbox"

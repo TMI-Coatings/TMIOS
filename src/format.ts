@@ -2,6 +2,9 @@ export const n0 = (v: number) => Math.round(v).toLocaleString("en-US");
 export const n1 = (v: number) => (Math.round(v * 10) / 10).toLocaleString("en-US");
 export const pct = (v: number) => Math.round(v * 100) + "%";
 /** Whole cents to a short dollar figure. */
+/** Whole dollars with separators, e.g. $1,000, for thresholds where "$1K" reads oddly. */
+export const usdFull = (cents: number) => "$" + Math.round(cents / 100).toLocaleString("en-US");
+
 export const usd = (cents: number) => {
   const v = cents / 100;
   return v >= 1e6 ? "$" + (v / 1e6).toFixed(2) + "M" : v >= 1e3 ? "$" + Math.round(v / 1e3) + "K" : "$" + Math.round(v);

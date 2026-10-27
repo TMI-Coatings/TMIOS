@@ -66,7 +66,8 @@ export function proposeCrew(ds: Dataset, idx: Index, job: Job, week: IsoDate): s
   const cur = assignedIds(ds, job.id, week);
   const add: string[] = [];
   const busy = new Set(ds.assignments.filter((a) => a.week === week && a.jobId !== job.id).map((a) => a.personId));
-  if (job.leaderId && !cur.includes(job.leaderId) && !busy.has(job.leaderId)) add.push(job.leaderId);
+  const leader = ds.people.find((p) => p.id === job.leaderId);
+  if (leader && leader.active && !cur.includes(leader.id) && !busy.has(leader.id) && offFraction(idx, leader, week) === 0) add.push(leader.id);
   const need = job.crewSize - cur.length - add.length;
   if (need <= 0) return add;
   const prev = new Set(assignedIds(ds, job.id, addDays(week, -7)));

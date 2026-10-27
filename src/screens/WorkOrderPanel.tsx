@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Job } from "../domain/types";
 import { namesOf } from "../domain/views";
-import { WO_STEPS, WO_TAG, stepWho, woCanFile, woCanSign, woCanUpload, woDaysWaiting, woIsMine, woLate, woStatus, woWaiting } from "../domain/workOrders";
+import { stepLabel, stepWho, WO_STEPS, WO_TAG, woCanFile, woCanSign, woCanUpload, woDaysWaiting, woIsMine, woLate, woStatus, woWaiting } from "../domain/workOrders";
 import { todayIn } from "../domain/weeks";
 import { stamp } from "../format";
 import type { Ctx } from "../Workspace";
@@ -103,7 +103,7 @@ export function WorkOrderPanel({ ctx, job }: { ctx: Ctx; job: Job }) {
             >
               Send back to Lori
             </button>
-            {!woIsMine(viewer, job, w.currentStep) && <span className="note">Acting for {stepWho(job, w.currentStep, n)}. Logged under your name.</span>}
+            {!woIsMine(viewer, job, w.currentStep) && <span className="note">Acting for {stepLabel(job, w.currentStep, n)}. Logged under your name.</span>}
           </div>
         </>
       )}

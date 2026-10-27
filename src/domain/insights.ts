@@ -27,6 +27,7 @@ import {
 } from "./schedule";
 import type { Dataset, Firmness, IsoDate, Job, Settings } from "./types";
 import { addDays, daysBetween, fmtShort, weekList } from "./weeks";
+import { ownerName } from "./journey";
 import { journeyOf, namesOf } from "./views";
 import { Money, revenueByPeriod } from "./money";
 
@@ -208,7 +209,7 @@ export function needsAttention(ds: Dataset, idx: Index, plans: Plans, week: IsoD
       out.push({
         tag: "Not ready",
         tone: "red",
-        text: `${jl(j)} starts ${fmtShort(j.start)} with ${lt.map((c) => c.label.charAt(0).toLowerCase() + c.label.slice(1)).join(", ")} overdue.`,
+        text: `${jl(j)} starts ${fmtShort(j.start)} with ${lt.map((c) => `${c.label.charAt(0).toLowerCase() + c.label.slice(1)} (${ownerName(j, c, namesOf(ds))})`).join(", ")} overdue.`,
       });
   }
   const other = ds.jobs.filter((j) => isSold(j) && !soonJobs.includes(j)).reduce((a, j) => a + jy.lateList(j).length, 0);

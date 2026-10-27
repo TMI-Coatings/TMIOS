@@ -23,6 +23,7 @@ import type {
 } from "../domain/types";
 import { DEFAULT_SETTINGS } from "../domain/types";
 import { allPlans, buildIndex, materialRevenueCents } from "../domain/schedule";
+import { ppeFor } from "../domain/jobRules";
 import { DEFAULT_CHECKPOINTS, DEFAULT_STAGES, type JobCheckpoint } from "../domain/journey";
 import { WO_STEPS, type WorkOrder } from "../domain/workOrders";
 import type { Outcome } from "../domain/scorecard";
@@ -101,13 +102,6 @@ const SPEC: Spec[] = [
 ];
 const FIRM = ["confirmed", "locked", "confirmed", "confirmed", "flexible", "confirmed", "confirmed", "fill_in", "confirmed", "locked", "best_guess", "locked", "confirmed", "best_guess", "flexible", "flexible", "fill_in", "confirmed", "waiting", "best_guess"] as const;
 
-function ppeFor(t: string) {
-  if (/lining/i.test(t)) return "Supplied-air respirator, Tyvek, confined-space permit";
-  if (/containment/i.test(t)) return "Respirator, chemical gloves, Tyvek";
-  if (/Floor/i.test(t)) return "Half-face respirator, knee pads, steel toes";
-  if (/tower|stack|steel|conveyor/i.test(t)) return "Full harness and lanyard, hard hat, safety glasses";
-  return "Hard hat, safety glasses, steel toes";
-}
 
 export interface SampleData extends Dataset {
   users: (Viewer & { active: boolean })[];
@@ -554,7 +548,7 @@ export function buildSample(baseWeek: IsoDate, today: IsoDate = mondayOf(baseWee
       list.forEach(([label, pct], k) =>
         milestones.push({ id: sampleId(8, mn++), jobId: j.id, label, pct, sort: k + 1, reachedOn: reached[k] ?? null, reachedBy: reached[k] ? pmName(j.pmCode) : null }),
       );
-    ms(jobs[1], [["Mobilization", 20], ["Tank 1 lined", 40], ["Tank 2 lined", 30]], [addDays(START, -7), START, null]);
+    ms(jobs[1], [["Mobilization", 20], ["Tank 1 lined", 40], ["Tank 2 lined", 30]], [addDays(START, -7), addDays(START, -4), null]);
     inv(jobs[1].id, "milestone", Math.round(jobs[1].contractCents * 0.2), addDays(START, -7), { milestoneId: milestones[0].id });
     ms(jobs[14], MILESTONE_TEMPLATE, []);
   }

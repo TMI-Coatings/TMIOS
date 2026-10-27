@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Modal } from "../components/Modal";
 import type { NewJobInput } from "../data/repo";
-import { jobProblem } from "../domain/jobRules";
+import { jobProblem, ppeFor } from "../domain/jobRules";
 import { FIRMNESS, bidMargin, materialRevenueCents } from "../domain/schedule";
 import type { Job } from "../domain/types";
 import { addDays, mondayOf } from "../domain/weeks";
@@ -98,7 +98,7 @@ export function AddJobDialog({ ctx, onClose }: { ctx: Ctx; onClose: () => void }
       siteStartTime: f.siteStartTime,
       siteContact: f.siteContact,
       siteOrientation: f.siteOrientation || "None",
-      sitePpe: f.sitePpe,
+      sitePpe: f.sitePpe.trim() || ppeFor(f.jobType),
       note: f.note,
     };
     const p = jobProblem(null, {
@@ -129,7 +129,7 @@ export function AddJobDialog({ ctx, onClose }: { ctx: Ctx; onClose: () => void }
   return (
     <Modal
       title="Add job from estimate"
-      sub="The job is booked on the schedule the moment you add it."
+      sub="The job is booked on the schedule the moment you add it, and a work order opens alongside it for job setup to draft."
       onClose={onClose}
       footer={
         <>
@@ -252,7 +252,7 @@ export function AddJobDialog({ ctx, onClose }: { ctx: Ctx; onClose: () => void }
           <select value={f.waitsOnJobId} disabled={f.firmness !== "waiting"} onChange={(e) => set("waitsOnJobId", e.target.value)}>
             <option value="">None</option>
             {ds.jobs
-              .filter((j) => j.status !== "complete")
+              .filter((j) => j.active && j.status !== "complete")
               .sort((a, b) => a.number.localeCompare(b.number))
               .map((j) => (
                 <option key={j.id} value={j.id}>

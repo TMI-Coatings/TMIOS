@@ -36,7 +36,7 @@ export function MyWeekScreen({ ctx }: { ctx: Ctx }) {
   return (
     <>
       <h1>{me.person.name.split(" ")[0]}’s week</h1>
-      <p className="lead">Where you’re going, when, and what to bring. Tap Got it so your leader knows you’ve seen it.</p>
+      <p className="lead">Where you’re going, when, and what to bring. Tap Got it so the scheduler knows you’ve seen it.</p>
       {me.weeks.map((wk, i) => (
         <section key={wk.week}>
           <h2>
@@ -114,7 +114,7 @@ export function MyWeekScreen({ ctx }: { ctx: Ctx }) {
                 You acknowledged this week ({wk.acknowledged}).
               </p>
             ) : (
-              <button className="btn" onClick={() => run(() => repo.acknowledgeWeek(wk.week), "Thanks. Your leader can see you’ve got it.").then(() => repo.myWeek().then(setMe))}>
+              <button className="btn" onClick={() => run(() => repo.acknowledgeWeek(wk.week), "Thanks. The office can see you’ve got it.").then(() => repo.myWeek().then(setMe))}>
                 Got it
               </button>
             ))}

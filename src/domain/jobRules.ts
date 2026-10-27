@@ -11,7 +11,8 @@ export function jobProblem(before: Job | null, after: Job): string | null {
   if (after.status === "on_hold" && (!after.holdReason?.trim() || !after.holdUntil)) return "Jobs on hold need a reason and an expected restart date.";
   if (after.firmness === "waiting" && !after.waitsOnJobId) return "Pick the job this one waits on.";
   if (after.waitsOnJobId && after.waitsOnJobId === after.id) return "A job can't wait on itself.";
-  if (!!after.mustFinish !== !!after.mustFinishReason) return "Pick a deadline type: shutdown or contract obligation.";
+  if (after.mustFinish && !after.mustFinishReason) return "Pick a deadline type: shutdown or contract obligation.";
+  if (!after.mustFinish && after.mustFinishReason) return "Enter the must-finish date for this deadline.";
   if (after.retainagePct > 0 && !after.retainageRelease) return "Jobs with retainage need release terms.";
   if (after.retainagePct < 0 || after.retainagePct > 100) return "Retainage is a percent between 0 and 100.";
   if (
@@ -22,4 +23,13 @@ export function jobProblem(before: Job | null, after: Job): string | null {
   )
     return "Moving a job off Locked needs a reason. It goes in the job notes.";
   return null;
+}
+
+/** The usual PPE for a job type, used when job setup leaves it blank (as in the demo). */
+export function ppeFor(t: string) {
+  if (/lining/i.test(t)) return "Supplied-air respirator, Tyvek, confined-space permit";
+  if (/containment/i.test(t)) return "Respirator, chemical gloves, Tyvek";
+  if (/Floor/i.test(t)) return "Half-face respirator, knee pads, steel toes";
+  if (/tower|stack|steel|conveyor/i.test(t)) return "Full harness and lanyard, hard hat, safety glasses";
+  return "Hard hat, safety glasses, steel toes";
 }

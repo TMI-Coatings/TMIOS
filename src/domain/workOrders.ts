@@ -58,8 +58,11 @@ export function woWaiting(j: Job, w: WorkOrder, n: Names): string {
   const lori = n.jobSetup.join(", ") || "Job setup";
   if (s === "Final") return w.filed ? "" : `${lori}, to file in Procore`;
   if (s === "Awaiting draft" || s === "Returned") return lori;
-  return `${WO_STEPS[w.currentStep].role === "Sales rep" ? "Rep" : WO_STEPS[w.currentStep].role} ${stepWho(j, w.currentStep, n)}`;
+  return stepLabel(j, w.currentStep, n);
 }
+
+/** A step's person with their role, e.g. "Rep Eric Rich" or "Estimator Sarah Louvar". */
+export const stepLabel = (j: Job, step: number, n: Names) => `${WO_STEPS[step].role === "Sales rep" ? "Rep" : WO_STEPS[step].role} ${stepWho(j, step, n)}`;
 
 /** Is this step waiting on the viewer themselves (not acting for someone)? */
 export function woIsMine(v: Viewer, j: Job, step: number): boolean {

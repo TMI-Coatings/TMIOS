@@ -101,3 +101,11 @@ describe("controls from the demo review", () => {
     expect(last.ok && last.rows).toEqual({ last: "Someone has to keep full rights" });
   });
 });
+
+describe("wording from the demo review", () => {
+  it("late work order alerts name the step's role", async () => {
+    const { rows } = await db.query("select body from public.alerts where title like 'Work order review late%'");
+    expect(rows.length).toBeGreaterThan(0);
+    for (const r of rows) expect(r.body).toMatch(/^Waiting \d+ days on (Estimator|Rep|PM|Scheduler) \S|^Waiting \d+ days on Lori /);
+  });
+});

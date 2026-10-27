@@ -124,3 +124,23 @@ test("the import asks before replacing hours a PM typed in", async ({ page }) =>
   expect(asked).toContain(`${num} (123 hrs)`);
   await expect(page.locator(`tr[data-close-row="${num}"]`).getByRole("spinbutton")).toHaveValue("123");
 });
+
+test("each person's alert rules list only what can reach them, with today's settings", async ({ page }) => {
+  await viewAs(page, "superintendent", "#alerts");
+  await expect(page.getByLabel("Billing alerts on")).toHaveCount(0);
+  await expect(page.getByLabel("Work order alerts on")).toHaveCount(0);
+  await expect(page.getByText(`expiring in ${sample.settings.certFirstDays} or ${sample.settings.certSecondDays} days`)).toBeVisible();
+  await viewAs(page, "accounting", "#alerts");
+  await expect(page.getByLabel("Billing alerts on")).toBeVisible();
+  await expect(page.getByLabel("Capacity gap alerts on")).toHaveCount(0);
+});
+
+test("the scheduler enters a real expiry date for a certification", async ({ page }) => {
+  await viewAs(page, "scheduler", "#crew");
+  const p = sample.people.find((x) => Object.keys(x.quals).length > 0)!;
+  const q = Object.keys(p.quals)[0];
+  const box = page.getByLabel(`${p.name} ${q} expires`);
+  await box.fill("2027-03-31");
+  await box.blur();
+  await expect(page.getByLabel(`${p.name} ${q} expires`)).toHaveValue("2027-03-31");
+});

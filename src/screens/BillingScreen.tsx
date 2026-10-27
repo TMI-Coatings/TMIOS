@@ -3,7 +3,8 @@ import { BILLING_METHOD_LABEL, Money, monthLabel } from "../domain/money";
 import { buildIndex, isSold } from "../domain/schedule";
 import type { Job } from "../domain/types";
 import { fmtShort, todayIn } from "../domain/weeks";
-import { usd } from "../format";
+import { usd, usdFull } from "../format";
+import { namesOf } from "../domain/views";
 import type { Ctx } from "../Workspace";
 import { JobDialog } from "./JobDialog";
 
@@ -40,7 +41,7 @@ export function BillingScreen({ ctx }: { ctx: Ctx }) {
     const fi = m.finalInvoice(j);
     const line =
       st === "wait"
-        ? `Finished ${fmtShort(j.actualFinish ?? j.projectedFinish)}. Waiting on the PM for sign-off.`
+        ? `Finished ${fmtShort(j.actualFinish ?? j.projectedFinish)}. Waiting on PM ${namesOf(ds).pm(j.pmCode)} for sign-off.`
         : st === "ready"
           ? `Final invoice, ${usd(m.toBill(j))}. Due ${fmtShort(m.invoiceDue(j)!)}${late ? ", late" : ""}.`
           : st === "ret"
@@ -177,7 +178,7 @@ export function BillingScreen({ ctx }: { ctx: Ctx }) {
       </div>
 
       <h2>Final-only jobs running ahead of billing</h2>
-      <p className="note">Recognized revenue ahead of billing by more than {usd(s.underBilledFlagCents)} on jobs set to {BILLING_METHOD_LABEL.final.toLowerCase()}. Worth asking whether they should bill monthly.</p>
+      <p className="note">Recognized revenue ahead of billing by more than {usdFull(s.underBilledFlagCents)} on jobs set to {BILLING_METHOD_LABEL.final.toLowerCase()}. Worth asking whether they should bill monthly.</p>
       {under.length ? (
         <div className="scroll">
           <table>

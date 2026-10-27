@@ -69,7 +69,7 @@ export function JobDialog({ ctx, jobId, onClose, journeyOpen, billingOpen }: { c
   const elapsed = Math.min(1, Math.max(0, (Date.parse(week) - Date.parse(job.start)) / 864e5 / span));
   const used = Math.min(1.2, act / Math.max(1, job.projectedHrs));
   const leaders = ds.people.filter((p) => p.kind === "leader" && (p.active || p.id === job.leaderId));
-  const others = ds.jobs.filter((o) => o.id !== job.id && o.status !== "complete").sort((a, b) => a.number.localeCompare(b.number));
+  const others = ds.jobs.filter((o) => o.id !== job.id && o.active && o.status !== "complete").sort((a, b) => a.number.localeCompare(b.number));
   const repName = ds.reps.find((r) => r.code === job.repCode)?.name ?? job.repCode;
   const pmName = ds.pms.find((r) => r.code === job.pmCode)?.name ?? job.pmCode;
   const notes = ds.notes.filter((n) => n.jobId === job.id).sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.createdAt.localeCompare(a.createdAt));
@@ -100,7 +100,8 @@ export function JobDialog({ ctx, jobId, onClose, journeyOpen, billingOpen }: { c
         <>
           {job.jobType}, {job.location}
           {job.exterior ? ", exterior" : ""}. Rep {repName}, PM {pmName}, estimator {job.estimator}. Contract {usd(job.contractCents)}. Estimate: {n0(job.estimateHrs)} hrs,{" "}
-          {usd(job.materialCostCents)} materials, {pct(bidMargin(job.contractCents, job.materialCostCents, job.estimateHrs, job.burdenedRateCents))} GP. Materials revenue{" "}
+          {usd(job.materialCostCents)} materials, {pct(bidMargin(job.contractCents, job.materialCostCents, job.estimateHrs, job.burdenedRateCents))} GP
+          {can.seeMoney(viewer.role) && job.status !== "complete" ? `; now ${pct(new Money(ds, idx, week, todayIn(new Date())).gpNow(job))} GP` : ""}. Materials revenue{" "}
           {usd(job.materialRevenueCents)}, labor {usd(job.contractCents - job.materialRevenueCents)}.
           {job.retainagePct > 0 &&
             ` Retainage ${job.retainagePct}%, released at ${job.retainageRelease === "substantial_completion" ? "substantial completion" : job.retainageRelease === "final_completion" ? "final completion" : job.retainageReleaseNote || "terms in contract"}.`}
@@ -466,6 +467,7 @@ export function JobDialog({ ctx, jobId, onClose, journeyOpen, billingOpen }: { c
             </label>
             <span className="note">
               {assigned.length} of {job.crewSize} assigned.{job.requirements.length ? " Requires " + job.requirements.join(" and ") + "." : ""}
+              {ds.confirmations.some((c) => c.jobId === job.id && c.week === crewWeek) ? " Confirmed by leader." : ""}
             </span>
           </div>
           <ul className="crewl">

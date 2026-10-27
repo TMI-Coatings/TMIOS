@@ -40,7 +40,7 @@ export function CrewScreen({ ctx }: { ctx: Ctx }) {
       <h1>Crew</h1>
       <p className="lead">
         {active.length} on the active roster, {active.filter((p) => p.kind === "leader").length} of them job leaders. Qualified:{" "}
-        {ds.qualifications.map((qq) => `${qq} ${active.filter((p) => qq in p.quals).length}`).join(", ")}. Time off entered here flows straight into capacity and flags anyone already assigned.
+        {ds.qualifications.map((qq) => `${qq} ${active.filter((p) => qq in p.quals).length}`).join(", ")}. Time off entered here flows straight into capacity and flags anyone already assigned. The scheduler keeps qualifications and expiry dates current here.
       </p>
       <div className="scroll">
         <table>
@@ -243,7 +243,9 @@ export function CrewScreen({ ctx }: { ctx: Ctx }) {
             {ds.people
               .filter((p) => !q || p.name.toLowerCase().includes(q.toLowerCase()))
               .map((p) => {
-                const soon = p.driver && (!p.dotExpires || p.dotExpires <= addDays(week, 60));
+                const expired = p.driver && (!p.dotExpires || p.dotExpires < week);
+                const soon = p.driver && !expired && !!p.dotExpires && p.dotExpires <= addDays(week, ds.settings.certFirstDays);
+                const dotTag = expired ? <span className="tag red">{p.dotExpires ? "Expired" : "Not on file"}</span> : soon ? <span className="tag yel">Expires soon</span> : null;
                 return (
                   <tr key={p.id}>
                     <td>{p.name}</td>
@@ -253,14 +255,27 @@ export function CrewScreen({ ctx }: { ctx: Ctx }) {
                       {edit ? (
                         <>
                           {ds.qualifications.map((qq) => (
-                            <label key={qq} style={{ marginRight: 8, whiteSpace: "nowrap" }} title={p.quals[qq] ? "Expires " + fmtLong(p.quals[qq]!) : ""}>
-                              <input
-                                type="checkbox"
-                                checked={qq in p.quals}
-                                onChange={(e) => run(() => repo.setQualification(p.id, qq, e.target.checked, e.target.checked ? addDays(week, 365) : null))}
-                              />{" "}
-                              {qq}
-                            </label>
+                            <span key={qq} style={{ marginRight: 10, whiteSpace: "nowrap", display: "inline-block" }}>
+                              <label>
+                                <input
+                                  type="checkbox"
+                                  checked={qq in p.quals}
+                                  onChange={(e) => run(() => repo.setQualification(p.id, qq, e.target.checked, e.target.checked ? addDays(week, 365) : null))}
+                                />{" "}
+                                {qq}
+                              </label>
+                              {qq in p.quals && (
+                                <input
+                                  type="date"
+                                  className={p.quals[qq] && p.quals[qq]! < week ? "act miss" : "act"}
+                                  style={{ width: 140, marginLeft: 4, textAlign: "left" }}
+                                  defaultValue={p.quals[qq] ?? ""}
+                                  aria-label={`${p.name} ${qq} expires`}
+                                  title="Expiry date from the card or certificate"
+                                  onBlur={(e) => e.target.value && e.target.value !== (p.quals[qq] ?? "") && run(() => repo.setQualification(p.id, qq, true, e.target.value))}
+                                />
+                              )}
+                            </span>
                           ))}
                           <label style={{ whiteSpace: "nowrap" }}>
                             <input type="checkbox" checked={p.driver} onChange={(e) => run(() => repo.updatePerson(p.id, { driver: e.target.checked }))} /> Driver
@@ -276,18 +291,21 @@ export function CrewScreen({ ctx }: { ctx: Ctx }) {
                       {!p.driver ? (
                         <span className="q">Not a driver</span>
                       ) : edit ? (
-                        <input
-                          type="date"
-                          className={soon ? "act miss" : "act"}
-                          style={{ width: 150, textAlign: "left" }}
-                          defaultValue={p.dotExpires ?? ""}
-                          aria-label={`${p.name} DOT physical expires`}
-                          onBlur={(e) => e.target.value !== (p.dotExpires ?? "") && run(() => repo.updatePerson(p.id, { dotExpires: e.target.value || null }))}
-                        />
-                      ) : p.dotExpires ? (
-                        fmtLong(p.dotExpires)
+                        <>
+                          <input
+                            type="date"
+                            className={expired ? "act miss" : "act"}
+                            style={{ width: 150, textAlign: "left" }}
+                            defaultValue={p.dotExpires ?? ""}
+                            aria-label={`${p.name} DOT physical expires`}
+                            onBlur={(e) => e.target.value !== (p.dotExpires ?? "") && run(() => repo.updatePerson(p.id, { dotExpires: e.target.value || null }))}
+                          />{" "}
+                          {dotTag}
+                        </>
                       ) : (
-                        "Not on file"
+                        <>
+                          {p.dotExpires ? fmtLong(p.dotExpires) : "Not on file"} {dotTag}
+                        </>
                       )}
                     </td>
                     <td>

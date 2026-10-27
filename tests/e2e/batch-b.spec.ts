@@ -64,5 +64,5 @@ test("the job window shows the journey and the work order", async ({ page }) => 
   await page.getByRole("button", { name: `${owatonna.number} ${owatonna.customer}` }).click();
   const dlg = page.getByRole("dialog");
   await expect(dlg.getByText(/^Job journey:/)).toBeVisible();
-  await expect(dlg.getByLabel("Work order", { exact: true })).toContainText("Acting for Eric Rich");
+  await expect(dlg.getByLabel("Work order", { exact: true })).toContainText("Acting for Rep Eric Rich");
 });

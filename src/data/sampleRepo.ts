@@ -12,7 +12,7 @@ import { allPlans, buildIndex, capacity, firmnessLabel, hoursLeft, inWindow, isS
 import { backlogCents, digestLines, digestTitle } from "../domain/insights";
 import { canCheck, type CheckpointDef } from "../domain/journey";
 import { MILESTONE_TEMPLATE, Money, monthLabel, type ChangeOrder, type InvoiceKind } from "../domain/money";
-import { WO_STEPS, stepWho, woCanFile, woCanSign, woCanUpload, woIsMine, woStatus, type Names, type WorkOrder } from "../domain/workOrders";
+import { stepLabel, stepWho, type Names, type WorkOrder, WO_STEPS, woCanFile, woCanSign, woCanUpload, woIsMine, woStatus } from "../domain/workOrders";
 import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Role, Settings, Viewer } from "../domain/types";
 import { usd } from "../format";
 import { addDays, currentWeek, fmtShort, mondayOf, planningWeek, todayIn, weekList, weekToClose } from "../domain/weeks";
@@ -151,12 +151,13 @@ export class SampleRepo implements Repo {
       this.s.alertState[key] = "sent";
       const lori = st === "Awaiting draft" || st === "Returned";
       const who = lori ? n.jobSetup.join(", ") : stepWho(j, w.currentStep, n);
+      const whoLabel = lori ? who : stepLabel(j, w.currentStep, n);
       const what = st === "Awaiting draft" ? "the draft" : st === "Returned" ? "the revised draft" : WO_STEPS[w.currentStep].what.toLowerCase();
       this.push([
         {
           rule: "wo",
           title: `Work order review late: ${j.number} ${j.customer}`,
-          body: `Waiting ${days} days on ${who} for ${what}. The review deadline is ${d.settings.woReviewDays} days.\nJob starts ${fmtShort(j.start)}. PM ${n.pm(j.pmCode)} pinged.`,
+          body: `Waiting ${days} days on ${whoLabel} for ${what}. The review deadline is ${d.settings.woReviewDays} days.\nJob starts ${fmtShort(j.start)}. PM ${n.pm(j.pmCode)} pinged.`,
           recipients: [n.pm(j.pmCode), ...(lori ? n.jobSetup : [who])],
           jobId: j.id,
           personId: null,
@@ -690,7 +691,10 @@ export class SampleRepo implements Repo {
     const v = this.me();
     if (!v.personId) throw new Error("This sign-in isn't linked to a person on the roster.");
     const k = v.personId + "|" + week;
-    if (!this.s.acks[k]) this.s.acks[k] = new Date().toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/Chicago" });
+    if (!this.s.acks[k]) {
+      this.s.acks[k] = new Date().toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/Chicago" });
+      this.log("field_acknowledgments", k, this.personName(v.personId), "schedule acknowledged, week ending " + week, null, "got it");
+    }
     this.save();
   }
 

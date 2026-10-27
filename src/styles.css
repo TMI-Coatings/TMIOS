@@ -52,7 +52,8 @@ h2{font-size:18px;margin:28px 0 10px}
 .lead{color:var(--muted);margin:0 0 18px;max-width:72ch}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media (max-width:860px){.grid2{grid-template-columns:1fr}}
+.grid2.wl{grid-template-columns:3fr 2fr}
+@media (max-width:860px){.grid2,.grid2.wl{grid-template-columns:1fr}}
 
 /* Hazard stripe: the one loud element. Means "over capacity". */
 .hazard{background:repeating-linear-gradient(-45deg,var(--yellow) 0 7px,var(--stripe-dark) 7px 14px)}

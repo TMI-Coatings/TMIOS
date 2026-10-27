@@ -49,6 +49,20 @@ Answers to the open questions in `kickoff-analysis.md` section 3, decided by Aus
 29. Digest engagement. Count signed-in clicks on digest links instead of opens. No tracking pixels.
 30. Leader scorecard history. Starts empty at go-live.
 
+## Calls made while fixing the demo review (Oct 27)
+
+Austin asked for every review fix that didn't need his decision. Where a fix needed a rule, this is the rule used:
+
+- **Bid margin includes approved change orders**, each at its own cost, so margin fade measures field performance, not the COs. Each job keeps the burdened labor rate it was set up with.
+- **Change orders need who approved them**, plus their own materials cost and approval date. Existing COs had their materials price copied in as cost.
+- **Retainage is held per invoice**, at the job's % when billed. A later % change doesn't restate past invoices.
+- **Invoices can't be zero or bill more than is left on the contract.**
+- **A new job leader replaces the old one on the crew from the planning week on.** Past weeks keep who was there.
+- **A journey checkpoint added later only applies where it falls due on or after the day it was added.**
+- **Nobody can change or switch off their own access**, and the last person with full rights can't be removed.
+- **Settings have limits**, for example absence 0–50%, hours per man-week 1–80, pay-app day 1–28. The limits live in `src/domain/settingsRules.ts` and the database.
+- **The estimator is picked from the Access list.** The estimate's dollars and hours stay as bid when intake details are corrected.
+
 ## Still open
 
 - Time-system name and a sample export layout (deferred).
