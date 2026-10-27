@@ -4,7 +4,7 @@ import { can } from "../domain/permissions";
 import { buildIndex, isSold } from "../domain/schedule";
 import type { Job } from "../domain/types";
 import { fmtShort, todayIn } from "../domain/weeks";
-import { usd, usdFull } from "../format";
+import { ordinal, usd, usdFull } from "../format";
 import { namesOf } from "../domain/views";
 import type { Ctx } from "../Workspace";
 import { JobDialog } from "./JobDialog";
@@ -108,7 +108,7 @@ export function BillingScreen({ ctx }: { ctx: Ctx }) {
       </p>
 
       <h2>Monthly progress billing</h2>
-      <p className="note">One pay application per job per month, due by the {s.payAppDay}th. The suggested amount is revenue recognized from the Monday percent complete, less what’s already billed.</p>
+      <p className="note">One pay application per job per month, due by the {ordinal(s.payAppDay)}. The suggested amount is revenue recognized from the Monday percent complete, less what’s already billed.</p>
       {prog.length ? (
         <div className="scroll">
           <table>

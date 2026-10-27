@@ -159,6 +159,8 @@ export function weekTotals(ds: Dataset, idx: Index, plans: Plans, weeks: IsoDate
 
 /** Estimate at completion: average of the last two actual weeks x weeks remaining + actual to date. */
 export function eac(idx: Index, j: Job): number {
+  // A finished job's hours are what it took (review, Oct 27).
+  if (j.status === "complete") return actualToDate(idx, j);
   const m = idx.actualsByJob.get(j.id);
   if (!m?.size) return j.projectedHrs;
   const ks = [...m.keys()].sort();

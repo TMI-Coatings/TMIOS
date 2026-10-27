@@ -11,10 +11,10 @@ import { closeRows, forecastAccuracy, missingHoursByPm, nudgeAlert, type CloseIn
 import { allPlans, buildIndex, capacity, firmnessLabel, hoursLeft, inWindow, isSold, materialRevenueCents } from "../domain/schedule";
 import { backlogCents, digestLines, digestTitle } from "../domain/insights";
 import { canCheck, type CheckpointDef, type JourneyStage } from "../domain/journey";
-import { MILESTONE_TEMPLATE, Money, monthLabel, prevMonth, wipRows, type ChangeOrder, type InvoiceKind, type WipSnapshotRow } from "../domain/money";
+import { MILESTONE_TEMPLATE, Money, lockableMonths, monthLabel, wipRows, type ChangeOrder, type InvoiceKind, type WipSnapshotRow } from "../domain/money";
 import { stepLabel, stepWho, type Names, type WorkOrder, WO_STEPS, woCanFile, woCanRemind, woCanSign, woCanUpload, woIsMine, woReminder, woStatus } from "../domain/workOrders";
 import type { Alert, AlertRule, ChangeLogEntry, Dataset, IsoDate, Job, MyWeek, Role, Settings, Viewer } from "../domain/types";
-import { usd } from "../format";
+import { ordinal, usd } from "../format";
 import { addDays, currentWeek, fmtShort, mondayOf, planningWeek, todayIn, weekList, weekToClose } from "../domain/weeks";
 import { buildSample, type SampleData } from "../sample/seed";
 import type { AccessUser, LoadResult, NewJobInput, Repo } from "./repo";
@@ -100,7 +100,7 @@ export class SampleRepo implements Repo {
     const cp = today.slice(0, 7);
     if (due.length && !st["bill-period|" + cp]) {
       st["bill-period|" + cp] = "sent";
-      this.push([{ rule: "bill", title: `Progress billing for ${monthLabel(cp, true)}: ${due.length} job${due.length > 1 ? "s" : ""}`, body: due.map((j) => `${j.number} ${j.customer}: ${m.progressDue(j).map((p) => monthLabel(p)).join(", ")}, suggested ${usd(m.progressSuggest(j))}`).join("\n") + `\nPay applications due by the ${d.settings.payAppDay}th.`, recipients: ["Accounting", "CFO"], jobId: null, personId: null }]);
+      this.push([{ rule: "bill", title: `Progress billing for ${monthLabel(cp, true)}: ${due.length} job${due.length > 1 ? "s" : ""}`, body: due.map((j) => `${j.number} ${j.customer}: ${m.progressDue(j).map((p) => monthLabel(p)).join(", ")}, suggested ${usd(m.progressSuggest(j))}`).join("\n") + `\nPay applications due by the ${ordinal(d.settings.payAppDay)}.`, recipients: ["Accounting", "CFO"], jobId: null, personId: null }]);
     }
     for (const j of due)
       for (const p of m.progressDue(j).filter((x) => m.progressLate(x))) {
@@ -298,9 +298,16 @@ export class SampleRepo implements Repo {
     return { ds, totals, week: planningWeek(closed, today), weekToClose: weekToClose(closed, today) };
   }
 
+  /** Crews and plan hours for weeks already closed stay as they were (the database's closed_week_guard). */
+  private openWeek(week: IsoDate) {
+    const last = this.d.closes.map((c) => c.week).sort().at(-1);
+    if (last && week <= last) throw new Error(`The week ending ${fmtShort(week)} is closed.`);
+  }
+
   async setPlanCell(jobId: string, week: IsoDate, hours: number | null) {
     const j = this.job(jobId);
     if (!canEditJob(this.me(), j, "plan")) throw denied();
+    this.openWeek(week);
     const i = this.d.overrides.findIndex((o) => o.jobId === jobId && o.week === week);
     const old = i >= 0 ? this.d.overrides[i].hours : null;
     if (hours === null) {
@@ -406,6 +413,7 @@ export class SampleRepo implements Repo {
   async assign(jobId: string, personId: string, week: IsoDate) {
     const j = this.job(jobId);
     if (!canEditJob(this.me(), j, "crew")) throw denied();
+    this.openWeek(week);
     if (this.d.assignments.some((a) => a.jobId === jobId && a.personId === personId && a.week === week)) return;
     this.d.assignments.push({ id: uid(), jobId, personId, week });
     this.log("assignments", jobId, "Job " + j.number + " · " + this.personName(personId), "crew, week ending " + week, null, "added");
@@ -415,6 +423,7 @@ export class SampleRepo implements Repo {
   async unassign(jobId: string, personId: string, week: IsoDate) {
     const j = this.job(jobId);
     if (!canEditJob(this.me(), j, "crew")) throw denied();
+    this.openWeek(week);
     this.d.assignments = this.d.assignments.filter((a) => !(a.jobId === jobId && a.personId === personId && a.week === week));
     this.log("assignments", jobId, "Job " + j.number + " · " + this.personName(personId), "crew, week ending " + week, "assigned", "removed");
     this.save();
@@ -556,6 +565,10 @@ export class SampleRepo implements Repo {
     if (!expected) throw new Error("This week is already closed.");
     if (input.week !== expected) throw new Error(`The next week to close is the week ending ${expected}.`);
     const w = input.week;
+    // Only the week's open jobs take hours or get marked finished (the database's close_week).
+    const open = new Set(closeRows(d, w).map((j) => j.id));
+    if (input.finished.some((id) => !open.has(id))) throw new Error(`Only jobs that started by the week ending ${fmtShort(w)} and are still open can be marked finished.`);
+    if (input.entries.some((e) => !open.has(e.jobId))) throw new Error(`Hours can only go on jobs open in the week ending ${fmtShort(w)}.`);
     const before = this.s.alerts.length;
     let total = 0;
     for (const e of input.entries) {
@@ -858,6 +871,7 @@ export class SampleRepo implements Repo {
   async saveCheckpointDef(def: CheckpointDef, isNew: boolean) {
     if (!["admin", "ceo", "cfo"].includes(this.me().role)) throw denied();
     if (!def.label.trim()) throw new Error("Give the checkpoint a name.");
+    if (def.active && !this.d.stages.some((s) => s.key === def.stageKey && s.active)) throw new Error("That stage is retired.");
     const i = this.d.checkpointDefs.findIndex((x) => x.key === def.key);
     if (isNew) {
       if (i >= 0) throw new Error("That checkpoint already exists.");
@@ -894,6 +908,11 @@ export class SampleRepo implements Repo {
     if (!canEditJob(v, j, "changeOrders")) throw new Error("Only the job's PM, job setup or an admin enters change orders.");
     if (!co.number.trim()) throw new Error("Enter the change order number.");
     if (!co.approvedBy.trim()) throw new Error("Enter who approved the change order.");
+    if (Math.abs(co.materialCents) > Math.abs(co.amountCents) || Math.sign(co.materialCents) * Math.sign(co.amountCents) < 0)
+      throw new Error("The materials part can't be more than the change order itself.");
+    if (co.materialCostCents < 0) throw new Error("Materials cost can't be negative.");
+    const m = this.money();
+    if (m.contract(j) + co.amountCents < m.billed(j)) throw new Error(`That would take the contract below the ${usd(m.billed(j))} already billed.`);
     this.d.changeOrders.push({ ...co, id: uid() });
     this.log("change_orders", co.jobId, "Job " + j.number, "added", null, `${co.number}: ${usd(co.amountCents)}, ${co.hours} hrs`);
     if (co.hours) {
@@ -974,6 +993,7 @@ export class SampleRepo implements Repo {
       if (!ms?.reachedOn) throw new Error("That milestone hasn't been reached.");
       if (m.milestoneInvoice(ms)) throw new Error("That milestone is already invoiced.");
       amt = m.milestoneAmount(j, ms);
+      if (amt > m.toBill(j)) throw new Error(`That's more than the ${usd(m.toBill(j))} left to bill on this job.`);
       this.d.invoices.push({ ...base, kind: "milestone", milestoneId: ms.id, amountCents: amt, retainageCents: held(amt) });
       this.push([{ rule: "bill", title: `Milestone invoiced: ${j.number} ${j.customer}`, body: `${ms.label}: invoice ${num} for ${usd(amt)}.\nRecorded by ${v.name}.`, recipients: to, jobId: j.id, personId: null }]);
     } else {
@@ -1011,10 +1031,9 @@ export class SampleRepo implements Repo {
     const v = this.me();
     if (!can.recordInvoices(v.role)) throw new Error("Only accounting or an admin takes the month-end WIP.");
     const today = todayIn(new Date());
-    const cur = today.slice(0, 7);
-    if (month !== cur && month !== prevMonth(cur)) throw new Error("Take the snapshot for this month or last month.");
+    if (!lockableMonths(today).includes(month)) throw new Error("Lock last month, or this month during its final week.");
     if (this.s.wip.some((x) => x.month === month)) throw new Error("That month is already locked.");
-    const rows = wipRows(this.d, this.money(), month);
+    const rows = wipRows(this.d, buildIndex(this.d), month);
     const takenAt = new Date().toISOString();
     this.s.wip.push(...rows.map((r) => ({ ...r, month, takenAt, takenBy: v.name })));
     this.save();

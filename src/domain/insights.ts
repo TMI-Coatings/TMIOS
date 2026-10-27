@@ -62,8 +62,14 @@ export function movers(ds: Dataset, plans: Plans, w: IsoDate): Job[] {
 
 export const backlogHours = (ds: Dataset, idx: Index) => ds.jobs.filter(isSold).reduce((a, j) => a + Math.max(0, hoursLeft(idx, j)), 0);
 
+/** Sold work not yet performed, in dollars: the contract with approved change orders, by the share of hours left. */
 export const backlogCents = (ds: Dataset, idx: Index) =>
-  Math.round(ds.jobs.filter(isSold).reduce((a, j) => a + (j.contractCents * Math.max(0, hoursLeft(idx, j))) / Math.max(1, j.projectedHrs), 0));
+  Math.round(
+    ds.jobs.filter(isSold).reduce((a, j) => {
+      const contract = j.contractCents + ds.changeOrders.filter((c) => c.jobId === j.id).reduce((s, c) => s + c.amountCents, 0);
+      return a + (contract * Math.max(0, hoursLeft(idx, j))) / Math.max(1, j.projectedHrs);
+    }, 0),
+  );
 
 export function backlogWeeks(ds: Dataset, idx: Index, week: IsoDate): number {
   const ws = weekList(week, 13);

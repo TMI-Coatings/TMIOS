@@ -101,3 +101,29 @@ describe("cash and WIP export", () => {
     expect(csv.split("\r\n")[1]).toBe('4112,"Acme, ""North""",Jake Moen,1234.56,50,40,10.00,5.00,-5.00,2.00,40.0,35.0,0.25');
   });
 });
+
+describe("independent review: app-side fixes", () => {
+  it("spreadsheet export neutralizes formula-looking text but keeps negative numbers", async () => {
+    const { wipCsv } = await import("../../src/domain/money");
+    const csv = wipCsv([{ jobId: "j", number: "4112", customer: '=HYPERLINK("http://x","Open")', pmCode: "JM", contractCents: 100, materialsPct: 0, laborPct: 0, recognizedCents: 0, billedCents: 0, overUnderCents: -500, costToCompleteCents: 0, gpBid: 0, gpNow: 0, retainageCents: 0 }], () => "@PM");
+    const row = csv.split("\r\n")[1];
+    expect(row).toContain(`"'=HYPERLINK(""http://x"",""Open"")"`);
+    expect(row).toContain("'@PM");
+    expect(row).toContain(",-5.00,");
+  });
+  it("says 1st, 2nd, 3rd, 11th, 21st, 22nd", async () => {
+    const { ordinal } = await import("../../src/format");
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 25].map(ordinal)).toEqual(["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "23rd", "25th"]);
+  });
+  it("the pay-app suggestion never exceeds what's left, and backlog counts change orders", async () => {
+    const { Money } = await import("../../src/domain/money");
+    const { buildIndex } = await import("../../src/domain/schedule");
+    const { backlogCents } = await import("../../src/domain/insights");
+    const j = job({ contractCents: 10_005_000, materialRevenueCents: 0, billingMethod: "monthly" });
+    const ds = dataset({ jobs: [j], percents: [{ jobId: j.id, week: "2026-10-30", materialsPct: 100, laborPct: 100, enteredBy: "x" }] });
+    expect(new Money(ds, buildIndex(ds), "2026-10-30", "2026-10-27").progressSuggest(j)).toBe(10_005_000);
+    const co = { id: "c", jobId: j.id, number: "CO", description: "", amountCents: 1_000_000, materialCents: 0, materialCostCents: 0, hours: 0, approvedOn: "2026-10-20", approvedBy: "x" };
+    const withCo = { ...ds, changeOrders: [co] };
+    expect(backlogCents(withCo, buildIndex(withCo))).toBeGreaterThan(backlogCents(ds, buildIndex(ds)));
+  });
+});

@@ -310,3 +310,130 @@ describe("independent review: security fixes", () => {
     expect(x.author).toBe(supt.name);
   });
 });
+
+describe("independent review: money and rule fixes", () => {
+  const attempt = async (q: (s: string, p?: unknown[]) => Promise<pg.QueryResult>, sql: string, params: unknown[] = []) => {
+    await q("savepoint t");
+    try {
+      await q(sql, params);
+      await q("release savepoint t");
+      return "ok";
+    } catch (e: any) {
+      await q("rollback to savepoint t");
+      return e.message as string;
+    }
+  };
+  const run = async (role: string, fn: (q: (s: string, p?: unknown[]) => Promise<pg.QueryResult>) => Promise<Record<string, unknown>>) => {
+    const r = await as(user(role), async (q) => ({ rows: await fn(q) }) as never);
+    expect(r.ok ? "" : r.error).toBe("");
+    return (r.ok ? r.rows : {}) as unknown as Record<string, string>;
+  };
+
+  it("locked WIP for a month leaves out later invoices and keeps jobs finished since", async () => {
+    const j = sample.jobs.find((x) => x.status === "active" && x.start <= "2026-10-31")!;
+    const r = await run("admin", async (q) => {
+      await q("reset role");
+      const before = (await q("select billed_cents from app.wip_rows('2026-10') where job_id = $1", [j.id])).rows[0]?.billed_cents ?? null;
+      await q("update public.jobs set status = 'complete', actual_finish = '2026-11-02' where id = $1", [j.id]);
+      await q("insert into public.invoices (job_id, kind, number, amount_cents, invoiced_on, recorded_by) values ($1, 'final', '26-9100', 100, '2026-11-02', 'x')", [j.id]);
+      const after = (await q("select billed_cents from app.wip_rows('2026-10') where job_id = $1", [j.id])).rows[0]?.billed_cents ?? null;
+      return { before, after };
+    });
+    expect(r.before).not.toBeNull();
+    expect(r.after).toBe(r.before);
+  });
+  it("a finished job's hours are what it took, whatever its projected finish says", async () => {
+    const j = sample.jobs.find((x) => x.status === "complete" && sample.actuals.some((a) => a.jobId === x.id))!;
+    const act = sample.actuals.filter((a) => a.jobId === j.id).reduce((a, x) => a + x.hours, 0);
+    const { rows } = await db.query("select app.eac(j) e from public.jobs j where id = $1", [j.id]);
+    expect(Number(rows[0].e)).toBeCloseTo(act, 1);
+  });
+  it("milestone invoices can't bill more than the contract", async () => {
+    const j = sample.jobs.find((x) => x.billingMethod === "monthly" && x.status === "active" && sample.invoices.some((i) => i.jobId === x.id))!;
+    const r = await run("accounting", async (q) => {
+      await q("select public.set_billing_method($1, 'milestone')", [j.id]);
+      await q("reset role");
+      await q("update public.milestones set reached_on = '2026-10-20', reached_by = 'x' where job_id = $1", [j.id]);
+      await q("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: user("accounting").userId, email: user("accounting").email, role: "authenticated" })]);
+      await q("set local role authenticated");
+      const ms = (await q("select id from public.milestones where job_id = $1 and active order by sort", [j.id])).rows;
+      const out: string[] = [];
+      for (const m of ms) out.push(await attempt(q, "select public.record_invoice($1)", [{ jobId: j.id, kind: "milestone", milestoneId: m.id, number: "26-M" + m.id.slice(-4) }]));
+      await q("reset role");
+      const v = (await q("select app.billed_cents($1) b, app.contract_cents(j) c from public.jobs j where id = $1", [j.id])).rows[0];
+      return { out: out.join("|"), over: Number(v.b) > Number(v.c) ? "over" : "within" };
+    });
+    expect(r.over).toBe("within");
+    expect(r.out).toMatch(/left to bill/);
+  });
+  it("change orders can't drop the contract below what's billed or carry more materials than they're worth", async () => {
+    const j = sample.jobs.find((x) => sample.invoices.some((i) => i.jobId === x.id && i.amountCents > 0) && x.status === "active")!;
+    const r = await run("admin", async (q) => ({
+      below: await attempt(q, "select public.add_change_order($1)", [{ jobId: j.id, number: "CO-X", amountCents: -j.contractCents, approvedBy: "Owner" }]),
+      mat: await attempt(q, "select public.add_change_order($1)", [{ jobId: j.id, number: "CO-Y", amountCents: 100, materialCents: 99999, approvedBy: "Owner" }]),
+    }));
+    expect(r.below).toMatch(/below the .* already billed/);
+    expect(r.mat).toBe("The materials part can't be more than the change order itself");
+  });
+  it("job setup can't change the billing method or the estimate's dollars and hours", async () => {
+    const j = sample.jobs.find((x) => x.status === "scheduled")!;
+    const r = await run("job_setup", async (q) => ({
+      method: await attempt(q, "update public.jobs set billing_method = 'milestone' where id = $1", [j.id]),
+      bid: await attempt(q, "update public.jobs set estimate_hrs = 1 where id = $1", [j.id]),
+      intake: await attempt(q, "update public.jobs set customer_po = 'PO-1' where id = $1", [j.id]),
+    }));
+    expect(r.method).toMatch(/can't change billingMethod/);
+    expect(r.bid).toMatch(/can't change bid/);
+    expect(r.intake).toBe("ok");
+  });
+  it("the close only takes the week's open jobs; progress invoices only for real months", async () => {
+    const done = sample.jobs.find((x) => x.status === "complete")!;
+    const later = sample.jobs.find((x) => x.start > TEST_WEEK)!;
+    const c = await run("scheduler", async (q) => ({
+      hours: await attempt(q, "select public.close_week($1)", [{ week: TEST_WEEK, entries: [{ jobId: done.id, hours: 5000, source: "typed" }], finished: [] }]),
+      finish: await attempt(q, "select public.close_week($1)", [{ week: TEST_WEEK, entries: [], finished: [later.id] }]),
+    }));
+    expect(c.hours).toMatch(/^Hours can only go on jobs open/);
+    expect(c.finish).toMatch(/^Only jobs that started by/);
+    const m = sample.jobs.find((x) => x.billingMethod === "monthly" && x.status === "active")!;
+    const p = await run("accounting", async (q) => ({
+      future: await attempt(q, "select public.record_invoice($1)", [{ jobId: m.id, kind: "skip", period: "2030-01" }]),
+      bad: await attempt(q, "select public.record_invoice($1)", [{ jobId: m.id, kind: "skip", period: "2026-13" }]),
+    }));
+    expect(p.future).toBe("Pick a month from the job's start through this month");
+    expect(p.bad).toBe("Pick a month from the job's start through this month");
+  });
+  it("settings can't be renamed or given a bad date; an admin can't unlink their own sign-in", async () => {
+    const admin = user("admin");
+    const r = await run("admin", async (q) => ({
+      rename: await attempt(q, "update public.settings set key = 'absencePctX' where key = 'absencePct'"),
+      winter: await attempt(q, `update public.settings set value = '"banana"' where key = 'winterStart'`),
+      unlink: await attempt(q, "update public.app_users set auth_user_id = null where id = $1", [admin.userId]),
+      email: await attempt(q, "update public.app_users set email = 'x@example.com' where id = $1", [admin.userId]),
+    }));
+    expect(r).toEqual({
+      rename: "Settings can't be renamed",
+      winter: "Use MM-DD, for example 12-01",
+      unlink: "You can't change your own access. Ask another admin",
+      email: "You can't change your own access. Ask another admin",
+    });
+  });
+  it("no checkpoints in retired stages, no crew or plan changes in closed weeks, no complete job without a finish date", async () => {
+    const supt = user("superintendent");
+    const lj = sample.jobs.find((x) => x.leaderId === supt.personId && x.status === "active")!;
+    const closed = [...sample.closes].map((c) => c.week).sort().at(-1)!;
+    const field = sample.people.find((p) => p.kind === "field")!;
+    const a = await run("admin", async (q) => ({
+      retire: await attempt(q, "insert into public.journey_stages (key, label, sort, startup, active) values ('old', 'Old', 98, false, false)"),
+      into: await attempt(q, "insert into public.journey_checkpoints (key, stage_key, label, owner, offset_days, anchor, sort) values ('x1', 'old', 'X', 'pm', -7, 'start', 1)"),
+      plan: await attempt(q, "insert into public.plan_overrides (job_id, week, hours) values ($1, $2, 10)", [lj.id, closed]),
+      complete: await attempt(q, "update public.jobs set status = 'complete', actual_finish = null where id = $1", [lj.id]),
+    }));
+    expect(a.retire).toBe("ok");
+    expect(a.into).toBe("That stage is retired");
+    expect(a.plan).toMatch(/is closed$/);
+    expect(a.complete).toMatch(/complete_has_finish/);
+    const s = await run("superintendent", async (q) => ({ crew: await attempt(q, "insert into public.assignments (job_id, person_id, week) values ($1, $2, $3)", [lj.id, field.id, closed]) }));
+    expect(s.crew).toMatch(/is closed$/);
+  });
+});

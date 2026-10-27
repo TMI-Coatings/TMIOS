@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { StackedBars } from "../components/StackedBars";
-import { Money, monthLabel, revenueByPeriod, wipCsv, wipRows, type WipRow, type WipSnapshotRow } from "../domain/money";
+import { Money, lockableMonths, monthLabel, revenueByPeriod, wipCsv, wipRows, type WipRow, type WipSnapshotRow } from "../domain/money";
 import { can, canEditJob } from "../domain/permissions";
 import { allPlans, buildIndex, isSold } from "../domain/schedule";
 import { fmtShort, mondayOf, todayIn } from "../domain/weeks";
@@ -150,7 +150,7 @@ export function RevenueScreen({ ctx }: { ctx: Ctx }) {
 
       <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
         <h2>WIP schedule</h2>
-        <button className="btn sec" onClick={() => download(`TMI WIP ${today.slice(0, 7)}.csv`, wipCsv(wipRows(ds, m, today.slice(0, 7)), pmName))}>
+        <button className="btn sec" onClick={() => download(`TMI WIP ${today.slice(0, 7)}.csv`, wipCsv(wipRows(ds, idx, today.slice(0, 7)), pmName))}>
           Export WIP (CSV)
         </button>
       </div>
@@ -298,8 +298,8 @@ function MonthEnd({ ctx, pmName }: { ctx: Ctx; pmName: (c: string) => string }) 
     repo.wipSnapshots().then(setSnaps, () => setSnaps([]));
   }, [repo, data]);
   if (!snaps) return null;
-  const cur = todayIn(new Date()).slice(0, 7);
   const months = [...new Set(snaps.map((x) => x.month))].sort().reverse();
+  const canLock = lockableMonths(todayIn(new Date())).filter((mo) => !months.includes(mo));
   const shown = pick ?? months[0] ?? null;
   const rows = snaps.filter((x) => x.month === shown);
   const prior = months[months.indexOf(shown ?? "") + 1];
@@ -311,11 +311,11 @@ function MonthEnd({ ctx, pmName }: { ctx: Ctx; pmName: (c: string) => string }) 
       <h2>Month-end WIP</h2>
       <div className="panel">
         <div className="row">
-          {!months.includes(cur) && (
-            <button className="btn" onClick={() => run(() => repo.takeWipSnapshot(cur), `WIP for ${monthLabel(cur)} locked.`)}>
-              Lock WIP for {monthLabel(cur)}
+          {canLock.map((mo) => (
+            <button key={mo} className="btn" onClick={() => run(() => repo.takeWipSnapshot(mo), `WIP for ${monthLabel(mo)} locked.`)}>
+              Lock WIP for {monthLabel(mo)}
             </button>
-          )}
+          ))}
           {months.length > 0 && (
             <label className="field">
               Month
@@ -335,7 +335,7 @@ function MonthEnd({ ctx, pmName }: { ctx: Ctx; pmName: (c: string) => string }) 
           )}
         </div>
         {!shown ? (
-          <p className="note">No month locked yet. Lock the WIP at month end; once locked, a month can’t change, so the books and the board see the same numbers.</p>
+          <p className="note">No month locked yet. Lock the WIP at month end: every figure is as of the last day of the month, and once locked a month can’t change, so the books and the board see the same numbers.</p>
         ) : (
           <>
             <p className="note">

@@ -433,6 +433,9 @@ export class SupabaseRepo implements Repo {
   async woUpload(jobId: string, file: File | null, fileName: string) {
     let path: string | null = null;
     if (file) {
+      // The bucket also limits size and declared type; this catches the wrong file before it uploads.
+      if (!/\.(pdf|docx?)$/i.test(file.name)) throw new Error("Upload the draft as a PDF or Word file.");
+      if (file.size > 20 * 1024 * 1024) throw new Error("The draft is over 20 MB. Save a smaller copy and try again.");
       path = `${jobId}/${Date.now()}-${fileName.replace(/[^\w.\- ]+/g, "_")}`;
       const up = await this.sb.storage.from("work-orders").upload(path, file, { upsert: false, contentType: file.type || undefined });
       if (up.error) throw up.error;

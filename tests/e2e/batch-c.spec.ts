@@ -90,10 +90,12 @@ test("accounting sees what's owed, marks a payment, and locks the month-end WIP"
   const dl = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export WIP (CSV)" }).click();
   expect((await dl).suggestedFilename()).toMatch(/^TMI WIP \d{4}-\d{2}\.csv$/);
-  await page.getByRole("button", { name: /^Lock WIP for / }).click();
+  const lock = page.getByRole("button", { name: /^Lock WIP for / });
+  const n = await lock.count();
+  await lock.first().click();
   await expect(page.getByText(/^WIP for .* locked\.$/)).toBeVisible();
   await expect(page.getByRole("table", { name: "Month-end WIP" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Lock WIP for / })).toHaveCount(0);
+  await expect(lock).toHaveCount(n - 1);
 });
 
 test("the board pack shows the financial position", async ({ page }) => {

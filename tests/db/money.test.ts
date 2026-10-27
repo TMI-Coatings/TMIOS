@@ -238,7 +238,7 @@ describe("finance views", () => {
   it("the database's WIP lines match the screen's for every job", async () => {
     const { wipRows } = await import("../../src/domain/money");
     const month = TEST_TODAY.slice(0, 7);
-    const ts = wipRows(sample, money, month);
+    const ts = wipRows(sample, buildIndex(sample), month);
     const { rows } = await db.query("select * from app.wip_rows($1)", [month]);
     expect(rows.map((r) => r.number)).toEqual(ts.map((r) => r.number));
     for (const r of rows) {
@@ -269,7 +269,7 @@ describe("finance views", () => {
     expect(x!.n).toBeGreaterThan(0);
     expect(x!.seen).toBe(x!.n);
     expect(x!.again).toBe("That month is already locked");
-    expect(x!.old).toBe("Take the snapshot for this month or last month");
+    expect(x!.old).toBe("Lock last month, or this month during its final week");
     const pm = await as(user("pm"), (q) => q("select public.take_wip_snapshot($1)", [month]));
     expect(pm.ok).toBe(false);
   });

@@ -97,7 +97,9 @@ function LiveApp() {
     };
     void check();
     const { data } = supabase().auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT") void check();
+      // Re-check access when the session refreshes too, so someone switched off on the Access screen
+      // loses the screens within the hour, not just their data.
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "TOKEN_REFRESHED") void check();
     });
     return () => data.subscription.unsubscribe();
   }, [repo]);

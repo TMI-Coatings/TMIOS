@@ -14,3 +14,6 @@ export const dollars = (cents: number) => "$" + (cents / 100).toLocaleString("en
 export const toCents = (s: string) => Math.round(parseFloat(s.replace(/[$,\s]/g, "")) * 100);
 export const stamp = (iso: string) =>
   new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Chicago" });
+
+/** 1st, 2nd, 3rd, 4th … 21st, 22nd. */
+export const ordinal = (n: number) => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th"));

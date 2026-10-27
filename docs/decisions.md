@@ -75,6 +75,23 @@ Austin asked for every review fix that didn't need his decision. Where a fix nee
 - **Journey stages.** Admins can rename, reorder, add and retire stages, and mark which ones come before the job starts. A stage with checkpoints still in use can't be retired.
 - **Missed digest.** If a closed week's Monday digest never went out, the close screen offers to send it. The scheduled digest replaces this once it's approved.
 
+## Independent review fixes (Oct 27)
+
+Four reviewers checked the code and a fifth confirmed each finding. These are the rules the fixes rest on:
+
+- **Month-end WIP is as of the month's last day.** It counts change orders approved, percent entries, invoices, retainage receipts and hours up to that day. Jobs finished before the month started drop out; jobs finished since stay in. Only the hours still to come use today's estimate. Last month can be locked anytime; this month only in its final week.
+- **A finished job's hours are its actual hours**, whatever its projected finish says.
+- **Backlog dollars include approved change orders.**
+- **Backlog gross margin** is revenue still to recognize less cost to complete. The reviewers rated this a policy choice; it's the stricter of the two methods.
+- **The board's quarter** is the quarter of the week being reported, so a week that straddles quarter end counts once.
+- **The estimate's dollars and hours** can only be corrected by admin, CEO or CFO. **The billing method** belongs to accounting or an admin. Neither is part of job setup's intake edits any more.
+- **A complete job must have an actual finish date.**
+- **No invoice bills past the contract,** milestone invoices included. Progress invoices are only for months from the job's start through this month, once each.
+- **Change orders can't drop the contract below what's billed,** and their materials can't exceed the change order.
+- **The weekly close only takes the week's open jobs.** Weeks already closed keep their crews and plan hours.
+- **Only Microsoft sign-ins link to the access list.** Nobody can change their own sign-in link or email. Settings can't be renamed.
+- **The WIP spreadsheet export neutralizes text that would run as a formula in Excel.**
+
 ## Finance views (Austin, Oct 27)
 
 - **Payments received.** Accounting marks each invoice paid when the money lands, so TMI Ops can show what's owed. What's owed is the invoice less retainage held, aged 0–30, 31–60, 61–90 and 90+ days. Sage stays the book of record; nothing is read from or written to it (hard rule 2).

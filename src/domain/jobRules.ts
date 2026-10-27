@@ -11,6 +11,7 @@ export function jobProblem(before: Job | null, after: Job): string | null {
   if (after.status === "on_hold" && (!after.holdReason?.trim() || !after.holdUntil)) return "Jobs on hold need a reason and an expected restart date.";
   if (after.firmness === "waiting" && !after.waitsOnJobId) return "Pick the job this one waits on.";
   if (after.waitsOnJobId && after.waitsOnJobId === after.id) return "A job can't wait on itself.";
+  if (after.status === "complete" && !after.actualFinish) return "A finished job needs its actual finish date.";
   if (after.mustFinish && !after.mustFinishReason) return "Pick a deadline type: shutdown or contract obligation.";
   if (!after.mustFinish && after.mustFinishReason) return "Enter the must-finish date for this deadline.";
   if (after.retainagePct > 0 && !after.retainageRelease) return "Jobs with retainage need release terms.";

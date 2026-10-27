@@ -122,7 +122,8 @@ export class Money {
     const mat = this.materialRev(j) * (1 - this.matDone(j));
     if (lab + mat <= 0) return out;
     if (!ws.length) {
-      out.set(this.week, { lab, mat });
+      // No planned weeks inside the horizon: the revenue lands when the job starts, not this week.
+      out.set(j.start > this.week ? j.start : this.week, { lab, mat });
       return out;
     }
     const tot = ws.reduce((a, [, h]) => a + h, 0);
@@ -165,7 +166,8 @@ export class Money {
   }
   payDue = (period: string) => `${period}-${String(this.ds.settings.payAppDay).padStart(2, "0")}`;
   progressLate = (period: string) => this.payDue(period) < this.today;
-  progressSuggest = (j: Job) => Math.max(0, Math.round((this.recognized(j) - this.billed(j)) / 10000) * 10000);
+  /** Recognized less billed, to the nearest $100, but never more than is left to bill. */
+  progressSuggest = (j: Job) => Math.min(Math.max(0, Math.round((this.recognized(j) - this.billed(j)) / 10000) * 10000), this.toBill(j));
   milestones = (j: Job) => this.ds.milestones.filter((m) => m.jobId === j.id).sort((a, b) => a.sort - b.sort);
   milestoneAmount = (j: Job, m: Milestone) => Math.round((this.contract(j) * m.pct) / 100);
   milestoneInvoice = (m: Milestone) => this.ds.invoices.find((i) => i.milestoneId === m.id && i.kind === "milestone");
@@ -255,27 +257,62 @@ export function retainageByTrigger(ds: Dataset, m: Money) {
     .filter((x) => x.jobs.length);
 }
 
-/** One WIP line per job: open jobs, plus jobs finished in the given month. Same columns as the database's month-end snapshot. */
-export function wipRows(ds: Dataset, m: Money, month: string) {
+/** Rounds halves away from zero, as Postgres round() does, so the screen and the database agree to the cent. */
+const roundCents = (x: number) => Math.sign(x) * Math.round(Math.abs(x));
+
+export const monthEnd = (month: string) => addDays(nextMonth(month) + "-01", -1);
+
+/**
+ * One WIP line per job as of the last day of the month: jobs started by then and not finished
+ * before the month began. Everything is as of month end: change orders approved, percent entries,
+ * invoices, retainage receipts and hours. Only the forecast of hours still to come uses today's
+ * estimate. Same as the database's wip_rows.
+ */
+export function wipRows(ds: Dataset, idx: Index, month: string) {
+  const start = month + "-01";
+  const end = monthEnd(month);
   return ds.jobs
-    .filter((j) => j.active && (isSold(j) || (j.status === "complete" && (j.actualFinish ?? "").slice(0, 7) === month)))
+    .filter((j) => j.active && j.start <= end && !(j.status === "complete" && j.actualFinish && j.actualFinish < start))
     .sort((a, b) => a.number.localeCompare(b.number))
-    .map((j) => ({
-      jobId: j.id,
-      number: j.number,
-      customer: j.customer,
-      pmCode: j.pmCode,
-      contractCents: m.contract(j),
-      materialsPct: Math.round(m.matDone(j) * 100),
-      laborPct: Math.round(m.labDone(j) * 100),
-      recognizedCents: Math.round(m.recognized(j)),
-      billedCents: m.billed(j),
-      overUnderCents: Math.round(m.overUnder(j)),
-      costToCompleteCents: Math.round(m.costToComplete(j)),
-      gpBid: m.gpBid(j),
-      gpNow: m.gpNow(j),
-      retainageCents: m.retainageOutstanding(j),
-    }));
+    .map((j) => {
+      const cos = ds.changeOrders.filter((c) => c.jobId === j.id && c.approvedOn <= end);
+      const contract = j.contractCents + cos.reduce((a, c) => a + c.amountCents, 0);
+      const matRev = j.materialRevenueCents + cos.reduce((a, c) => a + c.materialCents, 0);
+      const matCost = j.materialCostCents + cos.reduce((a, c) => a + c.materialCostCents, 0);
+      const done = j.status === "complete" && !!j.actualFinish && j.actualFinish <= end;
+      const p = ds.percents.filter((x) => x.jobId === j.id && x.week <= end).sort((a, b) => b.week.localeCompare(a.week))[0];
+      const mat = done ? 1 : (p?.materialsPct ?? 0) / 100;
+      const lab = done ? 1 : (p?.laborPct ?? 0) / 100;
+      const recognized = roundCents(done ? contract : matRev * mat + (contract - matRev) * lab);
+      const inv = ds.invoices.filter((i) => i.jobId === j.id && i.kind !== "skip" && i.invoicedOn <= end);
+      const billed = inv.reduce((a, i) => a + i.amountCents, 0);
+      const received = ds.retainageReceipts.filter((r) => r.jobId === j.id && r.receivedOn <= end).reduce((a, r) => a + r.amountCents, 0);
+      const act = ds.actuals.filter((a) => a.jobId === j.id && a.week <= end).reduce((a, x) => a + x.hours, 0);
+      const hrs = done ? act : eac(idx, j);
+      const budget = matCost + (j.estimateHrs + cos.reduce((a, c) => a + c.hours, 0)) * j.burdenedRateCents;
+      return {
+        jobId: j.id,
+        number: j.number,
+        customer: j.customer,
+        pmCode: j.pmCode,
+        contractCents: contract,
+        materialsPct: Math.round(mat * 100),
+        laborPct: Math.round(lab * 100),
+        recognizedCents: recognized,
+        billedCents: billed,
+        overUnderCents: billed - recognized,
+        costToCompleteCents: done ? 0 : roundCents(Math.max(0, hrs - act) * j.burdenedRateCents + matCost * (1 - mat)),
+        gpBid: 1 - budget / Math.max(1, contract),
+        gpNow: 1 - (matCost + hrs * j.burdenedRateCents) / Math.max(1, contract),
+        retainageCents: Math.max(0, inv.reduce((a, i) => a + i.retainageCents, 0) - received),
+      };
+    });
+}
+
+/** Months the WIP can be locked for today: last month, and this month during its final week. */
+export function lockableMonths(today: IsoDate): string[] {
+  const cur = today.slice(0, 7);
+  return [prevMonth(cur), ...(today >= addDays(monthEnd(cur), -6) ? [cur] : [])];
 }
 export type WipRow = ReturnType<typeof wipRows>[number];
 
@@ -286,6 +323,8 @@ export interface WipSnapshotRow extends WipRow {
   takenBy: string;
 }
 
+/** Typed-in text that starts like a formula gets a leading ' so Excel shows it instead of running it. */
+const safeText = (s: string) => (/^[=+\-@\t\r]/.test(s) ? "'" + s : s);
 const csvCell = (v: unknown) => {
   const s = String(v ?? "");
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -296,9 +335,9 @@ const dollars = (c: number) => (c / 100).toFixed(2);
 export function wipCsv(rows: WipRow[], pmName: (code: string) => string): string {
   const head = ["Job", "Customer", "PM", "Contract", "Materials %", "Labor %", "Recognized", "Billed", "Over (under) billed", "Cost to complete", "Bid GP %", "Now GP %", "Retainage held"];
   const body = rows.map((r) => [
-    r.number,
-    r.customer,
-    pmName(r.pmCode),
+    safeText(r.number),
+    safeText(r.customer),
+    safeText(pmName(r.pmCode)),
     dollars(r.contractCents),
     r.materialsPct,
     r.laborPct,
@@ -317,10 +356,12 @@ export function wipCsv(rows: WipRow[], pmName: (code: string) => string): string
 export function financialSummary(ds: Dataset, m: Money, plans: Plans, week: IsoDate, today: IsoDate) {
   const open = ds.jobs.filter((j) => j.active && isSold(j));
   const remaining = open.reduce((a, j) => a + m.remaining(j), 0);
-  const backlogGp = open.reduce((a, j) => a + m.remaining(j) * m.gpNow(j), 0);
-  const q = Math.floor((Number(today.slice(5, 7)) - 1) / 3);
-  const qStart = `${today.slice(0, 4)}-${String(q * 3 + 1).padStart(2, "0")}-01`;
-  const qMonths = [0, 1, 2].map((k) => `${today.slice(0, 4)}-${String(q * 3 + 1 + k).padStart(2, "0")}`);
+  // Margin still to earn: revenue still to recognize less what's left to spend (review, Oct 27).
+  const backlogGp = open.reduce((a, j) => a + m.remaining(j) - m.costToComplete(j), 0);
+  // The quarter of the week being reported, so a week that straddles a quarter end counts once.
+  const q = Math.floor((Number(week.slice(5, 7)) - 1) / 3);
+  const qStart = `${week.slice(0, 4)}-${String(q * 3 + 1).padStart(2, "0")}-01`;
+  const qMonths = [0, 1, 2].map((k) => `${week.slice(0, 4)}-${String(q * 3 + 1 + k).padStart(2, "0")}`);
   const jobs = ds.jobs.filter((j) => j.active);
   const qRecognized = jobs.reduce((a, j) => a + m.recognizedAsOf(j, week) - m.recognizedAsOf(j, addDays(qStart, -1)), 0);
   const qForecast = revenueByPeriod(ds, m, plans, week, "month")
@@ -334,7 +375,7 @@ export function financialSummary(ds: Dataset, m: Money, plans: Plans, week: IsoD
     backlogCents: remaining,
     backlogGpCents: backlogGp,
     backlogGpPct: remaining ? backlogGp / remaining : 0,
-    quarterLabel: `Q${q + 1} ${today.slice(0, 4)}`,
+    quarterLabel: `Q${q + 1} ${week.slice(0, 4)}`,
     quarterRecognizedCents: qRecognized,
     quarterForecastCents: qForecast,
     arCents: ar.total,

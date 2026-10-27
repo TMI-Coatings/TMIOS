@@ -86,7 +86,9 @@ export type JobField =
   | "actuals"
   | "percent"
   | "changeOrders"
-  | "milestones";
+  | "milestones"
+  | "bid"
+  | "billingMethod";
 
 type Rule = { any: Role[]; own?: Role[] };
 
@@ -115,6 +117,10 @@ export const JOB_FIELD_RULES: Record<JobField, Rule> = {
   // Approved change orders: the PM or Lori (decision 19).
   changeOrders: { any: [...OFFICE_ALL, "job_setup"], own: ["pm"] },
   milestones: { any: [...OFFICE_ALL, "scheduler"], own: ["pm"] },
+  // The estimate's dollars and hours are frozen at intake (decision 22); only full-rights users correct a typo.
+  bid: { any: OFFICE_ALL },
+  // Billing method: accounting or an admin (decision 11), not job setup.
+  billingMethod: { any: [...OFFICE_ALL, "accounting"] },
 };
 
 export function canEditJob(v: Viewer, j: Job, f: JobField): boolean {
@@ -143,12 +149,7 @@ export const JOB_COLUMNS: Record<Exclude<JobField, "plan" | "crew" | "notes" | "
     "repCode",
     "pmCode",
     "estimator",
-    "estimateHrs",
-    "contractCents",
-    "materialCostCents",
-    "materialRevenueCents",
     "exterior",
-    "billingMethod",
     "retainagePct",
     "retainageRelease",
     "retainageReleaseNote",
@@ -159,6 +160,8 @@ export const JOB_COLUMNS: Record<Exclude<JobField, "plan" | "crew" | "notes" | "
     "requirements",
     "active",
   ],
+  bid: ["estimateHrs", "contractCents", "materialCostCents", "materialRevenueCents"],
+  billingMethod: ["billingMethod"],
 };
 
 export const can = {

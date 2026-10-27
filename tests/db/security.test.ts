@@ -96,6 +96,8 @@ const UPDATE: Record<JobField, Stmt> = {
   percent: (q, j) => q("select public.record_percent($1, 50, 40)", [j.id]),
   changeOrders: (q, j) => q("select public.add_change_order($1)", [{ jobId: j.id, number: "CO-9", amountCents: 100000, hours: 10, approvedBy: "Customer" }]),
   milestones: (q, j) => q("select public.mark_milestone_reached((select id from public.milestones where job_id = $1 and label = 'Test milestone'))", [j.id]),
+  bid: (q, j) => q("update public.jobs set estimate_hrs = estimate_hrs + 1 where id = $1", [j.id]),
+  billingMethod: (q, j) => q("update public.jobs set billing_method = case when billing_method = 'final' then 'monthly' else 'final' end::billing_method where id = $1", [j.id]),
 };
 
 describe("editing jobs: the database allows exactly what permissions.ts allows", () => {
@@ -281,7 +283,18 @@ describe("functions", () => {
   it("first sign-in links a Microsoft account to the access an admin set up, by email", async () => {
     await db.query("insert into auth.users (id, email) values ('00000000-0000-4000-8fff-0000000000aa', 'new.pm@example.com')");
     await db.query("insert into public.app_users (email, name, role, pm_code) values ('new.pm@example.com', 'New PM', 'pm', 'LK')");
-    const r = await asUser(db, "00000000-0000-4000-8fff-0000000000aa", "New.PM@example.com", (q) => q("select name, role from public.claim_app_user()"));
+    const claims = (provider: string) =>
+      JSON.stringify({ sub: "00000000-0000-4000-8fff-0000000000aa", email: "New.PM@example.com", role: "authenticated", app_metadata: { provider } });
+    // Only a Microsoft sign-in links to the access list.
+    const other = await asUser(db, "00000000-0000-4000-8fff-0000000000aa", "New.PM@example.com", async (q) => {
+      await q("select set_config('request.jwt.claims', $1, true)", [claims("email")]);
+      return q("select name, role from public.claim_app_user()");
+    });
+    expect(other.ok && other.rows).toEqual([]);
+    const r = await asUser(db, "00000000-0000-4000-8fff-0000000000aa", "New.PM@example.com", async (q) => {
+      await q("select set_config('request.jwt.claims', $1, true)", [claims("azure")]);
+      return q("select name, role from public.claim_app_user()");
+    });
     expect(r.ok && r.rows).toEqual([{ name: "New PM", role: "pm" }]);
     const stranger = await asUser(db, "00000000-0000-4000-8fff-0000000000bb", "stranger@example.com", (q) => q("select * from public.claim_app_user()"));
     expect(stranger.ok && stranger.rows).toEqual([]);
